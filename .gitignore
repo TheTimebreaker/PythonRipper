@@ -2,7 +2,7 @@
 /.venv-linux
 /.venv-windows
 /_config
-*/__pycache__
+/__pycache__
 */.mypy_cache
 */.ruff_cache
 /output
