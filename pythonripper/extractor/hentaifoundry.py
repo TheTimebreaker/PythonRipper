@@ -135,6 +135,7 @@ class HentaiFoundry(scraper.TaggableScraper):
                 return scraper.PostData(
                     identifier=post_id,
                     source=username,
+                    title=post_title,
                     elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
                 )
 
