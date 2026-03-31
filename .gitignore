@@ -1,0 +1,25 @@
+/.venv
+/.venv-linux
+/.venv-windows
+/_config
+*/__pycache__
+*/.mypy_cache
+*/.ruff_cache
+/output
+/build
+/dist
+/download_history
+/logs
+/*.prof
+/*.bak
+/*.log
+*/*.pyc
+/!Downloaded stuff/
+/config/
+/download_history/
+
+/TODO.txt
+Makefile
+compose.yaml
+test.py
+test.html
