@@ -34,7 +34,6 @@ class Rule34usAPI(scraper.BooruScraper):
         params: dict[str, str | int] = {"r": "posts/index", "q": self.format_tagname(tagname)}
         await self.LIMIT.wait()
         res = await self.session.get(self.API_URL, params=params)
-        print(res.status_code)
         return "No results found for this search query" not in res.text
 
     async def _get_post_data(self, post_id: str | None = None, _json_data: Any = None, post_soup: bs4.Tag | None = None) -> scraper.PostData:
