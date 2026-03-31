@@ -14,10 +14,10 @@ import asynciolimiter
 import bs4
 import httpx
 
-import pythonripper.extractor.toolbox.centralfunctions as cf
-import pythonripper.extractor.toolbox.config as cfg
-import pythonripper.extractor.toolbox.files as f
-import pythonripper.extractor.toolbox.scraperclasses as scraper
+import pythonripper.toolbox.centralfunctions as cf
+import pythonripper.toolbox.config as cfg
+import pythonripper.toolbox.files as f
+import pythonripper.toolbox.scraperclasses as scraper
 
 
 async def verify_patreon_artist_list(config: cfg.Config, artist_list: list[str]) -> list[str]:

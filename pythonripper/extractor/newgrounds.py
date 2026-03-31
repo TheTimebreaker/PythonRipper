@@ -12,9 +12,9 @@ import asynciolimiter
 import bs4
 import httpx
 
-import pythonripper.extractor.toolbox.centralfunctions as cf
-import pythonripper.extractor.toolbox.files as f
-import pythonripper.extractor.toolbox.scraperclasses as scraper
+import pythonripper.toolbox.centralfunctions as cf
+import pythonripper.toolbox.files as f
+import pythonripper.toolbox.scraperclasses as scraper
 
 
 class NewgroundsAPI(scraper.TaggableScraper):
