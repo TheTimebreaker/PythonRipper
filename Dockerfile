@@ -8,7 +8,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # copy code
-COPY . .
+COPY ./pythonripper .
 
 # generate machine-id for plyer. doesnt actually need to be official, the file just needs to be there
 RUN cat /proc/sys/kernel/random/uuid > /etc/machine-id
