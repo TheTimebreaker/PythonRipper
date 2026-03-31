@@ -94,14 +94,18 @@ class HentaiFoundry(scraper.TaggableScraper):
     async def _does_this_exist(self, tagname: str) -> bool:
         await self.LIMIT.wait()
         res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
-        logging.error("[HENTAIFOUNDRY] - Username %s does not exist", tagname)
-        return "The requested page does not exist" not in res.text
+        result = bool("The requested page does not exist" not in res.text)
+        if result:
+            logging.error("[HENTAIFOUNDRY] - Username %s does not exist", tagname)
+        return result
 
     async def _is_banned(self, tagname: str) -> bool:
         await self.LIMIT.wait()
         res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
-        logging.error("[HENTAIFOUNDRY] - Username %s waas banned", tagname)
-        return "Sorry, this user has been banned" in res.text
+        result = bool("Sorry, this user has been banned" in res.text)
+        if result:
+            logging.error("[HENTAIFOUNDRY] - Username %s waas banned", tagname)
+        return result
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         if json_data is None or any(key not in json_data for key in ("user", "post_id", "title")):
