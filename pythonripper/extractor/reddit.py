@@ -14,6 +14,9 @@ import bs4
 import ffmpeg
 import httpx
 
+import pythonripper.toolbox.centralfunctions as cf
+import pythonripper.toolbox.files as f
+import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.extractor import (
     animepictures,
     artstation,
@@ -29,26 +32,8 @@ from pythonripper.extractor import (
     rule34us,
     rule34xxx,
     tumblr,
-)
-import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.files as f
-import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.extractor import (
     yandere,
 )
-
-
-def download_folder_from_url(
-    url: str,
-) -> str:  # Only supports links / input arguments, that include 'r/<subreddit>', 'u/<user>' or 'user/<user>' as a string
-    url = url.replace("_", " ")
-    folder = url.split("/")
-    for i, entry in enumerate(folder):
-        if entry == "r":
-            return f"{folder[i+1]}"
-        elif entry == "u" or entry == "user":
-            return f"u_{folder[i+1]}"
-    raise Exception(f"Could not extract a download folder from {url!r} .")
 
 
 @final

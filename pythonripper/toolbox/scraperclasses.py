@@ -13,6 +13,7 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
+import pythonripper.toolbox.subscription_management as sm
 
 
 class TagsData(TypedDict):
@@ -252,7 +253,7 @@ class TaggableScraper(Scraper):
         self.blacklist_tags = cf.init_blacklist_tags("_")
 
     @overload
-    async def download_tag2(
+    async def download_tag(
         self,
         tagname: str,
         dpath: Path | None = None,
@@ -265,7 +266,7 @@ class TaggableScraper(Scraper):
         fetch_favorites: bool = False,
     ) -> bool: ...
     @overload
-    async def download_tag2(
+    async def download_tag(
         self,
         tagname: str,
         dpath: Path | None = None,
@@ -280,7 +281,7 @@ class TaggableScraper(Scraper):
     ) -> bool: ...
 
     @overload
-    async def download_tag2(
+    async def download_tag(
         self,
         tagname: str,
         dpath: Path | None = None,
@@ -312,7 +313,7 @@ class TaggableScraper(Scraper):
         ) = None,
     ) -> bool: ...
 
-    async def download_tag2(
+    async def download_tag(
         self,
         tagname: str,
         dpath: Path | None = None,
@@ -328,7 +329,7 @@ class TaggableScraper(Scraper):
         # Init arguments
         tagname = self.format_tagname(tagname)
         if not await self.does_this_exist(tagname):
-            logging.error("[ANIMEPICTURES] - Tag %s was not detected as existing.", tagname)
+            logging.error("[%s] - Tag %s was not detected as existing.", self.ME.upper(), tagname)
             return False
 
         if dpath is None:
@@ -350,6 +351,8 @@ class TaggableScraper(Scraper):
             generator = self._fetch_posts(tagname, update_ids, fetch_favorites=fetch_favorites)  # type: ignore
         elif custom_mode == "reddit":
             generator = self._fetch_posts(tagname, update_ids, endpoint=endpoint)  # type: ignore
+        elif custom_mode == "newgrounds":
+            generator = self._fetch_posts(tagname, update_ids, endpoint=endpoint, fetch_favorites=fetch_favorites)  # type: ignore
         async for i, post in asyncstdlib.enumerate(generator):
             print(f'Downloading {self.ME} tag "{tagname}" (#{i})')
 
@@ -434,3 +437,67 @@ async def download_from_scraper_object(config: cfg.Config, obj_ref: type[Scraper
         logging.error("[%s] - Download url %s from scraper object failed because initialization failed.", obj.ME.upper(), url)
         return False
     return await obj.download_post(url=url, dpath=dpath, filename=filename, ignore_blacklist=ignore_blacklist, ignore_download_history=ignore_history)
+
+
+async def artist_website_updater(config: cfg.Config, obj_ref: type[ArtistWebsiteScraper]) -> bool:
+    obj = obj_ref(config)
+    if not await obj.init():
+        return False
+
+    print(f"Updating local copy of artist website {obj.ME}.")
+
+    dpath = config.dpath() / "artist-websites" / obj.ME
+    success = await obj.download_all_posts(dpath=dpath, update=True)
+    if not success:
+        logging.error("[%s-UPDATER] - Some issue occurred that prevented some images from being correctly downloaded", obj.ME.upper())
+    print("=" * 50)
+    return success
+
+
+async def update_stuff(
+    config: cfg.Config, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_list: list[str] | None = None
+) -> bool:
+    obj = obj_ref(config)
+    if not await obj.init():
+        return False
+
+    print(f"Updating local copy of {obj.ME} {update_type}.")
+    print("=" * 50)
+    print("=" * 50)
+
+    # Load artist / tag list
+    if tag_list is None:
+        if update_type == "artists":
+            tag_object = sm.CombinedArtistFile(config)
+        elif update_type == "tags":
+            tag_object = sm.CombinedBooruFile(config)
+        tag_list = tag_object.get_list(obj.ME)
+
+    # Download
+    full_success = True
+    for i, tag in enumerate(tag_list):
+        this_path = config.dpath() / obj.ME / f.verify_filename(tag)
+        print(f"{i+1}/{len(tag_list)} - {tag} - {obj.ME}")
+        this_path.mkdir(parents=True, exist_ok=True)
+        try:
+            success = await obj.download_tag(tagname=tag, dpath=this_path, update=True)
+        except cf.ExtractorExitError:
+            success = False
+        except cf.ExtractorStopError:
+            logging.critical(
+                "[%s-%s-UPDATER] - Extractor was signaled to stop execution.",
+                obj.ME.upper(),
+                update_type.upper(),
+            )
+            return False
+        if not success:
+            full_success = False
+            logging.error(
+                "[%s-%s-UPDATER] - Some issue occurred that prevented some images by %s %s being correctly downloaded.",
+                obj.ME.upper(),
+                update_type.upper(),
+                update_type.upper(),
+                tag,
+            )
+        print("=" * 50)
+    return full_success

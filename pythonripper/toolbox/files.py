@@ -212,6 +212,10 @@ async def download_file(
     filename = verify_filename(filename)
     path_to_filename = path / filename
 
+    if path_to_filename.suffix in config.data["general"]["unwanted_filetypes"]:
+        logging.info("[DOWNLOAD FILE] - File skipped, because it is an unwanted file type according to config.")
+        return True
+
     config_allows_overwrites = config and config.data["general"]["overwriteExistingFiles"]
     file_exists = await aiopath.isfile(path_to_filename)
     if force_overwrite or config_allows_overwrites or not file_exists:

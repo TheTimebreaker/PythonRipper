@@ -1,42 +1,13 @@
 import asyncio
-import inspect
-import logging
 
 import pythonripper.extractor.tumblr as tumblr
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.config as cfg
-import pythonripper.toolbox.files as f
-import pythonripper.toolbox.subscription_management as sm
+import pythonripper.toolbox.scraperclasses as scraper
 
 
 async def update_tumblr_artists(config: cfg.Config) -> bool | tuple[bool, str]:
-    print("Updating local copy of tumblr artists.")
-    print("=" * 50)
-    print("=" * 50)
-
-    # Load artists
-    obj_artists = sm.CombinedArtistFile(config)
-    artists = obj_artists.get_list("tumblr")
-
-    # Download
-    obj = tumblr.TumblrAPI(config)
-    if not await obj.init():
-        return False
-    full_success = True
-    for i, artist in enumerate(artists):
-        this_path = config.dpath() / "tumblr" / f.verify_filename(artist)
-        print(f"{i+1}/{len(artists)} - {artist} - tumblr")
-        this_path.mkdir(parents=True, exist_ok=True)
-        # success = await obj.download_user_image_posts(this_path, artist, True) #TODO
-        if not success:
-            full_success = False
-            logging.error(
-                "[TUMBLR-ARTISTS-UPDATER] - Some issue occurred that prevented some images by artist %s being correctly downloaded.", artist
-            )
-        print("=" * 50)
-    tmp = inspect.currentframe()
-    assert tmp
-    return full_success, tmp.f_code.co_name
+    return await scraper.update_stuff(config, tumblr.TumblrAPI, "artists")
 
 
 async def main(config: cfg.Config) -> None:

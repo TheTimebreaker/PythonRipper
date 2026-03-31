@@ -1,15 +1,9 @@
 import json
 import logging
-import re
-import sys
-import webbrowser
-from collections.abc import Generator, KeysView
 from pathlib import Path
 from typing import Any, ClassVar, NotRequired, TypedDict
 
 import easygui
-import requests
-from selenium.webdriver.remote.webdriver import WebDriver
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.config as cfg
@@ -182,7 +176,8 @@ class CombinedFile:
             elif result in str(self.data):
                 pw = cf.id_generator(6)
                 print(
-                    f'The given {self.tag_type} "{result}" was found in your subscribed list. If this is not the case, please enter the following code:'
+                    f'The given {self.tag_type} "{result}" was found in your subscribed list. '
+                    "If this is not the case, please enter the following code:"
                 )
                 if input(f"Enter {pw} :") != pw:  # noqa: ASYNC250
                     return

@@ -31,6 +31,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
     ARTIST_PAGE_BASE_URL = "https://{artist}.newgrounds.com/{sublink}"
 
     BASE_PATTERN = r"(?:https?://)?(?:www\.)?(.+)\.newgrounds\.com"
+    POST_PATTERN = r"((?:https?://)?(?:www\.)newgrounds\.com/(?:art/view/[\w\d-]+|audio/listen|portal/view)/[\w\d\-]+)"
     ART_POST_PATTERN = r"(?:https?://)?(?:www\.)newgrounds\.com/art/view/([\w\d-]+)/([\w\d-]+)"
     AUDIO_POST_PATTERN = r"(?:https?://)?(?:www\.)newgrounds\.com/audio/listen/(\d+)"
     MOVIE_POST_PATTERN = r"(?:https?://)?(?:www\.)newgrounds\.com/portal/view/(\d+)"
@@ -202,6 +203,10 @@ class NewgroundsAPI(scraper.TaggableScraper):
         )
 
     async def _get_art_data(self, post_url: str) -> scraper.PostData:
+        async def _iter_over_single_image(image: bs4.Tag) -> AsyncGenerator[str]:
+            logging.info("Detected post as single image.")
+            yield str(image["href"])
+
         async def _iter_over_art_image_row(images: Iterable[bs4.Tag]) -> AsyncGenerator[str]:
             logging.info("Detected post as art image post(s).")
             for image in images:
@@ -225,6 +230,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
             for element in [img["image"] for img in data]:
                 yield element
 
+        logging.info(post_url)
         res = await self.session.get(post_url)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
 
@@ -236,9 +242,12 @@ class NewgroundsAPI(scraper.TaggableScraper):
         post_title = str(soup.find("title").contents[0])  # type: ignore
 
         # get images
+        single_image = soup.find("div", {"class": "image"}).find("a", {"href": True})
         art_image_row = soup.find_all("div", {"class": "art-image-row"})
         art_view_gallery = soup.find("div", {"class": "art-view-gallery"})
-        if art_image_row:
+        if single_image:
+            generator = _iter_over_single_image(single_image)
+        elif art_image_row:
             generator = _iter_over_art_image_row(art_image_row)
         elif art_view_gallery:
             generator = _iter_over_art_view_gallery(art_view_gallery)
@@ -258,11 +267,14 @@ class NewgroundsAPI(scraper.TaggableScraper):
         )
 
     async def _get_post_data(
-        self, _post_id: str | None = None, _json_data: dict[str, Any] | None = None, post_url: str | None = None
+        self, post_id: str | None = None, _json_data: dict[str, Any] | None = None, post_url: str | None = None
     ) -> scraper.PostData:
 
         if post_url is None:
-            raise ValueError("Post url must be given, all other parameters are irrelevant.")
+            if post_id:
+                post_url = post_id
+            else:
+                raise ValueError("Post url must be given, all other parameters are irrelevant.")
 
         if "audio/listen" in post_url:
             return await self._get_audio_data(post_url)
@@ -271,7 +283,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
         raise NotImplementedError
 
     async def _fetch_posts(
-        self, tagname: str, update_ids: list[str] | None = None, collection: Literal["art", "audio"] | None = None, fetch_favorites: bool = False
+        self, tagname: str, update_ids: list[str] | None = None, endpoint: Literal["art", "audio"] | None = None, fetch_favorites: bool = False
     ) -> AsyncGenerator[scraper.PostData]:
         def custom_selector(tag: bs4.element.Tag) -> bool:
             def art_selector(tag: bs4.element.Tag) -> bool:
@@ -287,8 +299,8 @@ class NewgroundsAPI(scraper.TaggableScraper):
 
         if update_ids is None:
             update_ids = []
-        if collection is None:
-            collection = "art"
+        if endpoint is None:
+            endpoint = "art"
 
         tagname = self.format_tagname(tagname)
 
@@ -297,9 +309,9 @@ class NewgroundsAPI(scraper.TaggableScraper):
             "page": 0,
         }
         if fetch_favorites is True:
-            url = self.ARTIST_PAGE_BASE_URL.format(artist=tagname, sublink=f"favorites/{collection}")
+            url = self.ARTIST_PAGE_BASE_URL.format(artist=tagname, sublink=f"favorites/{endpoint}")
         else:
-            url = self.ARTIST_PAGE_BASE_URL.format(artist=tagname, sublink=collection)
+            url = self.ARTIST_PAGE_BASE_URL.format(artist=tagname, sublink=endpoint)
 
         while True:
             await self.LIMIT.wait()

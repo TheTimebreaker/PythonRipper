@@ -209,6 +209,10 @@ class ExtractorExitError(Exception):
     """Exception that signals the extractor to exit current tag without stopping execution of website (e.g. if tag was deleted)."""
 
 
+class ExtractorStopError(Exception):
+    """Exception that signals the extractor to exit and fully stop operating (e.g. when hitting a rate limit)."""
+
+
 class InterruptError(Exception):
     """Exception for when you want to catch another exception in one line in one function,
     because catching the error outside said function would lead to unexpected catches."""

@@ -56,7 +56,7 @@ class PatreonAPI(scraper.TaggableScraper):
 
     ME = "patreon"
     LIMIT = asynciolimiter.Limiter(98 / 2)
-    SPACE_REPLACE = ""
+    SPACE_REPLACE = "_"
 
     session: httpx.AsyncClient
 
