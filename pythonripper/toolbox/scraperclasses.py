@@ -1,4 +1,5 @@
 import logging
+import random
 import re
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
@@ -472,6 +473,7 @@ async def update_stuff(
         elif update_type == "tags":
             tag_object = sm.CombinedBooruFile(config)
         tag_list = tag_object.get_list(obj.ME)
+    random.shuffle(tag_list)
 
     # Download
     full_success = True
