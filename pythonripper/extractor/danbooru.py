@@ -101,7 +101,7 @@ class DanbooruAPI(scraper.BooruScraper):
                 try:
                     post_data = await self._get_post_data(json_data=post)
                 except KeyError:
-                    logging.error("[DANBOORU] - Keyerror encountered on post %s ", post["id"])
+                    logging.error("[DANBOORU] - Keyerror encountered on post %s . Often indicates gold-account-locked posts.", post["id"])
                     continue
                 if post_data["identifier"] in update_ids:
                     return
