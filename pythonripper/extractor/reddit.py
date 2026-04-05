@@ -38,16 +38,23 @@ from pythonripper.extractor import (
 
 @final
 class RedditAPI(scraper.TaggableScraper):
+    HOMEPAGE = "https://reddit.com"
     IMAGE_PATTERN = r"(?:https?://)(?:i|(?:external-)?preview)\.redd(?:\.it|ituploads\.com)/[^/?#.]+\.([\w]{2,5})"
     VIDEO_PATTERN = r"(?:https?://)?v\.redd(?:\.it|ituploads\.com)/([^/?#.]+)/(?:[^?#.]+)\.([\w]{2,5})"
     POST_PATTERN = (
         r"(?:https?://)(?:www\.)?(?:i|(?:external-)?preview)?\.?redd(?:\.it|ituploads\.com|it\.com)"
         r"(?:(?:/r/|/u(?:ser)?/)\w+)?/(?:comments/)?([\w]{2,10})"
     )
+    TAG_PATTERN = r"https://(?:www\.)?reddit\.com/((?:r|u|user)/[^/&\?]+)"
 
     BASE_URL = "https://api.reddit.com"
     POST_URL = BASE_URL + "/comments/{postId}"
     SUB_URL = BASE_URL + "/{subreddit}/{endpoint}"
+    URL_TAG = (
+        "https://www.reddit.com/r/{tagname}",
+        "https://www.reddit.com/u/{tagname}",
+        "https://www.reddit.com/user/{tagname}",
+    )
 
     sublinks: ClassVar[dict[str, str]] = {
         "new": "new",
@@ -70,6 +77,7 @@ class RedditAPI(scraper.TaggableScraper):
     ME = "reddit"
     LIMIT = asynciolimiter.LeakyBucketLimiter(100 / 60, capacity=990)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
     third_party_save_link: list[str]

@@ -14,13 +14,17 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class YandereAPI(scraper.BooruScraper):
+    HOMEPAGE = "https://yande.re"
     API_URL = "https://yande.re/post.json"
+    URL_TAG = "https://yande.re/post?tags={tagname}"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?yande\.re/post/show/(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?yande\.re(?:.+)tags=([^/&\?]+)"
 
     ME = "yandere"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

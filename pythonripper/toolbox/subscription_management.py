@@ -1,125 +1,72 @@
+import asyncio
 import json
 import logging
+import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, ClassVar, NotRequired, TypedDict
 
-import easygui
+from selenium.common.exceptions import NoSuchWindowException, WebDriverException
+from selenium.webdriver.remote.webdriver import WebDriver
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
+import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.extractor import (
+    animepictures,
+    artstation,
+    danbooru,
+    deviantart,
+    gelbooru,
+    hentaifoundry,
+    hypnohub,
+    kusowanka,
+    newgrounds,
+    patreon,
+    pixiv,
+    reddit,
+    rule34paheal,
+    rule34us,
+    rule34xxx,
+    tumblr,
+    yandere,
+)
 
 
 class WebsiteInfo(TypedDict):
-    url: str | list[str]
-    regex: str
-    space_replace: NotRequired[str]
-    google: bool
+    object: type[scraper.TaggableScraper]
+    object_active: NotRequired[scraper.TaggableScraper]
 
 
 class CombinedFile:
     space_default = "_"
     websiteinfo: ClassVar[dict[str, WebsiteInfo]] = {
-        "animepictures": {
-            "url": "https://anime-pictures.net/posts?search_tag={tagname}&lang=en",
-            "regex": r"https://(?:www\.)?anime\-pictures\.net/posts\?(?:.+)?search_tag=([^/&\?]+)",
-            "google": True,
-        },
-        "artstation": {
-            "url": "https://artstation.com/{tagname}",
-            "regex": r"https://(?:www\.)?artstation\.com/([^/&\?]+)",
-            "google": True,
-        },
-        "danbooru": {
-            "url": "https://danbooru.donmai.us/posts?tags={tagname}",
-            "regex": r"https://(?:www\.)?danbooru\.donmai\.us/posts\?(?:.+)?tags=([^/&\?]+)",
-            "google": False,
-        },
-        "deviantart": {
-            "url": "https://deviantart.com/{tagname}",
-            "regex": r"https://(?:www\.)?deviantart\.com/([^/&\?]+)",
-            "google": True,
-        },
-        "gelbooru": {
-            "url": "https://gelbooru.com/index.php?page=post&s=list&tags={tagname}",
-            "regex": r"https://(?:www\.)?gelbooru\.com/index\.php\?(?:.+)?tags=([^/&\?]+)",
-            "google": False,
-        },
-        "hentaifoundry": {
-            "url": "https://hentai-foundry.com/user/{tagname}?enterAgree=1",
-            "regex": r"https://(?:www\.)?hentai-foundry\.com/(?:pictures/)?user/([^/&\?]+)",
-            "google": False,
-        },
-        "hypnohub": {
-            "url": "https://hypnohub.net/index.php?page=post&s=list&tags={tagname}",
-            "regex": r"https://(?:www\.)?hypnohub\.net/index\.php\?(?:.+)?tags=([^/&\?]+)",
-            "google": False,
-        },
-        "newgrounds": {
-            "url": "https://{tagname}.newgrounds.com",
-            "regex": r"https://(?:www\.)?([^/&\?]+)\.newgrounds\.com",
-            "google": False,
-        },
-        "kusowanka": {
-            "url": [
-                "https://kusowanka.com/artist/{tagname}",
-                "https://kusowanka.com/character/{tagname}",
-                "https://kusowanka.com/metadata/{tagname}",
-                "https://kusowanka.com/parody/{tagname}",
-                "https://kusowanka.com/tag/{tagname}",
-            ],
-            "regex": r"https://(?:www\.)?kusowanka\.com/(artist|character|metadata|parody|tag)/([^/&\?]+)",
-            "google": False,
-        },
-        "patreon": {
-            "url": "https://patreon.com/{tagname}",
-            "regex": r"https://(?:www\.)?patreon\.com/([^/&\?]+)",
-            "google": True,
-        },
-        "pixiv": {
-            "url": "https://www.pixiv.net/en/users/{tagname}",
-            "regex": r"https://(?:www\.)?pixiv\.net/en/users/(\d+)",
-            "google": True,
-        },
-        "reddit": {
-            "url": [
-                "https://www.reddit.com/r/{tagname}",
-                "https://www.reddit.com/u/{tagname}",
-                "https://www.reddit.com/user/{tagname}",
-            ],
-            "regex": r"https://(?:www\.)?reddit\.com/(r|u|user)/([^/&\?]+)",
-            "google": False,
-        },
-        "rule34paheal": {
-            "url": "https://rule34.paheal.net/post/list/{tagname}/1",
-            "regex": r"https://(?:www\.)?rule34\.paheal\.net/post/list/([^/&\?]+)",
-            "google": False,
-        },
-        "rule34us": {
-            "url": "https://rule34.us/index.php?r=posts/index&q={tagname}",
-            "regex": r"https://(?:www\.)?rule34\.us/index\.php\?(?:.+)?q=([^/&\?]+)",
-            "google": False,
-        },
-        "rule34xxx": {
-            "url": "https://rule34.xxx/index.php?page=post&s=list&tags={tagname}",
-            "regex": r"https://(?:www\.)?rule34\.xxx/index\.php\?(?:.+)?tags=([^/&\?]+)",
-            "google": False,
-        },
-        "tumblr": {
-            "url": "https://tumblr.com/{tagname}",
-            "regex": r"https://(?:www\.)?tumblr\.com/([^/&\?]+)",
-            "google": False,
-        },
-        "yandere": {
-            "url": "https://yande.re/post?tags={tagname}",
-            "regex": r"https://(?:www\.)?yande\.re(?:.+)tags=([^/&\?]+)",
-            "google": False,
-        },
+        "animepictures": {"object": animepictures.Animepictures},
+        "artstation": {"object": artstation.ArtstationAPI},
+        "danbooru": {"object": danbooru.DanbooruAPI},
+        "deviantart": {"object": deviantart.DeviantartAPI},
+        "gelbooru": {"object": gelbooru.GelbooruAPI},
+        "hentaifoundry": {"object": hentaifoundry.HentaiFoundry},
+        "hypnohub": {"object": hypnohub.HypnohubAPI},
+        "newgrounds": {"object": newgrounds.NewgroundsAPI},
+        "kusowanka": {"object": kusowanka.KusowankaAPI},
+        "patreon": {"object": patreon.PatreonAPI},
+        "pixiv": {"object": pixiv.PixivAPI},
+        "reddit": {"object": reddit.RedditAPI},
+        "rule34paheal": {"object": rule34paheal.Rule34pahealAPI},
+        "rule34us": {"object": rule34us.Rule34usAPI},
+        "rule34xxx": {"object": rule34xxx.Rule34xxxAPI},
+        "tumblr": {"object": tumblr.TumblrAPI},
+        "yandere": {"object": yandere.YandereAPI},
     }
 
     websites: ClassVar[list[str]]
     path: Path
     tag_type: str = ""
+
+    google_url = "https://www.google.com/search?q={query}"
+    google_space_replace = "+"
 
     def __init__(self, config: cfg.Config) -> None:
         self.data = self.read()
@@ -168,25 +115,231 @@ class CombinedFile:
         self.sort()
         await f.atomic_write(filepath=self.path, data=json.dumps(self.data, indent=4), encoding="utf-8")
 
-    async def add_tag(self, new_tag: str | None = None) -> None:
-        if not new_tag:
-            result = easygui.enterbox(msg=f"Please enter the {self.tag_type} which you wanna add.", title=f"Enter {self.tag_type}")
-            if not result:
-                return
-            elif result in str(self.data):
+    async def add_tags(self) -> None:
+        def ensure_fallback_tab(driver: WebDriver, fallback_url: str = "about:blank") -> str:
+            """
+            Make sure there is a dedicated fallback tab and return its window handle.
+
+            This tab stays open permanently so the browser session does not end up with
+            zero meaningful tabs during cleanup.
+            """
+            if not driver.window_handles:
+                raise RuntimeError("Driver has no open windows.")
+
+            # Reuse the current tab as fallback if possible.
+            fallback_handle = driver.current_window_handle
+            driver.get(fallback_url)
+            return fallback_handle
+
+        def open_urls_in_new_tabs(
+            driver: WebDriver,
+            urls: Iterable[str],
+            fallback_handle: str,
+        ) -> list[str]:
+            """
+            Open each URL in its own new tab and return the created tab handles.
+            """
+            created_handles: list[str] = []
+
+            for url in urls:
+                driver.switch_to.window(fallback_handle)
+                driver.switch_to.new_window("tab")
+                new_handle = driver.current_window_handle
+                created_handles.append(new_handle)
+
+                try:
+                    driver.get(url)
+                except WebDriverException as exc:
+                    print(f"Failed to open {url!r}: {exc}")
+                    # If opening fails, close that tab again.
+                    try:
+                        driver.close()
+                    except Exception:
+                        pass
+
+                    # Switch back to fallback so the driver stays in a sane state.
+                    driver.switch_to.window(fallback_handle)
+                    created_handles.remove(new_handle)
+
+            return created_handles
+
+        def wait_for_user_confirmation_console(name: str) -> None:
+            """
+            Simple console-based confirmation.
+            The human can manually close bad tabs, then press Enter.
+            """
+            input(f"\nReview tabs for {name!r}.\n Close the bad tabs manually, keep the good ones open,\n then press Enter to continue...")
+
+        def wait_for_user_confirmation_tk(name: str) -> None:
+            """
+            Optional Tkinter popup confirmation.
+            """
+            import tkinter as tk
+            from tkinter import messagebox
+
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showinfo(
+                title="Review URLs",
+                message=(f"Review tabs for {name!r}.\n\n Close the bad tabs manually, keep the good ones open,\n then click OK."),
+            )
+            root.destroy()
+
+        def get_confirmed_urls(
+            driver: WebDriver,
+            fallback_handle: str,
+        ) -> list[str]:
+            """
+            Return the URLs of all currently open tabs except the fallback tab.
+            """
+            confirmed_urls: list[str] = []
+
+            # Snapshot because window_handles may change if the browser is touched.
+            for handle in list(driver.window_handles):
+                if handle == fallback_handle:
+                    continue
+
+                try:
+                    driver.switch_to.window(handle)
+                    url = driver.current_url
+                    confirmed_urls.append(url)
+                except NoSuchWindowException:
+                    # User may have closed it between reading handles and switching.
+                    continue
+                except WebDriverException as exc:
+                    print(f"Could not read URL from tab {handle!r}: {exc}")
+
+            # Restore focus to fallback at the end.
+            driver.switch_to.window(fallback_handle)
+            return confirmed_urls
+
+        def close_all_non_fallback_tabs(driver: WebDriver, fallback_handle: str) -> None:
+            """
+            Close every tab except the fallback tab.
+            """
+            for handle in list(driver.window_handles):
+                if handle == fallback_handle:
+                    continue
+
+                try:
+                    driver.switch_to.window(handle)
+                    driver.close()
+                except NoSuchWindowException:
+                    continue
+                except WebDriverException as exc:
+                    print(f"Could not close tab {handle!r}: {exc}")
+
+            driver.switch_to.window(fallback_handle)
+
+        def get_new_tag_name() -> str:
+            result = input(f"Please enter the {self.tag_type} which you wanna add: ")
+            if result in str(self.data):
                 pw = cf.id_generator(6)
                 print(
                     f'The given {self.tag_type} "{result}" was found in your subscribed list. '
                     "If this is not the case, please enter the following code:"
                 )
-                if input(f"Enter {pw} :") != pw:  # noqa: ASYNC250
-                    return
-            new_tag = str(result)
+                if input(f"Enter {pw} :") != pw:
+                    return ""
+            while result.startswith(" "):
+                result = result[1:]
+            while result.endswith(" "):
+                result = result[:-1]
+            return result
 
-        new_tag_data = {key: None for key in self.websiteinfo.keys()}
-        print(new_tag_data)
+        async def get_tag_urls(tagname: str) -> list[str]:
+            async def task(obj: scraper.TaggableScraper) -> None:
+                urls_to_format = []
+                if isinstance(obj.URL_TAG, str):
+                    urls_to_format = [obj.URL_TAG]
+                else:
+                    urls_to_format = [*obj.URL_TAG]
 
-        # driver = cf.init_selenium(False)
+                found_some = False
+                for url_to_format in urls_to_format:
+                    this_url = url_to_format.format(tagname=tagname.replace(" ", obj.SPACE_REPLACE))
+                    try:
+                        this_tagname = re.match(obj.TAG_PATTERN, this_url).group(1).replace(" ", obj.SPACE_REPLACE)
+                    except AttributeError:
+                        this_tagname = tagname
+
+                    try:
+
+                        if await obj.does_this_exist(this_tagname):
+                            result.append(this_url)
+                            found_some = True
+                    except json.decoder.JSONDecodeError, ConnectionAbortedError, ConnectionRefusedError, cf.ExtractorExitError, cf.ExtractorStopError:
+                        pass
+
+                if found_some is False and obj.IS_GOOGLE_SEARCHABLE:
+                    result.append(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
+                    result.append(obj.HOMEPAGE)
+                elif found_some is False:
+                    result.append(obj.HOMEPAGE)
+
+            result = []
+            tasks = []
+            for value in self.websiteinfo.values():
+                obj = value["object_active"]
+                tasks.append(asyncio.create_task(task(obj)))
+            await asyncio.gather(*tasks)
+
+            return result
+
+        async def activate_dict(config: cfg.Config) -> None:
+            async def task(key: str, obj_type: type[scraper.TaggableScraper]) -> None:
+                obj = obj_type(config)
+                if not await obj.init():
+                    raise Exception("Could not initialize all scraper objects: %s failed.", key)
+                self.websiteinfo[key]["object_active"] = obj
+
+            tasks = []
+            for key, items in self.websiteinfo.copy().items():
+                tasks.append(asyncio.create_task(task(key, items["object"])))
+            await asyncio.gather(*tasks)
+
+        async def process_urls(new_tag: str, url_list: list[str]) -> None:
+            new_tag_obj = {key: [] for key in self.websiteinfo}
+            for url in url_list:
+                for key, value in self.websiteinfo.items():
+                    obj = value["object_active"]
+                    try:
+                        matched = re.match(obj.TAG_PATTERN, url)
+                        tag_formatted = matched.group(1)
+                        tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
+                        while tag.startswith((" ", "+")):
+                            tag = tag[1:]
+                        while tag.endswith((" ", "+")):
+                            tag = tag[:-1]
+                        new_tag_obj[key].append(tag)
+                        break
+                    except AttributeError:
+                        continue
+                else:
+                    print(f"Could not verify link {url} .")
+            self.data[new_tag] = new_tag_obj
+            await self.write()
+
+        await activate_dict(self.config)
+        driver = cf.init_selenium(False)
+        fallback_handle = ensure_fallback_tab(driver)
+        homepages = [obj["object_active"].HOMEPAGE for obj in self.websiteinfo.values()]
+        open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
+        wait_for_user_confirmation_console("CONTINUE WHEN EVERYTHING LOADS")
+        close_all_non_fallback_tabs(driver, fallback_handle)
+
+        while True:
+            print("=" * 20)
+            new_tag = get_new_tag_name()
+            if not new_tag or new_tag == "":
+                continue
+            print(f"Gathering for {new_tag}")
+            url_list = await get_tag_urls(new_tag)
+            open_urls_in_new_tabs(driver, url_list, fallback_handle)
+            wait_for_user_confirmation_console(new_tag)
+            confirmed_urls = get_confirmed_urls(driver, fallback_handle)
+            await process_urls(new_tag, confirmed_urls)
+            close_all_non_fallback_tabs(driver, fallback_handle)
 
     def get_list(self, website: str) -> list[Any]:
         """Returns sorted list of all entries from a given website."""
@@ -244,29 +397,19 @@ class CombinedArtistFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
         "artstation",
-        "asmhentai",
         "danbooru",
-        "doujinscom",
         "deviantart",
         "gelbooru",
-        "hentaienvy",
-        "hentaiera",
-        "hentaiforce",
-        "hentaifoundry",
-        "hentairead",
         "hypnohub",
         "kusowanka",
         "newgrounds",
-        "nhentainet",
         "patreon",
         "pixiv",
         "reddit",
         "rule34paheal",
         "rule34us",
         "rule34xxx",
-        "rule34xyz",
         "tumblr",
-        "twitter",
         "yandere",
     ]
     tag_type = "artist"
@@ -278,7 +421,17 @@ class CombinedArtistFile(CombinedFile):
 
 class CombinedBooruFile(CombinedFile):
     path: Path
-    websites: ClassVar[list[str]] = ["danbooru", "gelbooru", "hypnohub", "kusowanka", "rule34paheal", "rule34us", "rule34xxx", "rule34xyz", "yandere"]
+    websites: ClassVar[list[str]] = [
+        "danbooru",
+        "gelbooru",
+        "hypnohub",
+        "kusowanka",
+        "rule34paheal",
+        "rule34us",
+        "rule34xxx",
+        "rule34xyz",
+        "yandere",
+    ]
     tag_type = "booru tag"
 
     def __init__(self, config: cfg.Config) -> None:

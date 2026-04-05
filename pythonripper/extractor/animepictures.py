@@ -19,12 +19,16 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class Animepictures(scraper.BooruScraper):
+    HOMEPAGE = "https://anime-pictures.net"
     API_URL = "https://anime-pictures.net/posts"
+    URL_TAG = "https://anime-pictures.net/posts?search_tag={tagname}&lang=en"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?anime-pictures\.net/posts/(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?anime\-pictures\.net/posts\?(?:.+)?search_tag=([^/&\?]+)"
 
     ME = "animepictures"
     LIMIT = asynciolimiter.Limiter(0.5, max_burst=10)
     SPACE_REPLACE = "+"
+    IS_GOOGLE_SEARCHABLE = True
 
     async def init(self) -> bool:
         self.credentials_path = self.config._credentials_path() / "animepictures_credentials.json"

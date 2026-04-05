@@ -43,17 +43,21 @@ class DeviantartAPI(scraper.TaggableScraper):
     #     placebo: Checks, if authorization token (header) is still valid
     #     deviation/download/{deviationId}: Endpoint for requesting download info on a single image post
 
+    HOMEPAGE = "https://deviantart.com/"
     API_URL = "https://www.deviantart.com/api/v1/oauth2/{endpoint}"
-    POST_URL = "https://www.deviantart.com/deviation/{post_id}"
+    URL_POST = "https://www.deviantart.com/deviation/{post_id}"
+    URL_TAG = "https://deviantart.com/{tagname}"
 
     IMAGE_POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/art/([\w\d\-_]+)"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/art/(?:[\w\d\-_]+\-|)|deviation/)(\d+)"
     FAVORITES_GALLERY_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/(favourites|gallery)/?([/\w\d\-_]*)?"
-    PROFILE_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)"
+    TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
 
     ME = "deviantart"
-    LIMIT = asynciolimiter.Limiter(100)
+    LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = True
+
     REDIRECT_PORT = 3055
     REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
 
@@ -198,8 +202,10 @@ class DeviantartAPI(scraper.TaggableScraper):
                 "refresh_token": self.credentials["refresh_token"],
             }
             res = await self.session.post("https://www.deviantart.com/oauth2/token", params=params)
-            if res.status_code != 200:
-                raise ConnectionAbortedError("Refreshing of refresh token failed: code %s - text %s ", res.status_code, res.text)
+            if res.status_code == 429:
+                raise cf.ExtractorStopError
+            elif res.status_code != 200:
+                raise cf.ExtractorStopError("Refreshing of refresh token failed: code %s - text %s ", res.status_code, res.text)
 
             access_token = res.json()["access_token"]
             refresh_token = res.json()["refresh_token"]
@@ -260,16 +266,20 @@ class DeviantartAPI(scraper.TaggableScraper):
         url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
         await self.LIMIT.wait()
         res = await self.session.get(url)
+        if res.status_code == 429:
+            raise cf.ExtractorStopError("Rate limited.")
         return res.status_code == 200
 
     async def _get_deviation_id(self, url: str | None = None, post_id: str | None = None) -> str:
         if url is None:
             if post_id is None:
                 raise ValueError("Neither post_id nor url given (one is necessary).")
-            url = self.POST_URL.format(post_id=post_id)
+            url = self.URL_POST.format(post_id=post_id)
 
         await self.LIMIT.wait()
         res = await self.session.get(url, follow_redirects=True)
+        if res.status_code == 429:
+            raise cf.ExtractorStopError
         if res.status_code != 200:
             raise cf.ExtractorExitError("Could not get deviation id from %s : response status was not 200: %s", url or post_id, res.status_code)
 
@@ -304,6 +314,8 @@ class DeviantartAPI(scraper.TaggableScraper):
         while True:
             await self.LIMIT.wait()
             res = await self.session.get(self.API_URL.format(endpoint=f"{endpoint}/folders"), params=params)
+            if res.status_code == 429:
+                raise cf.ExtractorStopError
 
             for entry in res.json()["results"]:
                 entry_name = str(entry["name"])
@@ -326,6 +338,8 @@ class DeviantartAPI(scraper.TaggableScraper):
 
             await self.LIMIT.wait()
             res = await self.session.get(self.API_URL.format(endpoint=f"deviation/{deviation_id}"))
+            if res.status_code == 429:
+                raise cf.ExtractorStopError
             json_data = res.json()
 
         source = json_data["author"]["username"]
@@ -333,7 +347,7 @@ class DeviantartAPI(scraper.TaggableScraper):
 
         post_id_match = re.match(self.POST_PATTERN, str(json_data["url"]))
         if post_id_match is None:
-            raise ValueError
+            raise cf.ExtractorExitError from ValueError
         post_id = post_id_match.group(1)
         assert isinstance(post_id, str)
 
@@ -378,6 +392,8 @@ class DeviantartAPI(scraper.TaggableScraper):
         while more_files:
             await self.LIMIT.wait()
             res = await self.session.get(self.API_URL.format(endpoint=f"{endpoint}/{folder_id}"), params=params)
+            if res.status_code == 429:
+                raise cf.ExtractorStopError
 
             for entry in res.json()["results"]:
                 post_data = await self._get_post_data(json_data=entry)
@@ -388,6 +404,7 @@ class DeviantartAPI(scraper.TaggableScraper):
             params["offset"] = res.json()["next_offset"]
             more_files = res.json()["has_more"]
             fetch_counter += 1
+            return
 
     async def _download_post_from_postelem_perwebsite(self, data: scraper.PostElementData, dpath: Path, filename: str) -> bool:
         deviation_data = data["data"]
@@ -453,21 +470,27 @@ class DeviantartAPI(scraper.TaggableScraper):
             return success
 
         # Downloads text posts, if config says do it. Literature Example (SFW) https://www.deviantart.com/hoaxdreams/art/Chainsmoker-962491467
-        elif "category_path" in deviation_data.keys() and any(
-            i in deviation_data["category_path"] for i in ("literature", "journals", "darelated", "status")
-        ):
+        elif "text_content" in deviation_data:
             logging.info("[DEVIANTART] - Text post detected.")
             if not self.config.data["extractor"]["deviantart"]["saveTextPosts"]:
                 logging.info("[DEVIANTART] - Text post %s skipped due to config flag.", post_url)
                 return True
 
-            await self.LIMIT.wait()
-            res2 = await self.session.get(
-                self.API_URL.format(endpoint="deviation/content"),
-                params={"deviationid": deviation_data["deviationid"]},
+            logging.error(
+                "[DEVIANTART] - Downloading text posts not supported, because when I tried fixing it after it broken, "
+                "I realized deviantart sends back empty responses when you try to get texts."
             )
+            return False
 
-            text_url = res2.json()["html"]
+            await self.LIMIT.wait()
+            res = await self.session.get(
+                self.API_URL.format(endpoint="deviation/content"),
+                params={"deviationid": deviation_data["deviationid"], "mature_content": True},
+            )
+            if res.status_code == 429:
+                raise cf.ExtractorStopError
+
+            text_url = res.json()["html"]
             extension = "txt"
             success = await f.download_text(self.config, dpath, f"{filename}.{extension}", text_url)
             if success:
@@ -477,5 +500,5 @@ class DeviantartAPI(scraper.TaggableScraper):
             return success
 
         # If no suitable downloader was found
-        logging.info("[DEVIANTART] - Unsupported type of post. Skipping download. url %s.", post_url)
+        logging.error("[DEVIANTART] - Unsupported type of post. Skipping download. url %s.", post_url)
         return False

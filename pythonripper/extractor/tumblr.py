@@ -17,12 +17,16 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class TumblrAPI(scraper.TaggableScraper):
+    HOMEPAGE = "https://tumblr.com/"
     API_URL = "https://api.tumblr.com"
+    URL_TAG = "https://tumblr.com/{tagname}"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?tumblr\.com/([^/]+)/(\d+)/?"
+    TAG_PATTERN = r"https://(?:www\.)?tumblr\.com/([^/&\?]+)"
 
     ME = "tumblr"
     LIMIT = asynciolimiter.LeakyBucketLimiter(300 / 60, capacity=290)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = True
 
     params: dict[str, str | bool]
 

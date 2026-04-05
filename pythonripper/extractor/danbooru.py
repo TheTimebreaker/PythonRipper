@@ -14,14 +14,18 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class DanbooruAPI(scraper.BooruScraper):
+    HOMEPAGE = "https://danbooru.donmai.us/"
     API_TAG_URL = "https://danbooru.donmai.us/posts.json"
     API_POST_URL = "https://danbooru.donmai.us/posts/{post_id}.json"
+    URL_TAG = "https://danbooru.donmai.us/posts?tags={tagname}"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?danbooru\.donmai\.us/posts/(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?danbooru\.donmai\.us/posts\?(?:.+)?tags=([^/&\?]+)"
 
     ME = "danbooru"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 
@@ -101,7 +105,7 @@ class DanbooruAPI(scraper.BooruScraper):
                 try:
                     post_data = await self._get_post_data(json_data=post)
                 except KeyError:
-                    logging.error("[DANBOORU] - Keyerror encountered on post %s . Often indicates gold-account-locked posts.", post["id"])
+                    logging.error("[DANBOORU] - Keyerror encountered on post %s . Often indicates gold-account-locked or deleted posts.", post["id"])
                     continue
                 if post_data["identifier"] in update_ids:
                     return

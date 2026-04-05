@@ -19,14 +19,17 @@ class ArtstationAPI(scraper.TaggableScraper):
     # User: https://www.artstation.com/{username} | https://www.artstation.com/users/{username}/projects.json
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?artstation\.com/(?:artwork|projects)/([\w\d]+)"
-    ARTIST_PATTERN = r"(?:https?://)?(?:www\.)?artstation\.com/([\w\d]+)|(?:https?://)?(?:www\.)?artstation\.com/users/([\w\d]+)"
+    TAG_PATTERN = r"https://(?:www\.)?artstation\.com/(?:users/)?([^/&\?]+)"
 
+    HOMEPAGE = "https://artstation.com/"
     API_URL_ARTIST = "https://www.artstation.com/users/{artist}/projects.json"
     API_URL_POST = "https://www.artstation.com/projects/{post_id}.json"
+    URL_TAG = "https://artstation.com/{tagname}"
 
     ME = "artstation"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = True
 
     session: curl_cffi.requests.AsyncSession
 

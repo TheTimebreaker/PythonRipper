@@ -50,13 +50,23 @@ class SqlTagIDs:
 class KusowankaAPI(scraper.BooruScraper):
     """Front facing API class for kusowanka"""
 
-    URL_BASE = "https://kusowanka.com/"
+    HOMEPAGE = "https://kusowanka.com/"
+    URL_BASE = HOMEPAGE
+    URL_TAG = (
+        "https://kusowanka.com/artist/{tagname}",
+        "https://kusowanka.com/character/{tagname}",
+        "https://kusowanka.com/metadata/{tagname}",
+        "https://kusowanka.com/parody/{tagname}",
+        "https://kusowanka.com/tag/{tagname}",
+    )
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?kusowanka\.com/post/(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?kusowanka\.com/((?:artist|character|metadata|parody|tag)/[^/&\?]+)"
 
     ME = "kusowanka"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "-"
+    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

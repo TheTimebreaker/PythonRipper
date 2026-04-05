@@ -16,14 +16,18 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class GelbooruAPI(scraper.BooruScraper):
-    API_URL = "https://gelbooru.com/index.php"
-    POST_URL = "https://gelbooru.com/index.php?page=post&s=view&id={post_id}"
+    HOMEPAGE = "https://gelbooru.com/index.php"
+    API_URL = HOMEPAGE
+    URL_POST = "https://gelbooru.com/index.php?page=post&s=view&id={post_id}"
+    URL_TAG = "https://gelbooru.com/index.php?page=post&s=list&tags={tagname}"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?gelbooru\.com.*id=(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?gelbooru\.com/index\.php\?(?:.+)?tags=([^/&\?]+)"
 
     ME = "gelbooru"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

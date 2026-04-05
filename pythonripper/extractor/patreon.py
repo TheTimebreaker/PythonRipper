@@ -52,11 +52,15 @@ async def verify_patreon_artist_list(config: cfg.Config, artist_list: list[str])
 
 @final
 class PatreonAPI(scraper.TaggableScraper):
+    HOMEPAGE = "https://patreon.com/"
+    URL_TAG = "https://patreon.com/{tagname}"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?patreon\.com/posts/(?:[\w\-]+-)?(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?patreon\.com/([^/&\?]+)"
 
     ME = "patreon"
     LIMIT = asynciolimiter.Limiter(98 / 2)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 

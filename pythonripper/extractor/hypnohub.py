@@ -17,13 +17,17 @@ class NetworkError(Exception):
 
 @final
 class HypnohubAPI(scraper.BooruScraper):
-    API_URL = "https://hypnohub.net/index.php"
+    HOMEPAGE = "https://hypnohub.net/index.php"
+    API_URL = HOMEPAGE
+    URL_TAG = "https://hypnohub.net/index.php?page=post&s=list&tags={tagname}"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?hypnohub\.net.*id=(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?hypnohub\.net/index\.php\?(?:.+)?tags=([^/&\?]+)"
 
     ME = "hypnohub"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

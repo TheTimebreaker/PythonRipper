@@ -72,7 +72,7 @@ def windows_notification(title: str = "", message: str = "", app_name: str = "",
 async def update_all(config: cfg.Config) -> dict[str, bool]:
     scheduler: list[tuple[Callable[[Any], Any], int]] = [  # Function, repeat every X days
         # ### higher prio because they are either very important or take long
-        (pythonripper.updater.update_reddit.update_reddit_monthly, 0),
+        # (pythonripper.updater.update_reddit.update_reddit_monthly, 0),
         (pythonripper.updater.update_yandere.update_yandere_artists, 28),
         # (updater.update_yandere.update_yandere_tags, 3),
         # ### regular priority
@@ -95,8 +95,8 @@ async def update_all(config: cfg.Config) -> dict[str, bool]:
         (pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 7),
         (pythonripper.updater.update_patreon.update_patreon_artists, 28),
         (pythonripper.updater.update_pixiv.update_pixiv_artists, 28),
-        (pythonripper.updater.update_reddit.update_reddit_artists, 28),
-        (pythonripper.updater.update_reddit.update_reddit_subs, 6),
+        # (pythonripper.updater.update_reddit.update_reddit_artists, 28),
+        # (pythonripper.updater.update_reddit.update_reddit_subs, 6),
         (pythonripper.updater.update_rule34paheal.update_rule34paheal_artists, 28),
         # (updater.update_rule34paheal.update_rule34paheal_tags, 7),
         (pythonripper.updater.update_rule34us.update_rule34us_artists, 28),

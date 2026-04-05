@@ -17,13 +17,17 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class Rule34xxxAPI(scraper.BooruScraper):
+    HOMEPAGE = "https://rule34.xxx/"
     API_URL = "https://api.rule34.xxx/index.php"
+    URL_TAG = "https://rule34.xxx/index.php?page=post&s=list&tags={tagname}"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?rule34\.xxx.*id=(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?rule34\.xxx/index\.php\?(?:.+)?tags=([^/&\?]+)"
 
     ME = "rule34xxx"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 

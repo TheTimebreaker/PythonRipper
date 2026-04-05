@@ -14,13 +14,17 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class Rule34pahealAPI(scraper.BooruScraper):
-    API_URL = "https://rule34.paheal.net"
+    HOMEPAGE = "https://rule34.paheal.net"
+    API_URL = HOMEPAGE
+    URL_TAG = "https://rule34.paheal.net/post/list/{tagname}/1"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?rule34\.paheal\.net/post/view/(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?rule34\.paheal\.net/post/list/([^/&\?]+)"
 
     ME = "rule34paheal"
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
 
     async def init(self) -> bool:
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)

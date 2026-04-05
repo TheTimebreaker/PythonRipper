@@ -21,6 +21,10 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class PixivAPI(scraper.TaggableScraper):
+    HOMEPAGE = "https://www.pixiv.net"
+    URL_TAG = "https://www.pixiv.net/en/users/{tagname}"
+    TAG_PATTERN = r"https://(?:www\.)?pixiv\.net/en/users/(\d+)"
+
     client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"  # hard coded, from the app afaik
     client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"  # same
     hash_secret = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
@@ -41,6 +45,7 @@ class PixivAPI(scraper.TaggableScraper):
     ME = "pixiv"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "-"
+    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 
@@ -126,7 +131,7 @@ class PixivAPI(scraper.TaggableScraper):
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
         res = await self.session.get(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
-        return bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
+        return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         def _extract_tags() -> list[str]:

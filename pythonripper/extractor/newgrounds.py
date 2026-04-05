@@ -28,7 +28,10 @@ class NewgroundsAPI(scraper.TaggableScraper):
     # https://ARTIST.newgrounds.com/favorites/movies Not planned
     # https://ARTIST.newgrounds.com/favorites/following Not planned
     # https://ARTIST.newgrounds.com/playlists Not planned
+    HOMEPAGE = "https://newgrounds.com"
     ARTIST_PAGE_BASE_URL = "https://{artist}.newgrounds.com/{sublink}"
+    URL_TAG = "https://{tagname}.newgrounds.com"
+    TAG_PATTERN = r"https://(?:www\.)?([^/&\?]+)\.newgrounds\.com"
 
     BASE_PATTERN = r"(?:https?://)?(?:www\.)?(.+)\.newgrounds\.com"
     POST_PATTERN = r"((?:https?://)?(?:www\.)newgrounds\.com/(?:art/view/[\w\d-]+|audio/listen|portal/view)/[\w\d\-]+)"
@@ -38,7 +41,8 @@ class NewgroundsAPI(scraper.TaggableScraper):
 
     ME = "newgrounds"
     LIMIT = asynciolimiter.Limiter(1)
-    SPACE_REPLACE = "_"
+    SPACE_REPLACE = ""
+    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 
@@ -157,6 +161,9 @@ class NewgroundsAPI(scraper.TaggableScraper):
         await self.LIMIT.wait()
         res = await self.session.get(self.ARTIST_PAGE_BASE_URL.format(artist=self.format_tagname(tag_name), sublink=""))
         return res.status_code == 200
+
+    def format_tagname(self, tagname: str) -> str:
+        return tagname.replace(" ", self.SPACE_REPLACE).replace("(", "").replace(")", "")
 
     async def _get_audio_data(self, post_url: str) -> scraper.PostData:
         async def _iter_over_audio(audio_script_tag: bs4.Tag) -> AsyncGenerator[str]:

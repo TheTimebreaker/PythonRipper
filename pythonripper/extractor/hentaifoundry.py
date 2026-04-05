@@ -15,18 +15,22 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 @final
 class HentaiFoundry(scraper.TaggableScraper):
-    PROFILE_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/(?:(?:pictures|stories)/)?user/([\w\d\-_]+)"  # 1: username
     POST_PATTERN_ALL = r"pictures/user/(?P<username>[\w\d\-_]+)/(?P<postId>\d+)/(?P<postName>[\w\d\-_\.]+)"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/pictures.*/(\d+)"
+    TAG_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/(?:(?:pictures|stories)/)?user/([^/&\?]+)"
 
-    URL_BASE = "https://www.hentai-foundry.com"
+    HOMEPAGE = "https://www.hentai-foundry.com"
+    URL_BASE = HOMEPAGE
     URL_ARTIST_PROFILE = f'{URL_BASE}/user/{"{artist}"}/profile'
     URL_ARTIST_PICTURES = f'{URL_BASE}/pictures/user/{"{artist}"}/page/{"{page}"}'
     URL_POST = f'{URL_BASE}/pictures/{"{post_id}"}'
+    URL_TAG = f"{URL_BASE}/user/{"{tagname}"}?enterAgree=1"
 
     ME = "hentaifoundry"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
+
     session: httpx.AsyncClient
 
     async def init(self) -> bool:

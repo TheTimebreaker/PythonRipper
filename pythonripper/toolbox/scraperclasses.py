@@ -14,7 +14,6 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
-import pythonripper.toolbox.subscription_management as sm
 
 
 class TagsData(TypedDict):
@@ -48,10 +47,13 @@ class PostElementData(PostElement):
 
 
 class Scraper(ABC):
-    LIMIT: asynciolimiter._BaseLimiter
+    HOMEPAGE: str
     POST_PATTERN: str
+
     ME: str
+    LIMIT: asynciolimiter._BaseLimiter
     SPACE_REPLACE: str
+    IS_GOOGLE_SEARCHABLE: bool = True
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
     def __init__(self, config: cfg.Config) -> None:
@@ -243,6 +245,9 @@ class GalleryScraper(Scraper): ...
 
 
 class TaggableScraper(Scraper):
+    URL_TAG: str | tuple[str]
+    TAG_PATTERN: str
+
     def __init__(self, config: cfg.Config) -> None:
         super().__init__(config)
         self.init_blacklist()
@@ -468,6 +473,9 @@ async def update_stuff(
 
     # Load artist / tag list
     if tag_list is None:
+        # import necessary here to prevent circular imports
+        import pythonripper.toolbox.subscription_management as sm  # noqa: I001, RUF100
+
         if update_type == "artists":
             tag_object = sm.CombinedArtistFile(config)
         elif update_type == "tags":
