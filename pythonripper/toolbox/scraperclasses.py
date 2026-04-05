@@ -1,6 +1,7 @@
 import logging
 import random
 import re
+import traceback
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -509,10 +510,17 @@ async def update_stuff(
         this_path.mkdir(parents=True, exist_ok=True)
         try:
             success = await obj.download_tag(tagname=tag, dpath=this_path, update=True)
-        except cf.ExtractorExitError:
+        except cf.ExtractorExitError as error:
+            tb = traceback.TracebackException.from_exception(error)
+            logging.error(
+                "[%s-%s-UPDATER] - Extractor signaled to exit current tag. Message : %s ",
+                obj.ME.upper(),
+                update_type.upper(),
+                "".join(tb.format()),
+            )
             success = False
         except cf.ExtractorStopError:
-            logging.critical(
+            logging.error(
                 "[%s-%s-UPDATER] - Extractor was signaled to stop execution.",
                 obj.ME.upper(),
                 update_type.upper(),
