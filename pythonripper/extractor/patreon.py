@@ -215,17 +215,20 @@ class PatreonAPI(scraper.TaggableScraper):
             except (AssertionError, json.JSONDecodeError) as error:
                 raise cf.ExtractorExitError("Could not extract bootstrap from post %s ", post_id) from error
 
+            return result
+
+        def reparse_content_json_field(post: dict[Any, Any]) -> dict[Any, Any]:
             try:
-                content_json_string = result["data"]["attributes"]["content_json_string"]
+                content_json_string = post["attributes"]["content_json_string"]
                 content_json_dict = json.loads(content_json_string)
-                result["data"]["attributes"]["content_json_string"] = content_json_dict
+                post["attributes"]["content_json_string"] = content_json_dict
             except KeyError:
                 pass
 
-            return result
+            return post
 
-        def iter_post_links(bootstrap: dict[Any, Any]) -> Generator[str]:
-            json_obj = bootstrap["data"]["attributes"]["content_json_string"]
+        def iter_post_links(post: dict[str, Any]) -> Generator[str]:
+            json_obj = post["attributes"]["content_json_string"]
             if json_obj["type"] == "doc":
                 for content in json_obj["content"]:
                     if content["type"] == "paragraph":
@@ -235,10 +238,12 @@ class PatreonAPI(scraper.TaggableScraper):
                                     for mark in paragraph_content["marks"]:
                                         if mark["type"] == "link":
                                             yield str(mark["attrs"]["href"])
+                                        elif mark["type"] == "italic":
+                                            pass
                                         else:
                                             raise cf.ExtractorExitError from NotImplementedError(
                                                 "Content json string mark claimed unimplemented type %s - %s",
-                                                paragraph_content["type"],
+                                                mark["type"],
                                                 json_obj,
                                             )
 
@@ -268,6 +273,8 @@ class PatreonAPI(scraper.TaggableScraper):
             bootstrap = extract_bootstrap(res.text)
             json_data = bootstrap["data"]
             lookup = self.convert_included_to_lookup(bootstrap["included"])
+
+        json_data = reparse_content_json_field(json_data)
 
         username: str | None = None
         for campaign_data in lookup["campaign"].values():
@@ -303,9 +310,8 @@ class PatreonAPI(scraper.TaggableScraper):
                 result["elements"].append(scraper.PostElementLinks(download_url=durl, extension=extension))
 
         if self.config.data["extractor"]["patreon"]["collect_links"]:
-            for link in iter_post_links(bootstrap):
+            for link in iter_post_links(json_data):
                 result["elements"].append(scraper.PostElementSavelink(savelink=link))
-
         return result
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
@@ -318,8 +324,7 @@ class PatreonAPI(scraper.TaggableScraper):
             raise cf.ExtractorExitError("Could not find campaign ID for creator %s ", tagname)
 
         url = self.build_url("posts", campaign_id)
-        more_files = True
-        while more_files:
+        while True:
             await self.LIMIT.wait()
             res = await self.session.get(url)
             if res.status_code == 200:
@@ -327,6 +332,7 @@ class PatreonAPI(scraper.TaggableScraper):
                 for post in res.json()["data"]:
                     post_id = str(post["id"])
                     if post_id in update_ids:
+                        logging.info("[%s] - Update ID found, exiting fetching...", self.ME.upper())
                         return
                     yield await self._get_post_data(post_id, post, lookup)
             else:
@@ -335,4 +341,5 @@ class PatreonAPI(scraper.TaggableScraper):
             if "links" in res.json():
                 url = res.json()["links"]["next"]
             else:
+                logging.info("[%s] - No further links found, exiting fetching...", self.ME.upper())
                 return
