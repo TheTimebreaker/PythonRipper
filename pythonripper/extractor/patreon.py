@@ -2,7 +2,6 @@
 
 import json
 import logging
-import re
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
@@ -166,16 +165,7 @@ class PatreonAPI(scraper.TaggableScraper):
         if username in campaign_ids.keys():
             return str(campaign_ids[username])
         else:
-            await self.LIMIT.wait()
-            res = await self.session.get(f"https://www.patreon.com/c/{username}/posts", follow_redirects=True)
-            soup = bs4.BeautifulSoup(res.text, "html.parser")
-
-            matched = re.search(r"patreon-media/p/campaign/([\d]+)/", str(soup.find("picture")))
-            if not matched:
-                logging.error("[PATREON] - Could not gather campaign ID from creator %s ", username)
-                return False
-            campaign_id = str(matched.group(1))
-            return campaign_id
+            raise cf.ExtractorExitError from NotImplementedError("Add campaign ID manually please.")
 
     def convert_included_to_lookup(self, included: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, Any]]]:
         lookup: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
