@@ -13,5 +13,4 @@ __pycache__/
 /TODO.txt
 /Makefile
 /compose.yaml
-test.py
-test.html
+test.*
