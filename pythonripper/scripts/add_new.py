@@ -5,41 +5,27 @@ import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.subscription_management as sm
 
 
+def main(config: cfg.Config) -> None:
+    inp = input("Do you want to add <artist> or <tag>? Please enter either EXACTLY to choose: ")
+    if inp in ("artist", "<artist>", "artists", "<artists>"):
+        asyncio.run(add_artists(config))
+    elif inp in ("tag", "<tag>", "tags", "<tags>"):
+        asyncio.run(add_tag(config))
+    else:
+        print("No valid choice detected, run again.")
+
+
 async def add_artists(config: cfg.Config) -> None:
     obj = sm.CombinedArtistFile(config)
     await obj.add_tags()
 
 
-# async def new_boorutag(config: cfg.Config) -> None:
-#     obj = sm.CombinedBooruFile(config)
-#     await obj.add_tag_selenium()
-
-
-# async def new_website_artistfile(config: cfg.Config) -> None:
-#     obj = sm.CombinedArtistFile(config)
-#     await obj.add_website_selenium(
-#         new_website="kusowanka",
-#         website_url_format="https://kusowanka.com/artist/{}",
-#         regex=r"https://kusowanka.com/([a-zA-Z\d\-\)\(]+/[a-zA-Z\d\-\)\(]+)(?:/)?",
-#         space_replace="-",
-#         request_breaker_phrase=["404 - Not Found", "Apologies the page you were looking for could not be found"],
-#         check_again_if_false=False,
-#     )
-
-
-# async def new_website_boorutags(config: cfg.Config) -> None:
-#     obj = sm.CombinedBooruFile(config)
-#     await obj.add_website_selenium(
-#         new_website="kusowanka",
-#         website_url_format="https://kusowanka.com/artist/{}",
-#         regex=r"https://kusowanka.com/([a-zA-Z\d\-\)\(]+/[a-zA-Z\d\-\)\(]+)(?:/)?",
-#         space_replace="-",
-#         request_breaker_phrase=["404 - Not Found", "Apologies the page you were looking for could not be found"],
-#         check_again_if_false=False,
-#     )
+async def add_tag(config: cfg.Config) -> None:
+    obj = sm.CombinedBooruFile(config)
+    await obj.add_tags()
 
 
 if __name__ == "__main__":
     config = cfg.Config()
     cf.init_logger(config, "error", False)
-    asyncio.run(add_artists(config))
+    main(config)
