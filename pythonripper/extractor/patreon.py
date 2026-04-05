@@ -238,7 +238,7 @@ class PatreonAPI(scraper.TaggableScraper):
                                     for mark in paragraph_content["marks"]:
                                         if mark["type"] == "link":
                                             yield str(mark["attrs"]["href"])
-                                        elif mark["type"] == "italic":
+                                        elif mark["type"] in ("italic", "bold"):
                                             pass
                                         else:
                                             raise cf.ExtractorExitError from NotImplementedError(
