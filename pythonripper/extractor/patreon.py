@@ -165,7 +165,7 @@ class PatreonAPI(scraper.TaggableScraper):
         if username in campaign_ids.keys():
             return str(campaign_ids[username])
         else:
-            raise cf.ExtractorExitError from NotImplementedError("Add campaign ID manually please.")
+            raise cf.ExtractorExitError from NotImplementedError("Add campaign ID for user %s manually please.", username)
 
     def convert_included_to_lookup(self, included: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, Any]]]:
         lookup: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
@@ -227,7 +227,8 @@ class PatreonAPI(scraper.TaggableScraper):
                                 if "marks" in paragraph_content:
                                     for mark in paragraph_content["marks"]:
                                         if mark["type"] == "link":
-                                            yield str(mark["attrs"]["href"])
+                                            if self.config.data["extractor"]["patreon"]["collect_links"]:
+                                                yield scraper.PostElementSavelink(savelink=str(mark["attrs"]["href"]))
                                         elif mark["type"] in ("italic", "bold"):
                                             pass
                                         else:
@@ -245,6 +246,17 @@ class PatreonAPI(scraper.TaggableScraper):
                                     paragraph_content["type"],
                                     json_obj,
                                 )
+
+                    elif content["type"] == "image":
+                        url = str(content["attrs"]["src"])
+                        extension = f.match_extension(url)
+                        assert extension
+                        yield scraper.PostElementLinks(download_url=url, extension=extension)
+
+                    elif content["type"] == "cta":
+                        if self.config.data["extractor"]["patreon"]["collect_links"]:
+                            yield scraper.PostElementSavelink(savelink=str(content["attrs"]["button_link"]))
+
                     else:
                         raise cf.ExtractorExitError from NotImplementedError(
                             "Content json string element claimed unimplemented type %s - %s",
@@ -299,9 +311,9 @@ class PatreonAPI(scraper.TaggableScraper):
                 assert extension
                 result["elements"].append(scraper.PostElementLinks(download_url=durl, extension=extension))
 
-        if self.config.data["extractor"]["patreon"]["collect_links"]:
-            for link in iter_post_links(json_data):
-                result["elements"].append(scraper.PostElementSavelink(savelink=link))
+        if "content_json_string" in json_data["attributes"]:
+            for element in iter_post_links(json_data):
+                result["elements"].append(element)
         return result
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
