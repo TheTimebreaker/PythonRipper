@@ -46,6 +46,10 @@ class PostElementData(PostElement):
     data: dict[str, Any]
 
 
+class PostElementSavelink(PostElement):
+    savelink: str
+
+
 class Scraper(ABC):
     HOMEPAGE: str
     POST_PATTERN: str
@@ -115,11 +119,25 @@ class Scraper(ABC):
     async def _download_post_from_postelem_perwebsite(self, data: PostElementData, dpath: Path, filename: str) -> bool:
         raise NotImplementedError()
 
-    async def _download_post_from_postelem(self, data: PostElement | PostElementLinks | PostElementData, dpath: Path, filename: str) -> bool:
-        if data.get("data"):  # PostElementData
+    async def _download_post_from_postelem_savelink(self, data: PostElementSavelink, dpath: Path, filename: str) -> bool:
+        return await f.download_link(self.config, data["savelink"], (dpath / filename).with_suffix(".txt"))
+
+    async def _download_post_from_postelem(
+        self, data: PostElement | PostElementLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
+    ) -> bool:
+        # PostElementData
+        if data.get("data"):
             data = cast(PostElementData, data)
             return await self._download_post_from_postelem_perwebsite(data, dpath, filename)
-        elif data.get("download_url") and data.get("extension"):  # PostElementLinks
+
+        # PostElementSavelink
+        elif data.get("savelink"):
+            data = cast(PostElementSavelink, data)
+            return await self._download_post_from_postelem_savelink(data, dpath, filename)
+
+        # PostElementLinks
+        elif data.get("download_url") and data.get("extension"):
+            data = cast(PostElementLinks, data)
             download_url = data.get("download_url")
             extension = data.get("extension")
             if not isinstance(download_url, str) or not isinstance(extension, str):
@@ -225,10 +243,10 @@ class Scraper(ABC):
             element = cast(PostElement, element)
             await self.LIMIT.wait()
             success = await self._download_post_from_postelem(element, dpath=dpath, filename=this_filename)
-            # if success:
-            #     logging.debug("[ARTSTATION] - Download of post %s | hash %s | id %s successful.", artist, filehash, image["id"])
-            # else:
-            #     logging.error("[ARTSTATION] - Download of post %s | hash %s | id %s failed.", artist, filehash, image["id"])
+            if success:
+                logging.debug("[%s] - Download of post %s successful.", self.ME, data["identifier"])
+            else:
+                logging.debug("[%s] - Download of post %s failed.", self.ME, data["identifier"])
             downloaded_counter += success
 
         full_success = downloaded_counter == len_elements

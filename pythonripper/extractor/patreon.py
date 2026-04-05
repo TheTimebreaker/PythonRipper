@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from collections import defaultdict
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
 from http.cookiejar import MozillaCookieJar
 from typing import Any, Literal, final
@@ -212,11 +212,52 @@ class PatreonAPI(scraper.TaggableScraper):
                 assert isinstance(bootstrap, dict)
                 result = bootstrap["props"]["pageProps"]["bootstrapEnvelope"]["pageBootstrap"]["post"]
                 assert isinstance(result, dict)
-                return result
-            except AssertionError, json.JSONDecodeError:
+            except (AssertionError, json.JSONDecodeError) as error:
+                raise cf.ExtractorExitError("Could not extract bootstrap from post %s ", post_id) from error
+
+            try:
+                content_json_string = result["data"]["attributes"]["content_json_string"]
+                content_json_dict = json.loads(content_json_string)
+                result["data"]["attributes"]["content_json_string"] = content_json_dict
+            except KeyError:
                 pass
 
-            raise cf.ExtractorExitError("Could not extract bootstrap from post %s ", post_id)
+            return result
+
+        def iter_post_links(bootstrap: dict[Any, Any]) -> Generator[str]:
+            json_obj = bootstrap["data"]["attributes"]["content_json_string"]
+            if json_obj["type"] == "doc":
+                for content in json_obj["content"]:
+                    if content["type"] == "paragraph":
+                        for paragraph_content in content["content"]:
+                            if paragraph_content["type"] == "text":
+                                if "marks" in paragraph_content:
+                                    for mark in paragraph_content["marks"]:
+                                        if mark["type"] == "link":
+                                            yield str(mark["attrs"]["href"])
+                                        else:
+                                            raise cf.ExtractorExitError from NotImplementedError(
+                                                "Content json string mark claimed unimplemented type %s - %s",
+                                                paragraph_content["type"],
+                                                json_obj,
+                                            )
+
+                            elif paragraph_content["type"] == "hardBreak":
+                                pass
+                            else:
+                                raise cf.ExtractorExitError from NotImplementedError(
+                                    "Content json string paragraph entry claimed unimplemented type %s - %s",
+                                    paragraph_content["type"],
+                                    json_obj,
+                                )
+                    else:
+                        raise cf.ExtractorExitError from NotImplementedError(
+                            "Content json string element claimed unimplemented type %s - %s",
+                            content["type"],
+                            json_obj,
+                        )
+            else:
+                raise cf.ExtractorExitError from NotImplementedError("Content json string object claimed unimplemented type %s", json_obj["type"])
 
         if json_data is None or lookup is None:
             if post_id is None:
@@ -260,6 +301,10 @@ class PatreonAPI(scraper.TaggableScraper):
                 extension = f.match_extension(durl)
                 assert extension
                 result["elements"].append(scraper.PostElementLinks(download_url=durl, extension=extension))
+
+        if self.config.data["extractor"]["patreon"]["collect_links"]:
+            for link in iter_post_links(bootstrap):
+                result["elements"].append(scraper.PostElementSavelink(savelink=link))
 
         return result
 
