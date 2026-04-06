@@ -229,7 +229,7 @@ class PatreonAPI(scraper.TaggableScraper):
                                         if mark["type"] == "link":
                                             if self.config.data["extractor"]["patreon"]["collect_links"]:
                                                 yield scraper.PostElementSavelink(savelink=str(mark["attrs"]["href"]))
-                                        elif mark["type"] in ("italic", "bold"):
+                                        elif mark["type"] in ("italic", "bold", "underline"):
                                             pass
                                         else:
                                             raise cf.ExtractorExitError from NotImplementedError(
