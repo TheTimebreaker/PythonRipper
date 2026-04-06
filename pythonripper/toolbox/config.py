@@ -97,10 +97,13 @@ class Config:  # pylint:disable=too-few-public-methods
         return self._config_path().joinpath("reddit subs.txt")
 
     def reddit_subsmonthly_path(self) -> Path:
-        return self._config_path().joinpath("reddit subs monthly.txt")
+        return self._config_path() / "reddit subs monthly.txt"
 
     def update_scheduler_json_path(self) -> Path:
-        return self._config_path().joinpath("update_scheduler.json")
+        return self._config_path() / "update_scheduler.json"
+
+    def process_downloads_log(self) -> Path:
+        return self._config_path() / "process_downloads.log"
 
     def chromedriver_path(self) -> Path:
         val = os.environ.get("CHROMEDRIVER_DIR")

@@ -3,12 +3,11 @@ import logging
 import re
 import shutil
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, Self
 
 import duplicate_image_finder as dif
-import numpy as np
 import send2trash
 from PIL import Image, UnidentifiedImageError
 from psd_tools import PSDImage
@@ -24,8 +23,8 @@ class ExitError(Exception):
 
 
 class Log:
-    def __init__(self, pythonripperpath: Path) -> None:
-        self.filepath = pythonripperpath / "moveFromDownloadToStore.log"
+    def __init__(self, config: cfg.Config) -> None:
+        self.filepath = config.process_downloads_log()
         self.encoding = "utf-8"
         self.read()
 
@@ -51,17 +50,16 @@ class Log:
 class Worker:
     def __init__(self, config: cfg.Config) -> None:
         logging.info("Start main.")
-        self.unwanted_formats = ("mp4", "gif", "gifv", "webm", "txt", "swf")
-        self.path_download = config.dpath()
-        self.path_tempdownload = config.dpath_tmp()
-        self.path_store = config.notdone_path()
-        self.path_done = config.done_path()
-        self.path_pythonripper = Path.cwd()
-        self.log = Log(self.path_pythonripper)
+        self.config = config
+        self.unwanted_formats = self.config.data["general"]["unwanted_filetypes"]
+        self.path_download = self.config.dpath()
+        self.path_tempdownload = self.config.dpath_tmp()
+        self.path_store = self.config.notdone_path()
+        self.path_done = self.config.done_path()
+        self.log = Log(self.config)
 
         self.boorus = [
             "booru",
-            "booruplus",
             "danbooru",
             "gelbooru",
             "hypnohub",
@@ -77,17 +75,15 @@ class Worker:
             "artists",
             "artist-websites",
             "artstation",
-            "deviantart-artists",
+            "deviantart",
             "deviantart-favorites",
             "hentaifoundry",
-            "lolhentai",
-            "newgrounds-artists",
+            "newgrounds",
             "newgrounds-favorites",
             "patreon",
             "pixiv",
             "reddit",
             "tumblr",
-            "twitter",
         ]
         self.websites.extend(self.boorus)
         self.websites.sort()
@@ -97,7 +93,7 @@ class Worker:
             (
                 self.move_files,
                 (self.path_download, self.path_tempdownload),
-                {"exclude_files": [".pythonripper", ".bak"], "move_with_id_files": ["!hashes"]},
+                {"exclude_files": [".pythonripper"], "move_with_id_files": ["!hashes"]},
             ),
             (self.remove_unwanted_file_formats, (self.path_tempdownload, self.unwanted_formats), {}),
             (self.remove_unwanted_file_formats, (self.path_store, self.unwanted_formats), {}),
@@ -107,7 +103,7 @@ class Worker:
             (self.check_file_name_length, (self.path_tempdownload, 100), {}),
             (self.check_duplicates, (self.path_tempdownload,), {}),
             (self.check_duplicates, (self.path_tempdownload, self.path_store, self.path_done), {}),
-            (self.move_files, (self.path_tempdownload, self.path_store), {"exclude_files": [".bak"], "move_with_id_files": ["!hashes"]}),
+            (self.move_files, (self.path_tempdownload, self.path_store), {"move_with_id_files": ["!hashes"]}),
             (shutil.rmtree, (self.path_tempdownload, True), {}),
             (self.merge_folders, (self.path_store,), {}),
             (self.merge_folders, (self.path_done,), {}),
@@ -165,23 +161,32 @@ class Worker:
                 continue
             shutil.move(file, dst_path)
 
-    def remove_unwanted_file_formats(self, path: Path, unwanted_extensions: tuple[str] = ("gif",)) -> None:
+    def remove_unwanted_file_formats(self, path: Path, unwanted_extensions: Iterable[str] | None = None) -> None:
         print("Removing unwanted file formats.")
-        for file in f.iter_files(path):
-            if f.match_extension(file.name) in unwanted_extensions:
-                file.unlink()
+        if unwanted_extensions is None:
+            pass
+        else:
+            for file in f.iter_files(path):
+                if f.match_extension(file.name) in unwanted_extensions:
+                    file.unlink()
         print("=" * 25)
 
     def convert_files(self, path: Path) -> None:
         print("Converting files to jpg.")
-        list_files = f.list_files(path)
-        len_list_files = len(list_files)
-        lasttime = time.time()
-        timing_seconds = 10
-        for i, file in enumerate(list_files):
-            if cf.progress_bar_timed(lasttime, timing_seconds, i + 1, len_list_files, "Converting files"):
+        if self.config.data["general"]["convert_processed_files_to"] is False:
+            print("No file conversion conducted due to settings.")
+        else:
+            if self.config.data["general"]["convert_processed_files_to"] != ".jpg":
+                print(f"Selected target file format not supported: {self.config.data["general"]["convert_processed_files_to"]}")
+            else:
+                list_files = f.list_files(path)
+                len_list_files = len(list_files)
                 lasttime = time.time()
-            image_converter(file, goal_format="jpg", delete_source=True, quality_setting=85)
+                timing_seconds = 10
+                for i, file in enumerate(list_files):
+                    if cf.progress_bar_timed(lasttime, timing_seconds, i + 1, len_list_files, "Converting files"):
+                        lasttime = time.time()
+                    image_converter(file, goal_format="jpg", delete_source=True, quality_setting=self.config.data["general"]["connvert_quality"])
         print("=" * 25)
 
     def merge_folders(self, path: Path) -> None:
@@ -318,50 +323,6 @@ class Worker:
         print("=" * 25)
 
 
-async def write_matrix(matrix_path: Path, matrix: list[list[int]]) -> None:
-    """Writes a matrix to file at matrixPath"""
-    lines = []
-    for line in matrix:
-        lines.append(",".join(map(str, line)))
-    content = "\n".join(lines)
-    await f.atomic_write(filepath=matrix_path, encoding="utf-8", data=content)
-
-
-async def get_matrix(matrix_path: Path, datax: list[int], datay: list[int] | None = None) -> list[list[int]]:  # x <->; y ^v
-    """Return matrix for data"""
-
-    def generate_matrix(datax: list[int], datay: list[int] | None = None) -> list[list[int]]:
-        result: list[Any]
-        if datax and datay:
-            result = [[0 for j in datax] for i in datay]
-            return result  # Generates a len(datax) x len(datay) matrix with ZEROs
-        elif datax and datay is None:
-            tmp = np.eye(len(datax), dtype=int)  # Generates a len(data)^2 matrix with ONEs at the diagonal and ZEROs everywhere else
-            result = np.ndarray.tolist(tmp)
-            return result  # Generates a len(data)^2 matrix with ONEs at the diagonal and ZEROs everywhere else
-        raise Exception()
-
-    def load_matrix(matrix_path: Path) -> list[list[int]]:
-        with open(matrix_path, newline="", encoding="utf-8") as f:
-            matrix = []
-            for line in f.read().split("\n"):  # For each line
-                line_splitted = line.split(",")  # Splits the line into the individual values and turns it into a list
-                matrix.append(list(map(int, line_splitted)))
-        return matrix
-
-    try:
-        matrix = load_matrix(matrix_path)
-    except FileNotFoundError:
-        matrix = generate_matrix(datax, datay)
-        await write_matrix(matrix_path, matrix)
-    return matrix
-
-
-def isindexdone(matrix: list[list[int]], index: int) -> bool:
-    """Returns, whether the directory at index was compared to everything else"""
-    return len(matrix[index]) == sum(matrix[index])
-
-
 def image_converter(file: Path, goal_format: str, delete_source: bool, quality_setting: int) -> None:
     Image.MAX_IMAGE_PIXELS = None
     goal_format = goal_format.replace(".", "")
@@ -421,7 +382,6 @@ def image_converter(file: Path, goal_format: str, delete_source: bool, quality_s
         logging.error("OSError: '%s'", file)
 
 
-# global download, temp_download, store, done, websites, boorus, pythonripperpath
 if __name__ == "__main__":
     config = cfg.Config()
     cf.init_logger(config, "error", True)
