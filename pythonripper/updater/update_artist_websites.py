@@ -24,9 +24,9 @@ async def update_tangsgallery(config: cfg.Config) -> bool | tuple[bool, str]:
 
 async def main(config: cfg.Config) -> None:
     await update_akairiot(config)
-    # await update_shellvi(config)
-    # await update_supersatanson(config)
-    # await update_tangsgallery(config)
+    await update_shellvi(config)
+    await update_supersatanson(config)
+    await update_tangsgallery(config)
 
 
 if __name__ == "__main__":
