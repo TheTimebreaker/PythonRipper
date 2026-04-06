@@ -381,9 +381,19 @@ class TaggableScraper(Scraper):
         async for i, post in asyncstdlib.enumerate(generator):
             print(f'Downloading {self.ME} tag "{tagname}" (#{i})')
 
-            result = await self.download_post(
-                data=post, dpath=dpath, ignore_blacklist=ignore_blacklist, ignore_download_history=ignore_download_history
-            )
+            try:
+                result = await self.download_post(
+                    data=post, dpath=dpath, ignore_blacklist=ignore_blacklist, ignore_download_history=ignore_download_history
+                )
+            except cf.ExtractorExitError:
+                logging.error("[%s] - Download of %s lead to the extractor being forced to exit.", self.ME.upper(), post["identifier"])
+                raise
+            except cf.ExtractorStopError:
+                logging.error("[%s] - Download of %s lead to the extractor being forced to stop.", self.ME.upper(), post["identifier"])
+                raise
+            except cf.ExtractorSkipError:
+                logging.error("[%s] - Download of %s lead to the extractor being forced to skip this post.", self.ME.upper(), post["identifier"])
+                continue
 
             if result is True:
                 logging.info("[%s] - Download of %s was successful.", self.ME.upper(), post["identifier"])
