@@ -121,7 +121,7 @@ class Scraper(ABC):
         raise NotImplementedError()
 
     async def _download_post_from_postelem_savelink(self, data: PostElementSavelink, dpath: Path, filename: str) -> bool:
-        return await f.download_link(self.config, data["savelink"], (dpath / filename).with_suffix(".txt"))
+        return await f.download_link(self.config, data["savelink"], (dpath / f.verify_filename(filename)).with_suffix(".txt"))
 
     async def _download_post_from_postelem(
         self, data: PostElement | PostElementLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
