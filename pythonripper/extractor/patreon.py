@@ -240,6 +240,11 @@ class PatreonAPI(scraper.TaggableScraper):
 
                             elif paragraph_content["type"] == "hardBreak":
                                 pass
+                            elif paragraph_content["type"] == "image":
+                                url = str(paragraph_content["attrs"]["src"])
+                                extension = f.match_extension(url)
+                                assert extension
+                                yield scraper.PostElementLinks(download_url=url, extension=extension)
                             else:
                                 raise cf.ExtractorExitError from NotImplementedError(
                                     "Content json string paragraph entry claimed unimplemented type %s - %s",
@@ -256,6 +261,12 @@ class PatreonAPI(scraper.TaggableScraper):
                     elif content["type"] == "cta":
                         if self.config.data["extractor"]["patreon"]["collect_links"]:
                             yield scraper.PostElementSavelink(savelink=str(content["attrs"]["button_link"]))
+
+                    elif content["type"] == "orderedList":
+                        pass
+
+                    elif content["type"] == "bulletList":
+                        pass
 
                     else:
                         raise cf.ExtractorExitError from NotImplementedError(
@@ -294,21 +305,27 @@ class PatreonAPI(scraper.TaggableScraper):
             durl = image.get("download_url")
             if durl:
                 extension = f.match_extension(durl)
-                assert extension
+                if not extension:
+                    logging.error("[%s] - Post %s could not match file extension from this url: %s", self.ME.upper(), post_id, durl)
+                    raise cf.ExtractorSkipError from TypeError("Post %s Could not match file extension from this url: %s", post_id, durl)
                 result["elements"].append(scraper.PostElementLinks(download_url=durl, extension=extension))
 
         for attachment in resolve_relationship_files(lookup, json_data, "attachments"):
             durl = attachment.get("url")
             if durl:
                 extension = f.match_extension(durl)
-                assert extension
+                if not extension:
+                    logging.error("[%s] - Post %s could not match file extension from this url: %s", self.ME.upper(), post_id, durl)
+                    raise cf.ExtractorSkipError from TypeError("Post %s Could not match file extension from this url: %s", post_id, durl)
                 result["elements"].append(scraper.PostElementLinks(download_url=durl, extension=extension))
 
         for attachment in resolve_relationship_files(lookup, json_data, "attachments_media"):
             durl = attachment.get("download_url")
             if durl:
                 extension = f.match_extension(durl)
-                assert extension
+                if not extension:
+                    logging.error("[%s] - Post %s could not match file extension from this url: %s", self.ME.upper(), post_id, durl)
+                    raise cf.ExtractorSkipError from TypeError("Post %s Could not match file extension from this url: %s", post_id, durl)
                 result["elements"].append(scraper.PostElementLinks(download_url=durl, extension=extension))
 
         if "content_json_string" in json_data["attributes"]:
@@ -336,7 +353,10 @@ class PatreonAPI(scraper.TaggableScraper):
                     if post_id in update_ids:
                         logging.info("[%s] - Update ID found, exiting fetching...", self.ME.upper())
                         return
-                    yield await self._get_post_data(post_id, post, lookup)
+                    try:
+                        yield await self._get_post_data(post_id, post, lookup)
+                    except cf.ExtractorSkipError:
+                        continue
             else:
                 raise ConnectionAbortedError("Invalid HTML response encountered during pateron page fetching :(")
 
