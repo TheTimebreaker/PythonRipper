@@ -213,6 +213,10 @@ class ExtractorStopError(Exception):
     """Exception that signals the extractor to exit and fully stop operating (e.g. when hitting a rate limit)."""
 
 
+class ExtractorSkipError(Exception):
+    """Exception that signals some issue the extractor had while trying to download something that does not require a full stop."""
+
+
 class InterruptError(Exception):
     """Exception for when you want to catch another exception in one line in one function,
     because catching the error outside said function would lead to unexpected catches."""
