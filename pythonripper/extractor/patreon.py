@@ -232,7 +232,7 @@ class PatreonAPI(scraper.TaggableScraper):
                                         elif mark["type"] in ("italic", "bold", "underline"):
                                             pass
                                         else:
-                                            raise cf.ExtractorExitError from NotImplementedError(
+                                            raise cf.ExtractorSkipError from NotImplementedError(
                                                 "Content json string mark claimed unimplemented type %s - %s",
                                                 mark["type"],
                                                 json_obj,
@@ -246,7 +246,7 @@ class PatreonAPI(scraper.TaggableScraper):
                                 assert extension
                                 yield scraper.PostElementLinks(download_url=url, extension=extension)
                             else:
-                                raise cf.ExtractorExitError from NotImplementedError(
+                                raise cf.ExtractorSkipError from NotImplementedError(
                                     "Content json string paragraph entry claimed unimplemented type %s - %s",
                                     paragraph_content["type"],
                                     json_obj,
@@ -268,14 +268,17 @@ class PatreonAPI(scraper.TaggableScraper):
                     elif content["type"] == "bulletList":
                         pass
 
+                    elif content["type"] == "heading":
+                        pass
+
                     else:
-                        raise cf.ExtractorExitError from NotImplementedError(
+                        raise cf.ExtractorSkipError from NotImplementedError(
                             "Content json string element claimed unimplemented type %s - %s",
                             content["type"],
                             json_obj,
                         )
             else:
-                raise cf.ExtractorExitError from NotImplementedError("Content json string object claimed unimplemented type %s", json_obj["type"])
+                raise cf.ExtractorSkipError from NotImplementedError("Content json string object claimed unimplemented type %s", json_obj["type"])
 
         if json_data is None or lookup is None:
             if post_id is None:
