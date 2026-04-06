@@ -115,121 +115,226 @@ class CombinedFile:
         self.sort()
         await f.atomic_write(filepath=self.path, data=json.dumps(self.data, indent=4), encoding="utf-8")
 
-    async def add_tags(self) -> None:
-        def ensure_fallback_tab(driver: WebDriver, fallback_url: str = "about:blank") -> str:
-            """
-            Make sure there is a dedicated fallback tab and return its window handle.
+    async def _add_activate_dict(self, config: cfg.Config, choice: str | None = None) -> None:
+        async def task(key: str, obj_type: type[scraper.TaggableScraper]) -> None:
+            obj = obj_type(config)
+            if not await obj.init():
+                raise Exception("Could not initialize all scraper objects: %s failed.", key)
+            self.websiteinfo[key]["object_active"] = obj
 
-            This tab stays open permanently so the browser session does not end up with
-            zero meaningful tabs during cleanup.
-            """
-            if not driver.window_handles:
-                raise RuntimeError("Driver has no open windows.")
+        tasks = []
+        for key, items in self.websiteinfo.copy().items():
+            if not choice or choice == key:
+                tasks.append(asyncio.create_task(task(key, items["object"])))
+        await asyncio.gather(*tasks)
 
-            # Reuse the current tab as fallback if possible.
-            fallback_handle = driver.current_window_handle
-            driver.get(fallback_url)
-            return fallback_handle
+    def _add_ensure_fallback_tab(self, driver: WebDriver, fallback_url: str = "about:blank") -> str:
+        """
+        Make sure there is a dedicated fallback tab and return its window handle.
 
-        def open_urls_in_new_tabs(
-            driver: WebDriver,
-            urls: Iterable[str],
-            fallback_handle: str,
-        ) -> list[str]:
-            """
-            Open each URL in its own new tab and return the created tab handles.
-            """
-            created_handles: list[str] = []
+        This tab stays open permanently so the browser session does not end up with
+        zero meaningful tabs during cleanup.
+        """
+        if not driver.window_handles:
+            raise RuntimeError("Driver has no open windows.")
 
-            for url in urls:
-                driver.switch_to.window(fallback_handle)
-                driver.switch_to.new_window("tab")
-                new_handle = driver.current_window_handle
-                created_handles.append(new_handle)
+        # Reuse the current tab as fallback if possible.
+        fallback_handle = driver.current_window_handle
+        driver.get(fallback_url)
+        return fallback_handle
 
-                try:
-                    driver.get(url)
-                except WebDriverException as exc:
-                    print(f"Failed to open {url!r}: {exc}")
-                    # If opening fails, close that tab again.
-                    try:
-                        driver.close()
-                    except Exception:
-                        pass
+    def _add_open_urls_in_new_tabs(self, driver: WebDriver, urls: Iterable[str], fallback_handle: str) -> list[str]:
+        """
+        Open each URL in its own new tab and return the created tab handles.
+        """
+        created_handles: list[str] = []
 
-                    # Switch back to fallback so the driver stays in a sane state.
-                    driver.switch_to.window(fallback_handle)
-                    created_handles.remove(new_handle)
-
-            return created_handles
-
-        def wait_for_user_confirmation_console(name: str) -> None:
-            """
-            Simple console-based confirmation.
-            The human can manually close bad tabs, then press Enter.
-            """
-            input(f"\nReview tabs for {name!r}.\n Close the bad tabs manually, keep the good ones open,\n then press Enter to continue...")
-
-        def wait_for_user_confirmation_tk(name: str) -> None:
-            """
-            Optional Tkinter popup confirmation.
-            """
-            import tkinter as tk
-            from tkinter import messagebox
-
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showinfo(
-                title="Review URLs",
-                message=(f"Review tabs for {name!r}.\n\n Close the bad tabs manually, keep the good ones open,\n then click OK."),
-            )
-            root.destroy()
-
-        def get_confirmed_urls(
-            driver: WebDriver,
-            fallback_handle: str,
-        ) -> list[str]:
-            """
-            Return the URLs of all currently open tabs except the fallback tab.
-            """
-            confirmed_urls: list[str] = []
-
-            # Snapshot because window_handles may change if the browser is touched.
-            for handle in list(driver.window_handles):
-                if handle == fallback_handle:
-                    continue
-
-                try:
-                    driver.switch_to.window(handle)
-                    url = driver.current_url
-                    confirmed_urls.append(url)
-                except NoSuchWindowException:
-                    # User may have closed it between reading handles and switching.
-                    continue
-                except WebDriverException as exc:
-                    print(f"Could not read URL from tab {handle!r}: {exc}")
-
-            # Restore focus to fallback at the end.
+        for url in urls:
             driver.switch_to.window(fallback_handle)
-            return confirmed_urls
+            driver.switch_to.new_window("tab")
+            new_handle = driver.current_window_handle
+            created_handles.append(new_handle)
 
-        def close_all_non_fallback_tabs(driver: WebDriver, fallback_handle: str) -> None:
-            """
-            Close every tab except the fallback tab.
-            """
-            for handle in list(driver.window_handles):
-                if handle == fallback_handle:
-                    continue
-
+            try:
+                driver.get(url)
+            except WebDriverException as exc:
+                print(f"Failed to open {url!r}: {exc}")
+                # If opening fails, close that tab again.
                 try:
-                    driver.switch_to.window(handle)
                     driver.close()
-                except NoSuchWindowException:
-                    continue
-                except WebDriverException as exc:
-                    print(f"Could not close tab {handle!r}: {exc}")
+                except Exception:
+                    pass
 
-            driver.switch_to.window(fallback_handle)
+                # Switch back to fallback so the driver stays in a sane state.
+                driver.switch_to.window(fallback_handle)
+                created_handles.remove(new_handle)
+
+        return created_handles
+
+    def _add_close_non_fallback_tabs(self, driver: WebDriver, fallback_handle: str) -> None:
+        """
+        Close every tab except the fallback tab.
+        """
+        for handle in list(driver.window_handles):
+            if handle == fallback_handle:
+                continue
+
+            try:
+                driver.switch_to.window(handle)
+                driver.close()
+            except NoSuchWindowException:
+                continue
+            except WebDriverException as exc:
+                print(f"Could not close tab {handle!r}: {exc}")
+
+        driver.switch_to.window(fallback_handle)
+
+    def _add_userconfirm_console(self, name: str) -> None:
+        """
+        Simple console-based confirmation.
+        The human can manually close bad tabs, then press Enter.
+        """
+        input(f"\nReview tabs for {name!r}.\n Close the bad tabs manually, keep the good ones open,\n then press Enter to continue...")
+
+    def _add_userconfirm_popup(self, name: str) -> None:
+        """
+        Optional Tkinter popup confirmation.
+        """
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showinfo(
+            title="Review URLs",
+            message=(f"Review tabs for {name!r}.\n\n Close the bad tabs manually, keep the good ones open,\n then click OK."),
+        )
+        root.destroy()
+
+    async def _add_get_tag_urls(self, tagname: str, website: str | None, dont_add_homepage: bool = False) -> list[str]:
+        async def task(obj: scraper.TaggableScraper) -> None:
+            urls_to_format = []
+            if isinstance(obj.URL_TAG, str):
+                urls_to_format = [obj.URL_TAG]
+            else:
+                urls_to_format = [*obj.URL_TAG]
+
+            found_some = False
+            for url_to_format in urls_to_format:
+                this_url = url_to_format.format(tagname=obj.format_tagname(tagname))
+                try:
+                    this_tagname = re.match(obj.TAG_PATTERN, this_url).group(1).replace(" ", obj.SPACE_REPLACE)
+                except AttributeError:
+                    this_tagname = tagname
+
+                try:
+                    if await obj.does_this_exist(this_tagname):
+                        result.append(this_url)
+                        found_some = True
+                    else:
+                        continue
+                except json.decoder.JSONDecodeError, ConnectionAbortedError, ConnectionRefusedError, cf.ExtractorExitError, cf.ExtractorStopError:
+                    pass
+
+            if found_some is False:
+                if obj.IS_GOOGLE_SEARCHABLE is True:
+                    result.append(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
+                if dont_add_homepage is False:
+                    result.append(obj.HOMEPAGE)
+
+        result = []
+        tasks = []
+        for key, value in self.websiteinfo.items():
+            if website is None or website == key:
+                obj = value["object_active"]
+                tasks.append(asyncio.create_task(task(obj)))
+        await asyncio.gather(*tasks)
+
+        return result
+
+    def _add_get_confirmed_urls(self, driver: WebDriver, fallback_handle: str) -> list[str]:
+        """
+        Return the URLs of all currently open tabs except the fallback tab.
+        """
+        confirmed_urls: list[str] = []
+
+        # Snapshot because window_handles may change if the browser is touched.
+        for handle in list(driver.window_handles):
+            if handle == fallback_handle:
+                continue
+
+            try:
+                driver.switch_to.window(handle)
+                url = driver.current_url
+                confirmed_urls.append(url)
+            except NoSuchWindowException:
+                # User may have closed it between reading handles and switching.
+                continue
+            except WebDriverException as exc:
+                print(f"Could not read URL from tab {handle!r}: {exc}")
+
+        # Restore focus to fallback at the end.
+        driver.switch_to.window(fallback_handle)
+        return confirmed_urls
+
+    async def process_urls(self, new_tag: str, url_list: list[str]) -> None:
+        if new_tag in self.data:
+            new_tag_obj = self.data[new_tag]
+        else:
+            new_tag_obj = {}
+        for key in self.websiteinfo:
+            if key not in new_tag_obj:
+                new_tag_obj[key] = []
+
+        for url in url_list:
+            for key, value in self.websiteinfo.items():
+                obj = value["object_active"]
+                try:
+                    matched = re.match(obj.TAG_PATTERN, url)
+                    tag_formatted = matched.group(1)
+                    tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
+                    while tag.startswith((" ", "+")):
+                        tag = tag[1:]
+                    while tag.endswith((" ", "+")):
+                        tag = tag[:-1]
+                    new_tag_obj[key].append(tag)
+                    break
+                except AttributeError:
+                    continue
+            else:
+                print(f"Could not verify link {url} .")
+        self.data[new_tag] = new_tag_obj
+        await self.write()
+
+    async def add_website(self, choice: str) -> None:
+        await self._add_activate_dict(self.config, choice)
+        driver = cf.init_selenium(False)
+        fallback_handle = self._add_ensure_fallback_tab(driver)
+        homepages = [obj["object_active"].HOMEPAGE for key, obj in self.websiteinfo.items() if key == choice]
+        self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
+        self._add_userconfirm_console("CONTINUE WHEN EVERYTHING LOADS")
+        self._add_close_non_fallback_tabs(driver, fallback_handle)
+
+        self_data_len = len(self.data)
+        for i, (artist_name, artist_data) in enumerate(self.data.items()):
+            if choice in artist_data:
+                print(f"#{i} / {self_data_len} - {artist_name} - Already exists...")
+                continue
+
+            artist_aliases = {artist_name, *self.get_list(artist=artist_name)}
+            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
+            if len(url_list) == 0:
+                print(f"#{i} / {self_data_len} - {artist_name} - Nothing found...")
+                await self.process_urls(artist_name, [])
+                continue
+
+            self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
+            input(f"#{i} / {self_data_len} - {artist_name} - Press ENTER to confirm...")  # noqa: ASYNC250
+            confirmed_urls = self._add_get_confirmed_urls(driver, fallback_handle)
+            await self.process_urls(artist_name, confirmed_urls)
+            self._add_close_non_fallback_tabs(driver, fallback_handle)
+
+    async def add_tags(self) -> None:
 
         def get_new_tag_name() -> str:
             result = input(f"Please enter the {self.tag_type} which you wanna add: ")
@@ -247,86 +352,13 @@ class CombinedFile:
                 result = result[:-1]
             return result
 
-        async def get_tag_urls(tagname: str) -> list[str]:
-            async def task(obj: scraper.TaggableScraper) -> None:
-                urls_to_format = []
-                if isinstance(obj.URL_TAG, str):
-                    urls_to_format = [obj.URL_TAG]
-                else:
-                    urls_to_format = [*obj.URL_TAG]
-
-                found_some = False
-                for url_to_format in urls_to_format:
-                    this_url = url_to_format.format(tagname=tagname.replace(" ", obj.SPACE_REPLACE))
-                    try:
-                        this_tagname = re.match(obj.TAG_PATTERN, this_url).group(1).replace(" ", obj.SPACE_REPLACE)
-                    except AttributeError:
-                        this_tagname = tagname
-
-                    try:
-
-                        if await obj.does_this_exist(this_tagname):
-                            result.append(this_url)
-                            found_some = True
-                    except json.decoder.JSONDecodeError, ConnectionAbortedError, ConnectionRefusedError, cf.ExtractorExitError, cf.ExtractorStopError:
-                        pass
-
-                if found_some is False and obj.IS_GOOGLE_SEARCHABLE:
-                    result.append(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
-                    result.append(obj.HOMEPAGE)
-                elif found_some is False:
-                    result.append(obj.HOMEPAGE)
-
-            result = []
-            tasks = []
-            for value in self.websiteinfo.values():
-                obj = value["object_active"]
-                tasks.append(asyncio.create_task(task(obj)))
-            await asyncio.gather(*tasks)
-
-            return result
-
-        async def activate_dict(config: cfg.Config) -> None:
-            async def task(key: str, obj_type: type[scraper.TaggableScraper]) -> None:
-                obj = obj_type(config)
-                if not await obj.init():
-                    raise Exception("Could not initialize all scraper objects: %s failed.", key)
-                self.websiteinfo[key]["object_active"] = obj
-
-            tasks = []
-            for key, items in self.websiteinfo.copy().items():
-                tasks.append(asyncio.create_task(task(key, items["object"])))
-            await asyncio.gather(*tasks)
-
-        async def process_urls(new_tag: str, url_list: list[str]) -> None:
-            new_tag_obj = {key: [] for key in self.websiteinfo}
-            for url in url_list:
-                for key, value in self.websiteinfo.items():
-                    obj = value["object_active"]
-                    try:
-                        matched = re.match(obj.TAG_PATTERN, url)
-                        tag_formatted = matched.group(1)
-                        tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
-                        while tag.startswith((" ", "+")):
-                            tag = tag[1:]
-                        while tag.endswith((" ", "+")):
-                            tag = tag[:-1]
-                        new_tag_obj[key].append(tag)
-                        break
-                    except AttributeError:
-                        continue
-                else:
-                    print(f"Could not verify link {url} .")
-            self.data[new_tag] = new_tag_obj
-            await self.write()
-
-        await activate_dict(self.config)
+        await self._add_activate_dict(self.config)
         driver = cf.init_selenium(False)
-        fallback_handle = ensure_fallback_tab(driver)
+        fallback_handle = self._add_ensure_fallback_tab(driver)
         homepages = [obj["object_active"].HOMEPAGE for obj in self.websiteinfo.values()]
-        open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
-        wait_for_user_confirmation_console("CONTINUE WHEN EVERYTHING LOADS")
-        close_all_non_fallback_tabs(driver, fallback_handle)
+        self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
+        self._add_userconfirm_console("CONTINUE WHEN EVERYTHING LOADS")
+        self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         while True:
             print("=" * 20)
@@ -334,38 +366,39 @@ class CombinedFile:
             if not new_tag or new_tag == "":
                 continue
             print(f"Gathering for {new_tag}")
-            url_list = await get_tag_urls(new_tag)
-            open_urls_in_new_tabs(driver, url_list, fallback_handle)
-            wait_for_user_confirmation_console(new_tag)
-            confirmed_urls = get_confirmed_urls(driver, fallback_handle)
-            await process_urls(new_tag, confirmed_urls)
-            close_all_non_fallback_tabs(driver, fallback_handle)
+            url_list = await self._add_get_tag_urls(new_tag)
+            self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
+            self._add_userconfirm_console(new_tag)
+            confirmed_urls = self._add_get_confirmed_urls(driver, fallback_handle)
+            await self.process_urls(new_tag, confirmed_urls)
+            self._add_close_non_fallback_tabs(driver, fallback_handle)
 
-    def get_list(self, website: str) -> list[Any]:
+    def get_list(self, website: str | None = None, artist: str | None = None) -> list[Any]:
         """Returns sorted list of all entries from a given website."""
         taglist = []
         for name, name_data in self.data.items():
-            for website_name, is_there in name_data.items():
-                if website_name == website and is_there:
-                    if isinstance(is_there, str | int):
-                        if is_there in taglist:
-                            logging.warning(
-                                "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
-                                website_name,
-                                is_there,
-                                name,
-                            )
-                        taglist.append(is_there)
-                    elif isinstance(is_there, list):
-                        for sublink in is_there:
-                            if sublink in taglist:
+            if (artist is None or name == artist) and bool(name_data):
+                for website_name, is_there in name_data.items():
+                    if (website is None or website_name == website) and bool(is_there):
+                        if isinstance(is_there, str | int):
+                            if is_there in taglist:
                                 logging.warning(
                                     "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
                                     website_name,
-                                    sublink,
+                                    is_there,
                                     name,
                                 )
-                            taglist.append(sublink)
+                            taglist.append(is_there)
+                        elif isinstance(is_there, list):
+                            for sublink in is_there:
+                                if sublink in taglist:
+                                    logging.warning(
+                                        "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
+                                        website_name,
+                                        sublink,
+                                        name,
+                                    )
+                                taglist.append(sublink)
 
         return sorted([str(x).lower() for x in taglist])
 
@@ -389,6 +422,21 @@ class CombinedFile:
             for key in self.websites:
                 if key not in tag_data.keys():
                     print(f"[{tag}][{key}] - Website key missing.")
+                else:
+                    for key in tag_data:
+                        if key not in [
+                            *self.websites,
+                            "artist-websites",
+                            "asmhentai",
+                            "doujinscom",
+                            "hentaienvy",
+                            "hentaiera",
+                            "hentaiforce",
+                            "hentaifoundry",
+                            "hentairead",
+                            "nhentainet",
+                        ]:
+                            print(f"[{tag}][{key}] - Key for unsupported website.", self.websites)
         for site in self.websites:
             self.get_list(site)
 
@@ -396,6 +444,7 @@ class CombinedFile:
 class CombinedArtistFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
+        "animepictures",
         "artstation",
         "danbooru",
         "deviantart",
@@ -422,6 +471,7 @@ class CombinedArtistFile(CombinedFile):
 class CombinedBooruFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
+        "animepictures",
         "danbooru",
         "gelbooru",
         "hypnohub",

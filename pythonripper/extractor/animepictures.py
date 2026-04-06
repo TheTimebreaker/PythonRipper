@@ -28,7 +28,7 @@ class Animepictures(scraper.BooruScraper):
     ME = "animepictures"
     LIMIT = asynciolimiter.Limiter(0.5, max_burst=10)
     SPACE_REPLACE = "+"
-    IS_GOOGLE_SEARCHABLE = True
+    IS_GOOGLE_SEARCHABLE = False
 
     async def init(self) -> bool:
         self.credentials_path = self.config._credentials_path() / "animepictures_credentials.json"
@@ -100,6 +100,9 @@ class Animepictures(scraper.BooruScraper):
         await self.LIMIT.wait()
         res = await self.session.get(self.API_URL, params={"page": 0, "search_tag": self.format_tagname(tagname), "lang": "en"})
         return "in request 0 pictures" not in res.text
+
+    def format_tagname(self, tagname: str) -> str:
+        return tagname.replace(" ", self.SPACE_REPLACE).replace("/", "+")
 
     async def _get_post_data(self, post_id: str | None = None, _json_data: dict[Any, Any] | None = None) -> scraper.PostData:
         async def _get_post_html(post_id: str) -> str:
