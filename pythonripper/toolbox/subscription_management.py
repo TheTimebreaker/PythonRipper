@@ -465,7 +465,7 @@ class CombinedFile:
                             "hentairead",
                             "nhentainet",
                         ]:
-                            print(f"[{tag}][{key}] - Key for unsupported website.", self.websites)
+                            print(f"[{tag}][{key}] - Key for unsupported website.")
         for site in self.websites:
             self.get_list(site)
 
