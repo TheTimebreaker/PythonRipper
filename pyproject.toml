@@ -46,7 +46,7 @@ enable = [
   "W1203", #fstring in logging
   "C0103", #invalid name
 ]
-ignore-paths = [".venv", "test.py"]
+ignore-paths = [".venv", ".venv-windows", ".venv-linux", "test.py"]
 
 
 [tool.black]
