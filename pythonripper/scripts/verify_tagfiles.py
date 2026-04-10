@@ -17,5 +17,5 @@ def main(config: cfg.Config) -> None:
 
 if __name__ == "__main__":
     config = cfg.Config()
-    cf.init_logger(config, "error", False)
+    cf.init_logger(config, "warning", False)
     main(config)

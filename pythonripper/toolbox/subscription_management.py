@@ -103,6 +103,7 @@ class CombinedFile:
                 "%20": " ",
                 "%28": "(",
                 "%29": ")",
+                "%3a": ":",
             }
             for website in self.data[sort_tag]:
                 if isinstance(self.data[sort_tag][website], str):
@@ -450,7 +451,7 @@ class CombinedFile:
         for tag, tag_data in self.data.items():
             for key in self.websites:
                 if key not in tag_data.keys():
-                    print(f"[{tag}][{key}] - Website key missing.")
+                    logging.warning("[%s][%s] - Website key missing.", tag, key)
                 else:
                     for key in tag_data:
                         if key not in [
@@ -465,7 +466,7 @@ class CombinedFile:
                             "hentairead",
                             "nhentainet",
                         ]:
-                            print(f"[{tag}][{key}] - Key for unsupported website.")
+                            logging.warning("[%s][%s] - Key for unsupported website.", tag, key)
         for site in self.websites:
             self.get_list(site)
 
