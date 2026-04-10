@@ -49,7 +49,7 @@ class Config:  # pylint:disable=too-few-public-methods
         return Path(val)
 
     def test_dir(self) -> Path:
-        return self._downloaded_path().joinpath("test")
+        return self._downloaded_path() / "test"
 
     def _credentials_path(self) -> Path:
         return self._config_path() / "credentials"
@@ -58,43 +58,43 @@ class Config:  # pylint:disable=too-few-public-methods
         return self._config_path() / "patreon_memberships.json"
 
     def dpath(self) -> Path:
-        return self._downloaded_path().joinpath("B-download")
+        return self._downloaded_path() / "B-download"
 
     def dpath_tmp(self) -> Path:
         return self.dpath().with_name(self.dpath().name + "-temp")
 
     def _processedfiles_path(self) -> Path:
-        return self._downloaded_path().joinpath("A-Sorted and dupechecked")
+        return self._downloaded_path() / "A-Sorted and dupechecked"
 
     def done_path(self) -> Path:
-        return self._processedfiles_path().joinpath("!DONE")
+        return self._processedfiles_path() / "!DONE"
 
     def notdone_path(self) -> Path:
-        return self._processedfiles_path().joinpath("Notdone")
+        return self._processedfiles_path() / "Notdone"
 
     def errorpath(self) -> Path:
-        return self._config_path().joinpath("!errors.log")
+        return self._config_path() / "!errors.log"
 
     def linkspath(self) -> Path:
-        return self._config_path().joinpath("!ripped-links.log")
+        return self._config_path() / "!ripped-links.log"
 
     def blacklist_tags_path(self) -> Path:
-        return self._config_path().joinpath("blacklist_tags.txt")
+        return self._config_path() / "blacklist_tags.txt"
 
     def artists_tags_path(self) -> Path:
-        return self._config_path().joinpath("artists.json")
+        return self._config_path() / "artists.json"
 
     def booru_tags_path(self) -> Path:
-        return self._config_path().joinpath("booru_tags.json")
+        return self._config_path() / "booru_tags.json"
 
     def deviantart_favs_path(self) -> Path:
-        return self._config_path().joinpath("deviantart favorites.txt")
+        return self._config_path() / "deviantart favorites.txt"
 
     def newgrounds_favs_path(self) -> Path:
-        return self._config_path().joinpath("newgrounds favorites.txt")
+        return self._config_path() / "newgrounds favorites.txt"
 
     def reddit_subs_path(self) -> Path:
-        return self._config_path().joinpath("reddit subs.txt")
+        return self._config_path() / "reddit subs.txt"
 
     def reddit_subsmonthly_path(self) -> Path:
         return self._config_path() / "reddit subs monthly.txt"
