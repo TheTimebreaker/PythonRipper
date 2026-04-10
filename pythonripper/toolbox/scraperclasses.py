@@ -264,7 +264,7 @@ class GalleryScraper(Scraper): ...
 
 
 class TaggableScraper(Scraper):
-    URL_TAG: str | tuple[str]
+    URL_TAG: str | tuple[str, ...]
     TAG_PATTERN: str
 
     def __init__(self, config: cfg.Config) -> None:
@@ -505,6 +505,7 @@ async def update_stuff(
         # import necessary here to prevent circular imports
         import pythonripper.toolbox.subscription_management as sm  # noqa: I001, RUF100
 
+        tag_object: sm.CombinedFile
         if update_type == "artists":
             tag_object = sm.CombinedArtistFile(config)
         elif update_type == "tags":

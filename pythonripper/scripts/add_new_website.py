@@ -7,6 +7,7 @@ import pythonripper.toolbox.subscription_management as sm
 
 def main(config: cfg.Config) -> None:
     inp = input("Do you want to search the new websites' entries to <artist> or <tag>? Please enter either EXACTLY to choose: ")
+    obj: sm.CombinedFile
     if inp in ("artist", "<artist>", "artists", "<artists>"):
         obj = sm.CombinedArtistFile(config)
         func = add_artists
@@ -24,12 +25,12 @@ def main(config: cfg.Config) -> None:
         s.append(f"({i}) {website}")
     print(" | ".join(s))
 
-    inp = int(input("Enter a number to choose that website: "))
+    inp2 = int(input("Enter a number to choose that website: "))
     if inp not in lookup:
         print("No valid choice detected, run again.")
         return
 
-    choice = lookup[inp]
+    choice = lookup[inp2]
     asyncio.run(func(obj, choice))
 
 

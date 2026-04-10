@@ -4,7 +4,7 @@ import logging
 import re
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, ClassVar, NotRequired, TypedDict
+from typing import Any, ClassVar, NotRequired, TypedDict, cast
 
 from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -32,6 +32,8 @@ from pythonripper.extractor import (
     tumblr,
     yandere,
 )
+
+STOP = object()
 
 
 class WebsiteInfo(TypedDict):
@@ -211,7 +213,7 @@ class CombinedFile:
         )
         root.destroy()
 
-    async def _add_get_tag_urls(self, tagname: str, website: str | None, dont_add_homepage: bool = False) -> list[str]:
+    async def _add_get_tag_urls(self, tagname: str, website: str | None = None, dont_add_homepage: bool = False) -> list[str]:
         async def task(obj: scraper.TaggableScraper) -> None:
             urls_to_format = []
             if isinstance(obj.URL_TAG, str):
@@ -223,7 +225,10 @@ class CombinedFile:
             for url_to_format in urls_to_format:
                 this_url = url_to_format.format(tagname=obj.format_tagname(tagname))
                 try:
-                    this_tagname = re.match(obj.TAG_PATTERN, this_url).group(1).replace(" ", obj.SPACE_REPLACE)
+                    matched = re.match(obj.TAG_PATTERN, this_url)
+                    if not matched:
+                        raise AttributeError("Matching failed, which should never happen! %s - %s ", obj.TAG_PATTERN, this_url)
+                    this_tagname = matched.group(1).replace(" ", obj.SPACE_REPLACE)
                 except AttributeError:
                     this_tagname = tagname
 
@@ -242,8 +247,8 @@ class CombinedFile:
                 if dont_add_homepage is False:
                     result.append(obj.HOMEPAGE)
 
-        result = []
-        tasks = []
+        result: list[str] = []
+        tasks: list[asyncio.Task[None]] = []
         for key in self.websites:
             if website is None or website == key:
                 obj = self.websiteinfo[key]["object_active"]
@@ -291,6 +296,8 @@ class CombinedFile:
                 obj = self.websiteinfo[key]["object_active"]
                 try:
                     matched = re.match(obj.TAG_PATTERN, url)
+                    if not matched:
+                        raise AttributeError
                     tag_formatted = matched.group(1)
                     tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
                     while tag.startswith((" ", "+")):
@@ -306,8 +313,39 @@ class CombinedFile:
         self.data[new_tag] = new_tag_obj
         await self.write()
 
+    async def worker_producer(
+        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str | None = None
+    ) -> None:
+        for i, artist in artists:
+            artist_aliases = {artist, *self.get_list(artist=artist)}
+            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
+            await q.put((i, artist, url_list))
+        await q.put(STOP)
+
+    async def worker_consumer(
+        self, q: asyncio.Queue[tuple[int, str, list[str]] | object], processing_length: int, driver: WebDriver, fallback_handle: str
+    ) -> None:
+        while True:
+            item = await q.get()
+            if item is STOP:
+                return
+            item = cast(tuple[int, str, list[str]], item)
+            i, artist, url_list = item
+
+            if len(url_list) == 0:
+                print(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
+                await self.process_urls(artist, [])
+                continue
+
+            await asyncio.to_thread(self._add_open_urls_in_new_tabs, driver, url_list, fallback_handle)
+            await asyncio.to_thread(input, f"#{i} / {processing_length} - {artist} - Press ENTER to confirm...")
+            confirmed_urls = await asyncio.to_thread(self._add_get_confirmed_urls, driver, fallback_handle)
+            await self.process_urls(artist, confirmed_urls)
+            await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
+
     async def add_website(self, choice: str) -> None:
-        await self._add_activate_dict(self.config, choice)
+
+        await self._add_activate_dict(self.config, choice=choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
         homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == choice]
@@ -316,26 +354,17 @@ class CombinedFile:
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         self_data_len = len(self.data)
+        artists: list[tuple[int, str]] = []
         for i, (artist_name, artist_data) in enumerate(self.data.items()):
             if choice in artist_data:
-                print(f"#{i} / {self_data_len} - {artist_name} - Already exists...")
+                print(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
                 continue
+            artists.append((i, artist_name))
 
-            artist_aliases = {artist_name, *self.get_list(artist=artist_name)}
-            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
-            if len(url_list) == 0:
-                print(f"#{i} / {self_data_len} - {artist_name} - Nothing found...")
-                await self.process_urls(artist_name, [])
-                continue
-
-            self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
-            input(f"#{i} / {self_data_len} - {artist_name} - Press ENTER to confirm...")  # noqa: ASYNC250
-            confirmed_urls = self._add_get_confirmed_urls(driver, fallback_handle)
-            await self.process_urls(artist_name, confirmed_urls)
-            self._add_close_non_fallback_tabs(driver, fallback_handle)
+        q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=30)
+        await asyncio.gather(self.worker_consumer(q, self_data_len, driver, fallback_handle), self.worker_producer(artists, q, choice))
 
     async def add_tags(self) -> None:
-
         def get_new_tag_name() -> str:
             result = input(f"Please enter the {self.tag_type} which you wanna add: ")
             if result in str(self.data):

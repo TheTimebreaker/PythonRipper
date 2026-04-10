@@ -1,5 +1,6 @@
 """Main module for interacting with https://www.akairiot.com/ ."""
 
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any, final
 
@@ -25,13 +26,18 @@ class AkaiRiot(scraper.ArtistWebsiteScraper):
         return True
 
     async def _get_post_data(
-        self, _post_id: str | None = None, _json_data: dict[str, Any] | None = None, post_soup: bs4.BeautifulSoup | None = None
+        self, _post_id: str | None = None, _json_data: dict[str, Any] | None = None, post_soup: bs4.Tag | None = None
     ) -> scraper.PostData:
         if post_soup is None:
             raise ValueError("Giving post soup required!")
 
         post_id = str(post_soup["data-slide-id"])
-        download_url = str(post_soup.find("img")["data-src"])
+        tmp = post_soup.find("img")
+        if not tmp:
+            msg = f"[{self.ME.upper()}] - Img tag not found for post {post_id} ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
+        download_url = str(tmp["data-src"])
         extension = f.match_extension(download_url)
         assert extension
 
@@ -44,7 +50,12 @@ class AkaiRiot(scraper.ArtistWebsiteScraper):
         res = await self.session.get(self.BASE_URL)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
 
-        items = soup.find("div", {"id": "thumbList"}).find_all("span")
+        tmp = soup.find("div", {"id": "thumbList"})
+        if not tmp:
+            msg = f"[{self.ME.upper()}] - Could not find thumbList element ."
+            logging.error(msg)
+            raise cf.ExtractorStopError(msg) from AttributeError
+        items = tmp.find_all("span")
 
         for item in items:
             post_data = await self._get_post_data(post_soup=item)

@@ -26,7 +26,7 @@ async def main(config: cfg.Config) -> None:
             continue
         print(f"{i+1} / {len(urls)} - {url}")
 
-        success = await obj.download_post(post_url=url, dpath=dpath)
+        success = await obj.download_post(url=url, dpath=dpath)
         print(success, type(success))
         print("=" * 20)
 

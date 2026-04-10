@@ -249,7 +249,12 @@ class NewgroundsAPI(scraper.TaggableScraper):
         post_title = str(soup.find("title").contents[0])  # type: ignore
 
         # get images
-        single_image = soup.find("div", {"class": "image"}).find("a", {"href": True})
+        tmp = soup.find("div", {"class": "image"})
+        if not tmp:
+            msg = f"[{self.ME.upper()}] - Could not find div.image for {artist} - {post_id}"
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
+        single_image = tmp.find("a", {"href": True})
         art_image_row = soup.find_all("div", {"class": "art-image-row"})
         art_view_gallery = soup.find("div", {"class": "art-view-gallery"})
         if single_image:

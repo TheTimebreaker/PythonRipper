@@ -29,6 +29,8 @@ import pythonripper.updater.update_rule34xxx
 import pythonripper.updater.update_tumblr
 import pythonripper.updater.update_yandere
 
+# ruff: noqa: ERA001
+
 
 def read_update_scheduler(config: cfg.Config) -> dict[Any, Any]:
     try:

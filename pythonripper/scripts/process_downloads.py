@@ -167,7 +167,8 @@ class Worker:
             pass
         else:
             for file in f.iter_files(path):
-                if f.match_extension(file.name) in unwanted_extensions:
+                mat = f.match_extension(file.name)
+                if mat and mat in unwanted_extensions:
                     file.unlink()
         print("=" * 25)
 

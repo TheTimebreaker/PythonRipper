@@ -217,7 +217,7 @@ class PatreonAPI(scraper.TaggableScraper):
 
             return post
 
-        def iter_post_links(post: dict[str, Any]) -> Generator[str]:
+        def iter_post_links(post: dict[str, Any]) -> Generator[scraper.PostElement]:
             json_obj = post["attributes"]["content_json_string"]
             if json_obj["type"] == "doc":
                 for content in json_obj["content"]:
