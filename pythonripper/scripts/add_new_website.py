@@ -26,7 +26,7 @@ def main(config: cfg.Config) -> None:
     print(" | ".join(s))
 
     inp2 = int(input("Enter a number to choose that website: "))
-    if inp not in lookup:
+    if inp2 not in lookup:
         print("No valid choice detected, run again.")
         return
 
