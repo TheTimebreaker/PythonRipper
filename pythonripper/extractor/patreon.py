@@ -54,7 +54,7 @@ class PatreonAPI(scraper.TaggableScraper):
     HOMEPAGE = "https://patreon.com/"
     URL_TAG = "https://patreon.com/{tagname}"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?patreon\.com/posts/(?:[\w\-]+-)?(\d+)"
-    TAG_PATTERN = r"https://(?:www\.)?patreon\.com/([^/&\?]+)"
+    TAG_PATTERN = r"https://(?:www\.)?patreon\.com/(?:c/|cw/)?([^/&\?]+)"
 
     ME = "patreon"
     LIMIT = asynciolimiter.Limiter(98 / 2)
