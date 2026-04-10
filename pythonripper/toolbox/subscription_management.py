@@ -305,6 +305,9 @@ class CombinedFile:
                         tag = tag[1:]
                     while tag.endswith((" ", "+")):
                         tag = tag[:-1]
+
+                    if re.match(r"^(?:\s?[A-Za-z]\s)+$", tag):
+                        raise ValueError("Tag %s was detected with spaces from url %s and pattern %s", tag, url, obj.TAG_PATTERN)
                     new_tag_obj[key].append(tag)
                     break
                 except AttributeError:
