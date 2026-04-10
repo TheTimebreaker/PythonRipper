@@ -123,9 +123,9 @@ class CombinedFile:
             self.websiteinfo[key]["object_active"] = obj
 
         tasks = []
-        for key, items in self.websiteinfo.copy().items():
+        for key in self.websites:
             if not choice or choice == key:
-                tasks.append(asyncio.create_task(task(key, items["object"])))
+                tasks.append(asyncio.create_task(task(key, self.websiteinfo[key]["object"])))
         await asyncio.gather(*tasks)
 
     def _add_ensure_fallback_tab(self, driver: WebDriver, fallback_url: str = "about:blank") -> str:
@@ -244,11 +244,14 @@ class CombinedFile:
 
         result = []
         tasks = []
+        for key in self.websites:
         for key, value in self.websiteinfo.items():
             if website is None or website == key:
-                obj = value["object_active"]
+                obj = self.websiteinfo[key]["object_active"]
                 tasks.append(asyncio.create_task(task(obj)))
         await asyncio.gather(*tasks)
+
+        return result
 
         return result
 
@@ -282,13 +285,13 @@ class CombinedFile:
             new_tag_obj = self.data[new_tag]
         else:
             new_tag_obj = {}
-        for key in self.websiteinfo:
+        for key in self.websites:
             if key not in new_tag_obj:
                 new_tag_obj[key] = []
 
         for url in url_list:
-            for key, value in self.websiteinfo.items():
-                obj = value["object_active"]
+            for key in self.websites:
+                obj = self.websiteinfo[key]["object_active"]
                 try:
                     matched = re.match(obj.TAG_PATTERN, url)
                     tag_formatted = matched.group(1)
@@ -310,7 +313,7 @@ class CombinedFile:
         await self._add_activate_dict(self.config, choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
-        homepages = [obj["object_active"].HOMEPAGE for key, obj in self.websiteinfo.items() if key == choice]
+        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == choice]
         self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
         self._add_userconfirm_console("CONTINUE WHEN EVERYTHING LOADS")
         self._add_close_non_fallback_tabs(driver, fallback_handle)
@@ -355,7 +358,7 @@ class CombinedFile:
         await self._add_activate_dict(self.config)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
-        homepages = [obj["object_active"].HOMEPAGE for obj in self.websiteinfo.values()]
+        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites]
         self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
         self._add_userconfirm_console("CONTINUE WHEN EVERYTHING LOADS")
         self._add_close_non_fallback_tabs(driver, fallback_handle)

@@ -102,7 +102,7 @@ class Animepictures(scraper.BooruScraper):
         return "in request 0 pictures" not in res.text
 
     def format_tagname(self, tagname: str) -> str:
-        return tagname.replace(" ", self.SPACE_REPLACE).replace("/", "+")
+        return tagname.replace(" ", self.SPACE_REPLACE).replace("/", "%2F")
 
     async def _get_post_data(self, post_id: str | None = None, _json_data: dict[Any, Any] | None = None) -> scraper.PostData:
         async def _get_post_html(post_id: str) -> str:
