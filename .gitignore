@@ -1,6 +1,4 @@
-.venv/
-.venv-linux/
-.venv-windows/
+.venv*
 __pycache__/
 .mypy_cache/
 .ruff_cache/
