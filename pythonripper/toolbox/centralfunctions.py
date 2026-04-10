@@ -162,7 +162,7 @@ def init_selenium(headless: bool = False) -> WebDriver:
         latest_chromedriver_download_url = (
             f"https://storage.googleapis.com/chrome-for-testing-public/{latest_chrome_version}/win64/chromedriver-win64.zip"
         )
-        latest_chromedriver_path = chromedriver_main.joinpath(f"{latest_chrome_version} chromedriver-win64")
+        latest_chromedriver_path = chromedriver_main / f"{latest_chrome_version} chromedriver-win64"
         latest_chromedriver_path_tmp = latest_chromedriver_path.with_name(latest_chromedriver_path.name + "-temp")
         latest_chromedriver_path_zip = latest_chromedriver_path.with_name(latest_chromedriver_path.name + ".zip")
 
@@ -184,7 +184,7 @@ def init_selenium(headless: bool = False) -> WebDriver:
             shutil.move(latest_chromedriver_path_tmp / "chromedriver-win64", latest_chromedriver_path)
             latest_chromedriver_path_tmp.rmdir()
 
-        return latest_chrome_path.joinpath("chrome.exe"), latest_chromedriver_path.joinpath("chromedriver.exe")
+        return latest_chrome_path / "chrome.exe", latest_chromedriver_path / "chromedriver.exe"
 
     chrome_path, chromedriver_path = chromeversion_download()
     options = Options()
