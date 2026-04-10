@@ -245,13 +245,10 @@ class CombinedFile:
         result = []
         tasks = []
         for key in self.websites:
-        for key, value in self.websiteinfo.items():
             if website is None or website == key:
                 obj = self.websiteinfo[key]["object_active"]
                 tasks.append(asyncio.create_task(task(obj)))
         await asyncio.gather(*tasks)
-
-        return result
 
         return result
 
