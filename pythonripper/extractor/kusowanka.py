@@ -182,7 +182,10 @@ class KusowankaAPI(scraper.BooruScraper):
 
             download_url = await get_download_url(soup)
             extension = f.match_extension(download_url)
-            assert extension
+            if not extension:
+                msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg) from AttributeError
 
             tags = scraper.TagsData(
                 artists=await get_artists(soup),

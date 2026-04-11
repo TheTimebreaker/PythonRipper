@@ -78,7 +78,10 @@ class Rule34usAPI(scraper.BooruScraper):
             if charactertag.contents[0] == "Original":
                 download_url = str(charactertag.parent["href"])  # type: ignore
                 extension = f.match_extension(download_url)
-                assert extension
+                if not extension:
+                    msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+                    logging.error(msg)
+                    raise cf.ExtractorSkipError(msg) from AttributeError
                 break
         else:
             logging.error("[RULE34US] - Could not extract download link from post %s ", post_id)

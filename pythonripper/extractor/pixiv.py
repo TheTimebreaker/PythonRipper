@@ -162,7 +162,10 @@ class PixivAPI(scraper.TaggableScraper):
             download_url = json_data["meta_single_page"]["original_image_url"]
             assert isinstance(download_url, str)
             extension = f.match_extension(download_url)
-            assert extension
+            if not extension:
+                msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg) from AttributeError
             elements = scraper.PostElementLinks(download_url=download_url, extension=extension)
 
         elif json_data["meta_pages"]:  # multiple images
@@ -171,7 +174,10 @@ class PixivAPI(scraper.TaggableScraper):
                 download_url = image["image_urls"]["original"]
                 assert isinstance(download_url, str)
                 extension = f.match_extension(download_url)
-                assert extension
+                if not extension:
+                    msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+                    logging.error(msg)
+                    raise cf.ExtractorSkipError(msg) from AttributeError
 
                 elements.append(scraper.PostElementLinks(download_url=download_url, extension=extension))
 

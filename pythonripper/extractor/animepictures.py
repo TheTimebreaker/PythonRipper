@@ -147,10 +147,16 @@ class Animepictures(scraper.BooruScraper):
         )
 
         download_url_tmp = soup.find("a", {"class": "icon-download"})
-        assert download_url_tmp
+        if not download_url_tmp:
+            msg = f"[{self.ME.upper()}] - Post {post_id}: no download-url html element found ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
         download_url = str(download_url_tmp["href"])
         extension = f.match_extension(download_url)
-        assert extension
+        if not extension:
+            msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
 
         return scraper.PostData(
             identifier=post_id,

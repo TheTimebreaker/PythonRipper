@@ -1,5 +1,6 @@
 """Main module for interacting with https://hypnohub.net/ ."""
 
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any, final
 
@@ -71,7 +72,11 @@ class HypnohubAPI(scraper.BooruScraper):
 
         download_url = json_data["file_url"]
         extension = f.match_extension(download_url)
-        assert extension
+        if not extension:
+            msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
+
         return scraper.PostData(
             identifier=post_id,
             filehash=str(json_data["hash"]),

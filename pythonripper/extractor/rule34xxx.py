@@ -86,7 +86,10 @@ class Rule34xxxAPI(scraper.BooruScraper):
         download_url = json_data["file_url"]
         assert isinstance(download_url, str)
         extension = f.match_extension(download_url)
-        assert extension
+        if not extension:
+            msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
         return scraper.PostData(
             identifier=json_data["id"],
             filehash=json_data["hash"],

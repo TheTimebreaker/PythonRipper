@@ -1,5 +1,6 @@
 """Main module for interacting with https://sss.booru.org/ ."""
 
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any, final
 
@@ -42,7 +43,10 @@ class SuperSatanSonAPI(scraper.ArtistWebsiteScraper):
 
         download_url = str(tmp2)
         extension = f.match_extension(download_url)
-        assert extension
+        if not extension:
+            msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
 
         return scraper.PostData(identifier=post_id, elements=scraper.PostElementLinks(download_url=download_url, extension=extension))
 

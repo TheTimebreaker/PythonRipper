@@ -65,7 +65,10 @@ class ArtstationAPI(scraper.TaggableScraper):
         for url in [asset["image_url"] for asset in data["assets"]]:
             assert isinstance(url, str)
             extension = f.match_extension(url)
-            assert extension
+            if not extension:
+                msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {url} without a valid extension ."
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg) from AttributeError
             elements.append(scraper.PostElementLinks(download_url=url, extension=extension))
         post_hash = data["id"]
 
