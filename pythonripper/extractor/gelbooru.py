@@ -46,10 +46,11 @@ class GelbooruAPI(scraper.BooruScraper):
                 return True
             except FileExistsError, KeyError:
                 logging.error(
-                    "[GELBOORU] - The credentials file at %s either does not exist or is invalid. "
+                    "[%s] - The credentials file at %s either does not exist or is invalid. "
                     "API access requires a api_key and user_id in this file. "
                     "Please create an account for Gelbooru, navigate to the options, find the API credentials, "
                     "and enter the required values in the file.",
+                    self.ME.upper(),
                     self.credentials_path,
                 )
                 return False
@@ -72,7 +73,7 @@ class GelbooruAPI(scraper.BooruScraper):
             res = await self.session.get(self.API_URL, params=params)
             validity = res.status_code == 200
             if not validity:
-                logging.error("[GELBOORU] - Created session could not be verified to work. Maybe your API credentials aren't valid?")
+                logging.error("[%s] - Created session could not be verified to work. Maybe your API credentials aren't valid?", self.ME.upper())
             return validity
 
         if not await read_credentials():
@@ -143,7 +144,7 @@ class GelbooruAPI(scraper.BooruScraper):
 
             # no posts found?
             if res.status_code == 401:
-                logging.error("[GELBOORU] - Tag %s returned 401 html response. Removed?", tagname)
+                logging.error("[%s] - Tag %s returned 401 html response. Removed?", self.ME.upper(), tagname)
                 raise cf.ExtractorExitError("Tag %s returned 401 html response. Removed?", tagname)
 
             # Paginated past last post(s)

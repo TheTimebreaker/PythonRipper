@@ -43,10 +43,11 @@ class Animepictures(scraper.BooruScraper):
                 username, password = data["username"], data["password"]
             except KeyError, FileNotFoundError:
                 logging.error(
-                    "[ANIMEPICTURES] - No valid credentials found. Please create a credentials json file at %s "
+                    "[%s] - No valid credentials found. Please create a credentials json file at %s "
                     "containing 'username' and 'password' of your account. "
                     "Do NOT use an actual account for this; use a burner, since the password will be stored"
                     "in CLEAR TEXT on an unprotected text file on your disk.",
+                    self.ME.upper(),
                     self.credentials_path,
                 )
                 return False
@@ -55,9 +56,9 @@ class Animepictures(scraper.BooruScraper):
             await self.LIMIT.wait()
             res = await self.session.post("https://api.anime-pictures.net/api/v3/auth", json=json_request)
             if res.status_code != 200:
-                logging.error("[ANIMEPICTURES] - Login failed, status code %s", res.status_code)
+                logging.error("[%s] - Login failed, status code %s", self.ME.upper(), res.status_code)
                 raise ConnectionRefusedError
-            logging.info("[ANIMEPICTURES] - Login succeeded")
+            logging.info("[%s] - Login succeeded", self.ME.upper())
             return True
 
         async def _set_explicit_images() -> bool:
@@ -67,27 +68,28 @@ class Animepictures(scraper.BooruScraper):
                     raise KeyError
             except KeyError:
                 logging.error(
-                    "[ANIMEPICTURES] - No setting found regarding allowance of erotic imagery. Please set it in settings at"
-                    '["extractor"]/["animepictures"]/["allow_erotic_images"] by setting it to either true or false. '
+                    "[%s] - No setting found regarding allowance of erotic imagery. Please set it in settings at"
+                    '["extractor"]/["animepictures"]/["allow_erotic_images"] by setting it to either true or false. ',
+                    self.ME.upper(),
                 )
                 return False
 
             await self.LIMIT.wait()
             res = await self.session.get("https://api.anime-pictures.net/api/v3/profile?lang=en")
             if res.status_code != 200:
-                logging.error("[ANIMEPICTURES] - Profile settings checkup failed, status code %s", res.status_code)
+                logging.error("[%s] - Profile settings checkup failed, status code %s", self.ME.upper(), res.status_code)
                 raise ConnectionRefusedError
             if not res.json()["user"]["jvwall_block_erotic"]:  # type: ignore
-                logging.info("[ANIMEPICTURES] - Explicit images are enabled in user settings.")
+                logging.info("[%s] - Explicit images are enabled in user settings.", self.ME.upper())
                 return True
-            logging.warning("[ANIMEPICTURES] - Explicit images are not enabled in user settings. Attempting to fix...")
+            logging.warning("[%s] - Explicit images are not enabled in user settings. Attempting to fix...", self.ME.upper())
             json = {"jvwall_block_erotic": False}
             await self.LIMIT.wait()
             res = await self.session.put("https://api.anime-pictures.net/api/v3/profile?lang=en", json=json)
             if res.status_code != 200:
-                logging.error("[ANIMEPICTURES] - Profile settings checkup failed, status code %s", res.status_code)
+                logging.error("[%s] - Profile settings checkup failed, status code %s", self.ME.upper(), res.status_code)
                 raise ConnectionRefusedError
-            logging.info("[ANIMEPICTURES] - Changing user settings to allow explicit images was successfull.")
+            logging.info("[%s] - Changing user settings to allow explicit images was successfull.", self.ME.upper())
             return True
 
         if not await _login():
@@ -110,9 +112,9 @@ class Animepictures(scraper.BooruScraper):
             await self.LIMIT.wait()
             res = await self.session.get(url)
             if res.status_code != 200:
-                logging.error("[ANIMEPICTURES] - Request to %s return status code %s", url, res.status_code)
+                logging.error("[%s] - Request to %s return status code %s", self.ME.upper(), url, res.status_code)
                 raise ConnectionRefusedError
-            logging.info("[ANIMEPICTURES] - Request to %s return status code %s", url, res.status_code)
+            logging.info("[%s] - Request to %s return status code %s", self.ME.upper(), url, res.status_code)
             return str(res.text)
 
         def _filter_tags_by_type(
@@ -167,13 +169,13 @@ class Animepictures(scraper.BooruScraper):
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
         async def get_tag_html(tag_name: str, page: int) -> str:
             params: dict[str, str | int] = {"page": page, "search_tag": tag_name, "lang": "en"}
-            logging.info("[ANIMEPICTURES] - %s  %s", self.API_URL, params)
+            logging.info("[%s] - %s  %s", self.ME.upper(), self.API_URL, params)
             await self.LIMIT.wait()
             res = await self.session.get(self.API_URL, params=params)
             if res.status_code != 200:
-                logging.error("[ANIMEPICTURES] - Request to tag %s return status code %s", tag_name, res.status_code)
+                logging.error("[%s] - Request to tag %s return status code %s", self.ME.upper(), tag_name, res.status_code)
                 raise ConnectionRefusedError
-            logging.info("[ANIMEPICTURES] - Request to tag %s return status code %s", tag_name, res.status_code)
+            logging.info("[%s] - Request to tag %s return status code %s", self.ME.upper(), tag_name, res.status_code)
             return str(res.text)
 
         def _extract_postids_from_html(html: str) -> list[str]:
@@ -200,11 +202,11 @@ class Animepictures(scraper.BooruScraper):
         for page in itertools.count(start=self.page_start):
             post_ids = _extract_postids_from_html(await get_tag_html(tagname, page))
             if len(post_ids) == 0:
-                logging.info("[ANIMEPICTURES] - End of tag %s reached; no more files reported.", tagname)
+                logging.info("[%s] - End of tag %s reached; no more files reported.", self.ME.upper(), tagname)
                 return
 
             for post_id in post_ids:
                 if str(post_id) in update_ids:
-                    logging.info("[ANIMEPICTURES] - Update ID encountered in tag %s .", tagname)
+                    logging.info("[%s] - Update ID encountered in tag %s .", self.ME.upper(), tagname)
                     return
                 yield await self._get_post_data(post_id)

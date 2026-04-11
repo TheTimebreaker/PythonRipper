@@ -84,7 +84,7 @@ class Rule34usAPI(scraper.BooruScraper):
                     raise cf.ExtractorSkipError(msg) from AttributeError
                 break
         else:
-            logging.error("[RULE34US] - Could not extract download link from post %s ", post_id)
+            logging.error("[%s] - Could not extract download link from post %s ", self.ME.upper(), post_id)
             raise cf.ExtractorExitError("[RULE34US] - Could not extract download link from post %s ", post_id)
 
         filehash = download_url.split("/")[-1].split(".")[0]

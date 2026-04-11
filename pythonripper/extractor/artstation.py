@@ -56,7 +56,7 @@ class ArtstationAPI(scraper.TaggableScraper):
         res = await self.session.get(api_url, headers=self.headers, impersonate="chrome101")
 
         if res.status_code != 200:
-            logging.error("[ARTSTATION] - %s for downloading post %s . Impersonation?", res.status_code, post_id)
+            logging.error("[%s] - %s for downloading post %s . Impersonation?", self.ME.upper(), res.status_code, post_id)
             raise cf.ExtractorExitError("%s for downloading post %s . Impersonation?", res.status_code, post_id)
 
         data = res.json()  # type: ignore
@@ -94,7 +94,7 @@ class ArtstationAPI(scraper.TaggableScraper):
             res = await self.session.get(api_url, params=params)
 
             if res.status_code != 200:
-                logging.error("[ARTSTATION] - (artist json of %s) returned a non-200-HTML code. RIP. %s", tagname, res.status_code)
+                logging.error("[%s] - (artist json of %s) returned a non-200-HTML code. RIP. %s", self.ME.upper(), tagname, res.status_code)
                 raise cf.ExtractorExitError("(artist json of %s) returned a non-200-HTML code. RIP. %s", tagname, res.status_code)
 
             if not res.json()["data"]:  # type: ignore

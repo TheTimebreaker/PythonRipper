@@ -46,10 +46,11 @@ class Rule34xxxAPI(scraper.BooruScraper):
                 return True
             except FileExistsError, KeyError:
                 logging.error(
-                    "[RULE34XXX] - The credentials file at %s either does not exist or is invalid. "
+                    "[%s] - The credentials file at %s either does not exist or is invalid. "
                     "API access requires a api_key and user_id in this file. "
                     "Please create an account for rule34xxx, navigate to the options, find the API credentials, "
                     "and enter the required values in the file.",
+                    self.ME.upper(),
                     self.credentials_path,
                 )
                 return False
@@ -126,7 +127,7 @@ class Rule34xxxAPI(scraper.BooruScraper):
                 if res.status_code == 200 and not res.json():
                     return
             except requests.exceptions.JSONDecodeError, json.decoder.JSONDecodeError:
-                logging.error("[RULE34XXX] Could not fully download tag %s due to empty response. Maybe the tag has been removed?", tagname)
+                logging.error("[%s] Could not fully download tag %s due to empty response. Maybe the tag has been removed?", self.ME.upper(), tagname)
                 return
 
             data = res.json()

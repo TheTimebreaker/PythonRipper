@@ -82,7 +82,7 @@ class DanbooruAPI(scraper.BooruScraper):
 
             try:
                 if res.json()["success"] is False and res.json()["message"] == "The database timed out running your query.":
-                    logging.warning("Timeouted... trying again: %s %s .", self.API_TAG_URL, params)
+                    logging.warning("[%s] - Timeouted... trying again: %s %s .", self.ME.upper(), self.API_TAG_URL, params)
                     await asyncio.sleep(10)
                     continue
             except KeyError, TypeError:
@@ -97,7 +97,7 @@ class DanbooruAPI(scraper.BooruScraper):
 
             # Stops, if API responds with illegal shit
             if res.status_code != 200:
-                logging.error("[DANBOORU] - Fetching gave illegal status code: %s . response: %s", res.status_code, res.text)
+                logging.error("[%s] - Fetching gave illegal status code: %s . response: %s", self.ME.upper(), res.status_code, res.text)
                 raise cf.ExtractorExitError("Fetching gave illegal status code: %s . response: %s", res.status_code, res.text)
 
             data = res.json()
@@ -105,7 +105,9 @@ class DanbooruAPI(scraper.BooruScraper):
                 try:
                     post_data = await self._get_post_data(json_data=post)
                 except KeyError:
-                    logging.error("[DANBOORU] - Keyerror encountered on post %s . Often indicates gold-account-locked or deleted posts.", post["id"])
+                    logging.error(
+                        "[%s] - Keyerror encountered on post %s . Often indicates gold-account-locked or deleted posts.", self.ME.upper(), post["id"]
+                    )
                     continue
                 if post_data["identifier"] in update_ids:
                     return

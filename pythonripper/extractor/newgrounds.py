@@ -55,9 +55,10 @@ class NewgroundsAPI(scraper.TaggableScraper):
         def load_newgrounds_cookies() -> bool:
             if not self.jar_path.is_file():
                 logging.error(
-                    "[NEWGROUNDS] - Login via password unsupported. "
+                    "[%s] - Login via password unsupported. "
                     "Log into Newgrounds via your browser and export your cookies in the Netscape format via an extension."
                     "Rename the file to 'newgrounds_cookies.txt' and place it here: %s",
+                    self.ME.upper(),
                     self.jar_path,
                 )
                 return False
@@ -79,7 +80,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
                 res = await session.get("https://www.newgrounds.com/art/view/afrobull/squirrel-girl-2")
                 await f.atomic_write(Path("test.html"), res.text, encoding="utf-8-sig")
                 if "You must be logged in, and at least 18 years of age to view this content" in str(res.text):
-                    logging.error("The session in-use does not allow accessing 18+ content. Please check manually!")
+                    logging.error("[%s] - The session in-use does not allow accessing 18+ content. Please check manually!", self.ME.upper())
                     return False
                 elif (
                     "https://art.ngfiles.com/medium_views/6319000/6319208_1552858_afrobull_untitled-6319208.05bbc025241b27d4934cfd93eacbb7bc.webp"
@@ -87,7 +88,9 @@ class NewgroundsAPI(scraper.TaggableScraper):
                 ):
                     return True
                 else:
-                    logging.error("[NEWGROUNDS] - The test_session function could not determine, whether or not the session can access 18+ content.")
+                    logging.error(
+                        "[%s] - The test_session function could not determine, whether or not the session can access 18+ content.", self.ME.upper()
+                    )
                     return False
 
             if load_newgrounds_cookies() is not False:
@@ -103,8 +106,9 @@ class NewgroundsAPI(scraper.TaggableScraper):
                     if await test_session(self.session):
                         return True
             logging.error(
-                "[NEWGROUNDS] - Loading cookies and using them was not successful. "
+                "[%s] - Loading cookies and using them was not successful. "
                 "Delete the file %s and re-run script to get instructions on how to set new cookies.",
+                self.ME.upper(),
                 self.jar_path,
             )
             return False
@@ -121,9 +125,10 @@ class NewgroundsAPI(scraper.TaggableScraper):
                 return True
             except KeyError:
                 logging.error(
-                    "[NEWGROUNDS] - Could not read content filters from config."
+                    "[%s] - Could not read content filters from config."
                     'Please add them at ["extractor"]/["newgrounds"]/["content_ratings"]/["e"], /["t"], /["m"], /["a"]'
-                    "as booleans."
+                    "as booleans.",
+                    self.ME.upper(),
                 )
                 return False
 
@@ -141,7 +146,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
             print(self.old_suitabilities)
 
         async def update_suitabilities() -> bool:
-            logging.error("[NEWGROUNDS] - Updating suitabilities does not work. Update them through the browser.")
+            logging.error("[%s] - Updating suitabilities does not work. Update them through the browser.", self.ME.upper())
             return False
             payload = {"suitabilities[]": [key for key in self.suitabilites_config.keys() if self.suitabilites_config[key] is True]}
             print(payload)
@@ -169,11 +174,11 @@ class NewgroundsAPI(scraper.TaggableScraper):
         async def _iter_over_audio(audio_script_tag: bs4.Tag) -> AsyncGenerator[str]:
             text = audio_script_tag.string
             if not text:
-                logging.error("[NEWGROUNDS](A) - Could not extract download url from audio post %s ", post_url)
+                logging.error("[%s](A) - Could not extract download url from audio post %s ", self.ME.upper(), post_url)
                 raise cf.InterruptError
             matched = re.search(r'"url":"(https:\\/\\/[^"]+\.mp3[^"]*)"', text)
             if not matched:
-                logging.error("[NEWGROUNDS](B) - Could not extract download url from audio post %s ", post_url)
+                logging.error("[%s](B) - Could not extract download url from audio post %s ", self.ME.upper(), post_url)
                 raise cf.InterruptError
 
             url = matched.group(1).replace("\\/", "/")
@@ -214,33 +219,35 @@ class NewgroundsAPI(scraper.TaggableScraper):
 
     async def _get_art_data(self, post_url: str) -> scraper.PostData:
         async def _iter_over_single_image(image: bs4.Tag) -> AsyncGenerator[str]:
-            logging.info("Detected post as single image.")
+            logging.info("[%s] - Detected post as single image.", self.ME.upper())
             yield str(image["href"])
 
         async def _iter_over_art_image_row(images: Iterable[bs4.Tag]) -> AsyncGenerator[str]:
-            logging.info("Detected post as art image post(s).")
+            logging.info("[%s] - Detected post as art image post(s).", self.ME.upper())
             for image in images:
                 download_link_element = image.find("a", {"href": True})
                 if download_link_element is None:
-                    logging.error("[NEWGROUNDS] - Could not download art_image_row %s : Couldn't find download link element.", post_url)
+                    logging.error("[%s] - Could not download art_image_row %s : Couldn't find download link element.", self.ME.upper(), post_url)
                     raise cf.InterruptError
                 yield str(download_link_element["href"])
 
         async def _iter_over_art_view_gallery(gallery: bs4.Tag) -> AsyncGenerator[str]:
-            logging.info("Detected post as art_view_gallery.")
+            logging.info("[%s] - Detected post as art_view_gallery.", self.ME.upper())
 
             # yes the image data is in an inline script tag haha
             match = re.search(r"let imageData = (\[.*?\]);", str(gallery), re.DOTALL)
             if not match:
                 logging.error(
-                    "[NEWGROUNDS] - Could not download art_view_gallery %s : Inline script tag with image data not found or unprocessable.", post_url
+                    "[%s] - Could not download art_view_gallery %s : Inline script tag with image data not found or unprocessable.",
+                    self.ME.upper(),
+                    post_url,
                 )
                 raise cf.InterruptError
             data = json.loads(match.group(1))
             for element in [img["image"] for img in data]:
                 yield element
 
-        logging.info(post_url)
+        logging.info("[%s] - %s", self.ME.upper(), post_url)
         res = await self.session.get(post_url)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
 

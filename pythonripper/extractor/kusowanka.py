@@ -164,7 +164,7 @@ class KusowankaAPI(scraper.BooruScraper):
                             res = await self.session.head(testlink, timeout=60)
                             if res.status_code == 200:
                                 new_extension = extension
-                                logging.info("[KUSOWANKA] - Download file extension found as %s .", new_extension)
+                                logging.info("[%s] - Download file extension found as %s .", self.ME.upper(), new_extension)
                                 break
                         else:
                             raise TypeError(

@@ -99,9 +99,10 @@ class DeviantartAPI(scraper.TaggableScraper):
                     return True
             except FileNotFoundError, KeyError:
                 logging.error(
-                    "[DEVIANTART] - The credentials file at %s either does not exist or is invalid. "
+                    "[%s] - The credentials file at %s either does not exist or is invalid. "
                     "Refreshing API access token requires a client_id and client_secret in this file. "
                     "Please create an API access in a Deviantart account and enter the required values in the file.",
+                    self.ME.upper(),
                     self.credentials_path,
                 )
             return False
@@ -118,7 +119,10 @@ class DeviantartAPI(scraper.TaggableScraper):
             return True
 
         async def get_refresh_token() -> bool:
-            logging.info("[DEVIANTART] - Requesting account access and create refresh + access token.")
+            logging.info(
+                "[%s] - Requesting account access and create refresh + access token.",
+                self.ME.upper(),
+            )
             expected_state = secrets.token_urlsafe(24)
             result = OAuthResult()
 
@@ -194,7 +198,7 @@ class DeviantartAPI(scraper.TaggableScraper):
             return await write_credentials()
 
         async def refresh_access_token() -> bool:
-            logging.info("[DEVIANTART] - Refreshing the access token.")
+            logging.info("[%s] - Refreshing the access token.", self.ME.upper())
             params = {
                 "grant_type": "refresh_token",
                 "client_id": self.credentials["client_id"],
@@ -233,9 +237,10 @@ class DeviantartAPI(scraper.TaggableScraper):
                 self.allow_mature_content = result
             except KeyError, AssertionError:
                 logging.error(
-                    "[DEVIANTART] - Settings for mature content not correctly set."
+                    "[%s] - Settings for mature content not correctly set."
                     "Setting at extractor/deviantart/allow_mature_content must be bool."
-                    "Defaulting to false."
+                    "Defaulting to false.",
+                    self.ME.upper(),
                 )
                 self.allow_mature_content = False
             return True
@@ -420,7 +425,9 @@ class DeviantartAPI(scraper.TaggableScraper):
         # Example (NSFW) https://www.deviantart.com/mistressaipro/art/EVIL-DEAD-RISE-THE-BEAUTIFUL-EVIL-MUM-962228616
         if "premium_folder_data" in deviation_data:
             if not deviation_data["premium_folder_data"]["has_access"]:
-                logging.info("[DEVIANTART] - Watcher-only post %s without access skipped. You can follow that artist to get access.", post_id)
+                logging.info(
+                    "[%s] - Watcher-only post %s without access skipped. You can follow that artist to get access.", self.ME.upper(), post_id
+                )
                 return True
 
         # Skips premium posts you dont have access to.
@@ -428,12 +435,12 @@ class DeviantartAPI(scraper.TaggableScraper):
         if (
             "tier_access" in deviation_data.keys() and deviation_data["tier_access"] == "locked"
         ):  # If you dont have access: skip. Used for Paid-Subscriber-only content
-            logging.info("[DEVIANTART] - Tier-access-locked data without access detected. Download skipped.")
+            logging.info("[%s] - Tier-access-locked data without access detected. Download skipped.", self.ME.upper())
             return True
 
         # Downloads image posts. Example (SFW) https://www.deviantart.com/sketchesbydani/art/Zombie-plants-963259561
         if "content" in deviation_data.keys():  # images
-            logging.info("[DEVIANTART] - Image post detected.")
+            logging.info("[%s] - Image post detected.", self.ME.upper())
 
             file_url = deviation_data["content"]["src"]
             extension = f.match_extension(file_url)
@@ -441,16 +448,16 @@ class DeviantartAPI(scraper.TaggableScraper):
             await self.LIMIT.wait()
             success = await f.download_file(self.config, file_url, headers=self.headers, path=dpath, filename=f"{filename}.{extension}")
             if success:
-                logging.info("[DEVIANTART] - Download successful.")
+                logging.info("[%s] - Download successful.", self.ME.upper())
             else:
-                logging.error("[DEVIANTART] - Image post download unsuccessful. url %s", post_url)
+                logging.error("[%s] - Image post download unsuccessful. url %s", self.ME.upper(), post_url)
             return success
 
         # Downloads video posts. Example (SFW) https://www.deviantart.com/charmingis/art/Aaravos-Sente-Mais-1302395606
         elif "videos" in deviation_data.keys() and deviation_data["videos"]:
-            logging.info("[DEVIANTART] - Video post detected.")
+            logging.info("[%s] - Video post detected.", self.ME.upper())
             if not self.config.data["extractor"]["deviantart"]["saveVideoPosts"]:
-                logging.info("[DEVIANTART] - Video post %s skipped due to config flag.", post_url)
+                logging.info("[%s] - Video post %s skipped due to config flag.", self.ME.upper(), post_url)
                 return True
 
             videos = []
@@ -464,21 +471,22 @@ class DeviantartAPI(scraper.TaggableScraper):
             await self.LIMIT.wait()
             success = await f.download_file(self.config, file_url, headers=self.headers, path=dpath, filename=f"{filename}.{extension}")
             if success:
-                logging.info("[DEVIANTART] - Download successful.")
+                logging.info("[%s] - Download successful.", self.ME.upper())
             else:
-                logging.error("[DEVIANTART] - Video post download unsuccessful. url %s", post_url)
+                logging.error("[%s] - Video post download unsuccessful. url %s", self.ME.upper(), post_url)
             return success
 
         # Downloads text posts, if config says do it. Literature Example (SFW) https://www.deviantart.com/hoaxdreams/art/Chainsmoker-962491467
         elif "text_content" in deviation_data:
-            logging.info("[DEVIANTART] - Text post detected.")
+            logging.info("[%s] - Text post detected.", self.ME.upper())
             if not self.config.data["extractor"]["deviantart"]["saveTextPosts"]:
-                logging.info("[DEVIANTART] - Text post %s skipped due to config flag.", post_url)
+                logging.info("[%s] - Text post %s skipped due to config flag.", self.ME.upper(), post_url)
                 return True
 
             logging.error(
-                "[DEVIANTART] - Downloading text posts not supported, because when I tried fixing it after it broken, "
-                "I realized deviantart sends back empty responses when you try to get texts."
+                "[%s] - Downloading text posts not supported, because when I tried fixing it after it broken, "
+                "I realized deviantart sends back empty responses when you try to get texts.",
+                self.ME.upper(),
             )
             return False
 
@@ -494,11 +502,11 @@ class DeviantartAPI(scraper.TaggableScraper):
             extension = "txt"
             success = await f.download_text(self.config, dpath, f"{filename}.{extension}", text_url)
             if success:
-                logging.info("[DEVIANTART] - Download successful.")
+                logging.info("[%s] - Download successful.", self.ME.upper())
             else:
-                logging.error("[DEVIANTART] - Text post download unsuccessful. url %s", post_url)
+                logging.error("[%s] - Text post download unsuccessful. url %s", self.ME.upper(), post_url)
             return success
 
         # If no suitable downloader was found
-        logging.error("[DEVIANTART] - Unsupported type of post. Skipping download. url %s.", post_url)
+        logging.error("[%s] - Unsupported type of post. Skipping download. url %s.", self.ME.upper(), post_url)
         return False

@@ -43,17 +43,20 @@ class TumblrAPI(scraper.TaggableScraper):
                 return True
             except FileNotFoundError:
                 logging.error(
-                    "[TUMBLR] - Credentials file not found at %s .",
+                    "[%s] - Credentials file not found at %s .",
+                    self.ME.upper(),
                     self.credentials_path,
                 )
             except KeyError:
                 logging.error(
-                    "[TUMBLR] - Invalid credentials file at %s .",
+                    "[%s] - Invalid credentials file at %s .",
+                    self.ME.upper(),
                     self.credentials_path,
                 )
             logging.error(
-                "[TUMBLR] - Please create an API key on your tumblr account and put it in a .json file at the above stated path. "
+                "[%s] - Please create an API key on your tumblr account and put it in a .json file at the above stated path. "
                 "The file should contain the 'api_key' field set to the key you created.",
+                self.ME.upper(),
             )
             return False
 
@@ -102,7 +105,7 @@ class TumblrAPI(scraper.TaggableScraper):
             await self.LIMIT.wait()
             res = await self.session.get(f"{self.API_URL}/v2/blog/{tagname}/posts/photo", params={"id": post_id})
             if res.status_code != 200:
-                logging.error("[TUMBLR] - %s %s : %s", tagname, post_id, res.status_code)
+                logging.error("[%s] - %s %s : %s", self.ME.upper(), tagname, post_id, res.status_code)
                 raise cf.ExtractorExitError("%s %s : %s", tagname, post_id, res.status_code)
             json_data = res.json()["response"]["posts"][0]  # type: ignore
 
@@ -146,7 +149,7 @@ class TumblrAPI(scraper.TaggableScraper):
         return await f.download_file(config=self.config, path=dpath, filename=filename, request_content=res.content)
 
     async def __download_post_image(self, post_element_data: dict[str, Any], dpath: Path, filename: str | None) -> bool:
-        logging.info("[TUMBLR] - Part of post detected as image.")
+        logging.info("[%s] - Part of post detected as image.", self.ME.upper())
 
         best_image_height: int = -1
         best_image_url: str = ""
@@ -154,21 +157,21 @@ class TumblrAPI(scraper.TaggableScraper):
         for image in post_element_data["media"]:
             if "has_original_dimensions" in image.keys() and image["has_original_dimensions"]:
                 best_image_url = image["url"]
-                logging.info("[TUMBLR] - Original image found. Url: %s", image["url"])
+                logging.info("[%s] - Original image found. Url: %s", self.ME.upper(), image["url"])
                 break
             else:
                 if "height" in image.keys() and int(image["height"]) > best_image_height:
                     best_image_height = int(image["height"])
                     best_image_url = image["url"]
         else:
-            logging.info("[TUMBLR] - No original image found, using best found. Url: %s", best_image_url)
+            logging.info("[%s] - No original image found, using best found. Url: %s", self.ME.upper(), best_image_url)
 
         extension = f.match_extension(best_image_url)
         assert extension
         return await self._download_file(url=best_image_url, dpath=dpath, filename=f"{filename}.{extension}")
 
     async def __download_post_text(self, post_element_data: dict[str, Any], dpath: Path, filename: str | None) -> bool:
-        logging.info("[TUMBLR] - Part of post detected as text.")
+        logging.info("[%s] - Part of post detected as text.", self.ME.upper())
         if not self.config.data["extractor"]["tumblr"]["saveTextPosts"]:
             return True
         else:
@@ -177,11 +180,11 @@ class TumblrAPI(scraper.TaggableScraper):
             )
 
     async def __download_post_link(self, post_element_data: dict[str, Any]) -> bool:
-        logging.info("[TUMBLR] - Part of post detected as video link.")
+        logging.info("[%s] - Part of post detected as video link.", self.ME.upper())
         return await f.download_link(self.config, post_element_data["url"])
 
     async def __download_post_video(self, post_element_data: dict[str, Any], dpath: Path, filename: str | None) -> bool:
-        logging.info("[TUMBLR] - Part of post detected as video file.")
+        logging.info("[%s] - Part of post detected as video file.", self.ME.upper())
         extension = f.match_extension(post_element_data["media"]["url"])
         assert extension
         return await self._download_file(url=post_element_data["media"]["url"], dpath=dpath, filename=f"{filename}.{extension}")
@@ -215,13 +218,15 @@ class TumblrAPI(scraper.TaggableScraper):
             )
 
         elif post_element_data["type"] == "link":
-            logging.info("[TUMBLR] - Part of post detected as link.")
+            logging.info("[%s] - Part of post detected as link.", self.ME.upper())
             return await f.download_link(self.config, post_element_data["url"])
 
         elif post_element_data["type"] == "audio":
-            logging.info("[TUMBLR] - Part of post detected as audio.")
-            logging.error("[TUMBLR] - Audio link detected, but download not implemented, please check it manually: %s", post_element_data["url"])
+            logging.info("[%s] - Part of post detected as audio.", self.ME.upper())
+            logging.error(
+                "[%s] - Audio link detected, but download not implemented, please check it manually: %s", self.ME.upper(), post_element_data["url"]
+            )
             return False
         else:
-            logging.info("[TUMBLR] - Part of post undetected.")
+            logging.info("[%s] - Part of post undetected.", self.ME.upper())
             return False

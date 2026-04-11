@@ -85,13 +85,14 @@ class PixivAPI(scraper.TaggableScraper):
                     self.refresh_token = data["refresh_token"]
             except FileNotFoundError, KeyError:
                 logging.error(
-                    "[PIXIV] - Credentials file not found at %s or invalid data. "
+                    "[%s] - Credentials file not found at %s or invalid data. "
                     "The file must be a json with a 'refresh_token' field set to a valid refresh token.",
+                    self.ME.upper(),
                     self.credentials_path,
                 )
                 return False
 
-            logging.info("[PIXIV] - Refreshing access token")
+            logging.info("[%s] - Refreshing access token", self.ME.upper())
             url = "https://oauth.secure.pixiv.net/auth/token"
             data = {
                 "client_id": self.client_id,
@@ -103,7 +104,7 @@ class PixivAPI(scraper.TaggableScraper):
             async with httpx.AsyncClient(timeout=cf.asynctimeoutseconds()) as session:
                 res = await session.post(url, headers=self.headers, data=data)
             if res.status_code >= 400:
-                logging.debug("[PIXIV] - res text: %s", res.text)
+                logging.debug("[%s] - res text: %s", self.ME.upper(), res.text)
                 raise ConnectionRefusedError("Invalid refresh token")
 
             data = res.json()["response"]
@@ -119,7 +120,7 @@ class PixivAPI(scraper.TaggableScraper):
 
         default_header()
         if await get_token():
-            logging.debug("Access token gotted! %s", self.access_token)
+            logging.debug("[%s] - Access token gotted! %s", self.ME.upper(), self.access_token)
             if not bearer_header():
                 return False
 
@@ -182,7 +183,7 @@ class PixivAPI(scraper.TaggableScraper):
                 elements.append(scraper.PostElementLinks(download_url=download_url, extension=extension))
 
         else:
-            logging.error("[PIXIV] - Could not extract post data from post %s ", post_id)
+            logging.error("[%s] - Could not extract post data from post %s ", self.ME.upper(), post_id)
             raise cf.ExtractorExitError("Could not extract post data from post %s ", post_id)
 
         result = scraper.PostData(

@@ -86,7 +86,7 @@ class YandereAPI(scraper.BooruScraper):
             res = await self.session.get(self.API_URL, params=params)
 
             if res.status_code != 200:
-                logging.error("[YANDERE] - Request status code %s :(", res.status_code)
+                logging.error("[%s] - Request status code %s :(", self.ME.upper(), res.status_code)
                 raise cf.ExtractorExitError("Request status code %s :(", res.status_code)
 
             data = res.json()

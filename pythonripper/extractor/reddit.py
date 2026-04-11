@@ -123,22 +123,22 @@ class RedditAPI(scraper.TaggableScraper):
         await self.response_header_sleep(res.headers)
         try:
             if res.json()["reason"] in ("banned", "private"):
-                logging.error("[REDDIT] - Subreddit %s was banned or privated.", tagname)
+                logging.error("[%s] - Subreddit %s was banned or privated.", self.ME.upper(), tagname)
                 return False
             elif res.json()["message"] == "Not Found":
-                logging.error("[REDDIT] - Subreddit %s not available.", tagname)
+                logging.error("[%s] - Subreddit %s not available.", self.ME.upper(), tagname)
                 return False
             elif res.status_code == 403 and res.json()["reason"] in ("gated",):
-                logging.error("[REDDIT] - Subreddit %s was gated.", tagname)
+                logging.error("[%s] - Subreddit %s was gated.", self.ME.upper(), tagname)
                 return False
             elif res.status_code == 404 and res.json()["message"] in ("Not Found",):
-                logging.error("[REDDIT] - Subreddit %s was not found (deleted?).", tagname)
+                logging.error("[%s] - Subreddit %s was not found (deleted?).", self.ME.upper(), tagname)
                 return False
         except KeyError:
             pass
         validity: bool = res.status_code == 200 and bool(res.json()) and bool(res.json()["data"]["children"])
         if not validity:
-            logging.error("[REDDIT] - Subreddit %s could not be verified as existing. %s", tagname, res.text)
+            logging.error("[%s] - Subreddit %s could not be verified as existing. %s", self.ME.upper(), tagname, res.text)
         return validity
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
@@ -192,15 +192,16 @@ class RedditAPI(scraper.TaggableScraper):
             data = res.json()["data"]
             if not data["children"]:  # Check for empty responses
                 logging.warning(
-                    "[REDDIT] - A async-fetch-posts request to subreddit %s / endpoint %s was unexpectedly empty. Url: %s - headers: %s - params: %s",
+                    "[%s] - A async-fetch-posts request to subreddit %s / endpoint %s was unexpectedly empty. Url: %s - headers: %s - params: %s",
+                    self.ME.upper(),
                     tagname,
                     endpoint,
                     url,
                     self.headers,
                     params,
                 )
-                logging.warning(res.text)
-                logging.warning("Status code: %s", res.status_code)
+                logging.warning("[%s] - %s", self.ME.upper(), res.text)
+                logging.warning("[%s] - Status code: %s", self.ME.upper(), res.status_code)
                 return
 
             for post in data["children"]:
@@ -217,10 +218,9 @@ class RedditAPI(scraper.TaggableScraper):
         try:
             remaining = round(float(response_header["x-ratelimit-remaining"]))
             reset_when = round(float(response_header["x-ratelimit-reset"]))
-            logging.info("remaining=%s, reset_when=%s", remaining, reset_when)
+            logging.info("[%s] - remaining=%s, reset_when=%s", self.ME.upper(), remaining, reset_when)
             if remaining <= 3:
                 timeout_seconds = reset_when + 1
-                print(f"[REDDIT] - sleeping for {timeout_seconds} seconds.")
                 await asyncio.sleep(timeout_seconds)
 
         except KeyError:  # gets raised when python cant find the response
@@ -236,11 +236,11 @@ class RedditAPI(scraper.TaggableScraper):
             (removal_key in post_element_data.keys() and post_element_data[removal_key])
             for removal_key in ["removal_reason", "removed_by", "removed_by_category"]
         ):
-            logging.error("[REDDIT] - Skipped the download of image https://reddit.com/comments/%s , because it was removed.", post_id)
+            logging.error("[%s] - Skipped the download of image https://reddit.com/comments/%s , because it was removed.", self.ME.upper(), post_id)
             return True
 
         post_type = self.get_post_type(post_element_data, post_id=post_id, post_url=post_url)
-        logging.info("[REDDIT] - %s, Type %s", post_id or post_url, post_type)
+        logging.info("[%s] - %s, Type %s", self.ME.upper(), post_id or post_url, post_type)
 
         success: bool
         match post_type:
@@ -259,7 +259,7 @@ class RedditAPI(scraper.TaggableScraper):
                     or ("items" not in post_element_data["gallery_data"].keys())
                     or (not post_element_data["gallery_data"]["items"])
                 ):  # Returns False if no data is in there
-                    logging.error("[REDDIT] - %s - gallery data reported as invalid or removed.", post_element_data["name"])
+                    logging.error("[%s] - %s - gallery data reported as invalid or removed.", self.ME.upper(), post_element_data["name"])
                     return False
                 generator = self.get_download_urls_gallery(post_element_data)
                 success = await self.download_post_gallery(dpath, filename, generator)
@@ -268,24 +268,26 @@ class RedditAPI(scraper.TaggableScraper):
                     generator = self.get_download_urls_gallery(post_element_data)
                     success = await self.download_post_gallery(dpath, filename, generator)
                 except KeyError:
-                    logging.error("[REDDIT] - %s - KeyError when downloading gallery.", post_id)
+                    logging.error("[%s] - %s - KeyError when downloading gallery.", self.ME.upper(), post_id)
                     return False
             case "image" | "link":
                 success = await self.download_post_image(post_data=post_element_data, dpath=dpath, filename=filename)
             case _:
-                logging.error("[REDDIT] - %s - No downloader for posttype '%s' .", post_element_data["id"], post_type)
+                logging.error("[%s] - %s - No downloader for posttype '%s' .", self.ME.upper(), post_element_data["id"], post_type)
                 return False
 
         if success is False:
             logging.warning(
-                "[REDDIT] - No success (%s) returned while downloading %s - postType %s . Attempting general downloader... ",
+                "[%s] - No success (%s) returned while downloading %s - postType %s . Attempting general downloader... ",
+                self.ME.upper(),
                 success,
                 post_element_data["id"],
                 post_type,
             )
             success = await self.download_post_general_downloader(post_data=post_element_data, dpath=dpath, filename=filename)
             logging.error(
-                "[REDDIT] - No success returned while downloading %s - postType %s . General downloader has failed as well... ",
+                "[%s] - No success returned while downloading %s - postType %s . General downloader has failed as well... ",
+                self.ME.upper(),
                 post_element_data["id"],
                 post_type,
             )
@@ -301,14 +303,14 @@ class RedditAPI(scraper.TaggableScraper):
         elif post_data["selftext"] or "self." in post_data["domain"]:
             return "text"
         elif re.match(r"(?:https?://)?(?:www\.)?reddit\.com/gallery/[\w\d]+", post_data["url"]):
-            logging.info("Weird gallery detected.")
+            logging.info("[%s] - Weird gallery detected.", self.ME.upper())
             return "weird gallery"  # this is where it is a gallery, but no image links are contained in the main post for some reason
         elif "url" in post_data.keys() and f.match_extension(post_data["url"]) in ("jpg", "jpeg", "png", "gif", "gifv", "webp"):
             return "image"
         elif ("post_hint" in post_data.keys() and post_data["post_hint"] == "link") or ("url" in post_data.keys() and post_data["url"]):
             return "link"
 
-        logging.warning("[REDDIT] - Unknown reddit post type. Skipping download ( %s ).", post_id or post_url or None)
+        logging.warning("[%s] - Unknown reddit post type. Skipping download ( %s ).", self.ME.upper(), post_id or post_url or None)
         return False
 
     def resolve_crossposts(self, post_data: dict[Any, Any]) -> dict[Any, Any]:
@@ -342,13 +344,13 @@ class RedditAPI(scraper.TaggableScraper):
     async def get_download_urls_gallery(self, post_data: dict[Any, Any]) -> AsyncGenerator[tuple[int, int, str, str]]:
         digits = cf.get_digits(len(post_data["gallery_data"]["items"]))
         for counter, image in enumerate(post_data["gallery_data"]["items"]):
-            logging.info("[REDDIT] - Gallery download URL generator #%s : %s", counter, image)
+            logging.info("[%s] - Gallery download URL generator #%s : %s", self.ME.upper(), counter, image)
             media_id = image["media_id"]
             if post_data["media_metadata"][media_id]["status"] == "failed":
-                logging.error("[REDDIT] - Failed to download image %s / %s.", counter, len(post_data["media_metadata"]))
+                logging.error("[%s] - Failed to download image %s / %s.", self.ME.upper(), counter, len(post_data["media_metadata"]))
                 continue
             elif post_data["media_metadata"][media_id]["status"] == "unprocessed":
-                logging.error("[REDDIT] - Failed to download unprocessed image %s / %s.", counter, len(post_data["media_metadata"]))
+                logging.error("[%s] - Failed to download unprocessed image %s / %s.", self.ME.upper(), counter, len(post_data["media_metadata"]))
                 continue
             extension = post_data["media_metadata"][media_id]["m"].replace("image/", "")
             if extension in ("gif"):
@@ -361,7 +363,8 @@ class RedditAPI(scraper.TaggableScraper):
                 file_url = post_data["media_metadata"][media_id]["s"]["u"]
             else:
                 logging.error(
-                    "[REDDIT] - %s - No specific url extractor for this file extension found, using default one (may not properly work). %s / %s.",
+                    "[%s] - %s - No specific url extractor for this file extension found, using default one (may not properly work). %s / %s.",
+                    self.ME.upper(),
                     post_data["name"],
                     counter,
                     len(post_data["media_metadata"]),
@@ -401,7 +404,6 @@ class RedditAPI(scraper.TaggableScraper):
             with ThreadPoolExecutor() as pool:
                 await loop.run_in_executor(pool, merge_av_ffmpeg, path_video, path_audio, path_out)
 
-        logging.debug("Saving video...")
         if self.config.data["general"]["overwriteExistingFiles"] or not await aiopath.isfile(dpath / f"{filename}.{extension}"):
             video_filename_temp = f"-temp-video.{extension}"
             audio_filename_temp = f"-temp-audio.{extension}"
@@ -435,15 +437,20 @@ class RedditAPI(scraper.TaggableScraper):
                 return True
             elif video:
                 (dpath / video_filename_temp).replace(dpath / f"{filename}.{extension}")
-                logging.warning("[REDDIT] - Audio file not downloaded, video file renamed to output name. (some videos dont have an audio stream)")
+                logging.warning(
+                    "[%s] - Audio file not downloaded, video file renamed to output name. (some videos dont have an audio stream)", self.ME.upper()
+                )
                 return True
             elif audio:
                 (dpath / audio_filename_temp).replace(dpath / f"{filename}.{extension}")
-                logging.error("[REDDIT] - Video file not downloaded, audio file renamed to output name. (this shouldn't happen)")
+                logging.error("[%s] - Video file not downloaded, audio file renamed to output name. (this shouldn't happen)", self.ME.upper())
                 return False
             else:
                 logging.error(
-                    "[REDDIT] - Skipped '%s' // '%s', because neither video nor audio could be downloaded.", post_data["title"], post_data["name"]
+                    "[%s] - Skipped '%s' // '%s', because neither video nor audio could be downloaded.",
+                    self.ME.upper(),
+                    post_data["title"],
+                    post_data["name"],
                 )
                 return False
         return True
@@ -462,63 +469,65 @@ class RedditAPI(scraper.TaggableScraper):
     async def _download_post_image_per_website(self, download_url: str, dpath: Path, filename: str) -> bool:
         success: bool = False
         if "anime-pictures" in download_url:
-            logging.info("Detected anime-pictures link.")
+            logging.info("[%s] - Detected anime-pictures link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, animepictures.Animepictures, download_url, dpath, filename)
         elif "artstation" in download_url:
-            logging.info("Detected artstation link.")
+            logging.info("[%s] - Detected artstation link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, artstation.ArtstationAPI, download_url, dpath, filename)
         elif "danbooru" in download_url or "donmai" in download_url:
-            logging.info("Detected danbooru link.")
+            logging.info("[%s] - Detected danbooru link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, danbooru.DanbooruAPI, download_url, dpath, filename)
         elif "deviantart" in download_url:
-            logging.info("Detected deviantart link.")
+            logging.info("[%s] - Detected deviantart link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, deviantart.DeviantartAPI, download_url, dpath, filename)
         elif "gelbooru.com" in download_url:
-            logging.info("Detected gelbooru.com link.")
+            logging.info("[%s] - Detected gelbooru.com link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, gelbooru.GelbooruAPI, download_url, dpath, filename)
         elif "hentai-foundry.com" in download_url:
-            logging.info("Detected hentai-foundry.com link.")
+            logging.info("[%s] - Detected hentai-foundry.com link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, hentaifoundry.HentaiFoundry, download_url, dpath, filename)
         elif "hypnohub.net" in download_url:
-            logging.info("Detected hypnohub.net link.")
+            logging.info("[%s] - Detected hypnohub.net link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, hypnohub.HypnohubAPI, download_url, dpath, filename)
         elif "kusowanka.com" in download_url:
-            logging.info("Detected kusowanka.com link.")
+            logging.info("[%s] - Detected kusowanka.com link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, kusowanka.KusowankaAPI, download_url, dpath, filename)
         elif "newgrounds" in download_url:
-            logging.info("Detected newgrounds link.")
+            logging.info("[%s] - Detected newgrounds link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, newgrounds.NewgroundsAPI, download_url, dpath, filename)
         elif any(term in download_url for term in ("pximg", "pixiv")):
-            logging.info("Detected pixiv link.")
+            logging.info("[%s] - Detected pixiv link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, pixiv.PixivAPI, download_url, dpath, filename)
         elif "rule34.paheal.net" in download_url:
-            logging.info("Detected rule34.paheal.net link.")
+            logging.info("[%s] - Detected rule34.paheal.net link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, rule34paheal.Rule34pahealAPI, download_url, dpath, filename)
         elif "rule34.us" in download_url:
-            logging.info("Detected rule34.us link.")
+            logging.info("[%s] - Detected rule34.us link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, rule34us.Rule34usAPI, download_url, dpath, filename)
         elif "rule34.xxx" in download_url:
-            logging.info("Detected rule34.xxx link.")
+            logging.info("[%s] - Detected rule34.xxx link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, rule34xxx.Rule34xxxAPI, download_url, dpath, filename)
         elif "tumblr" in download_url:
-            logging.info("Detected tumblr link.")
+            logging.info("[%s] - Detected tumblr link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, tumblr.TumblrAPI, download_url, dpath, filename)
         elif "yande.re" in download_url:
-            logging.info("Detected yande.re link.")
+            logging.info("[%s] - Detected yande.re link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, yandere.YandereAPI, download_url, dpath, filename)
         else:
-            logging.error("[REDDIT] - No image download wrapper for %s .", download_url)
+            logging.error("[%s] - No image download wrapper for %s .", self.ME.upper(), download_url)
             success = False
         return success
 
     async def download_post_image(self, post_data: dict[Any, Any], dpath: Path, filename: str) -> bool:
         download_url, extension = self.get_download_urls_image(post_data)
         success: bool = False
-        logging.info(download_url)
 
         ### Reddit links
         if re.match((r"(?:https?://)?(?:i\.|v\.|www\.|)?(?:(?:external-)?preview\.)?redd(?:\.it|ituploads\.com|it\.com)"), download_url):
-            logging.info("Detected reddit link.")
+            logging.info(
+                "[%s] - Detected reddit link.",
+                self.ME.upper(),
+            )
             await self.LIMIT.wait()
             success = await f.download_file(
                 config=self.config, url=download_url, headers=self.headers, path=dpath, filename=f"{filename}.{extension}", no_impersonation=True
@@ -526,26 +535,26 @@ class RedditAPI(scraper.TaggableScraper):
 
         ### Writes links to file according to settings
         elif any(domain in download_url for domain in self.third_party_save_link):
-            logging.info("Writing a link to file according to settings.")
+            logging.info("[%s] - Writing a link to file according to settings.", self.ME.upper())
             await self.LIMIT.wait()
             return await f.download_file(self.config, download_url, headers=self.headers, no_impersonation=True)
 
         ### Skips links according to settings
         elif any(skip in download_url for skip in self.third_party_ignore):
-            logging.info("Skipped URL according to settings (skipped domain found).")
+            logging.info("[%s] - Skipped URL according to settings (skipped domain found).", self.ME.upper())
             return True
 
         ### Downloads third-party links according to settings
         elif any(download in download_url for download in self.third_party_download):
-            logging.info("Downloading third-party URL according to settings.")
+            logging.info("[%s] - Downloading third-party URL according to settings.", self.ME.upper())
             success = await self._download_post_image_per_website(download_url, dpath, filename)
 
         elif download_url == "":
-            logging.info("Skipped, because no URL was found. Often due to deleted posts.")
+            logging.info("[%s] - Skipped, because no URL was found. Often due to deleted posts.", self.ME.upper())
             return True
 
         else:
-            logging.error("[REDDIT] - Downloading third-party URL %s , despite it not being mentioned in the settings.", download_url)
+            logging.error("[%s] - Downloading third-party URL %s , despite it not being mentioned in the settings.", self.ME.upper(), download_url)
             success = await self._download_post_image_per_website(download_url, dpath, filename)
 
         if success == "404":
@@ -556,25 +565,23 @@ class RedditAPI(scraper.TaggableScraper):
         ##Default / Simple Downloader
         download_url, extension = self.get_download_urls_image(post_data)
         success = False
-        logging.info(download_url)
-        logging.info(extension)
         if extension:
             try:
-                logging.info("No specific downloader found. Using general downloader. This may not work!")
-                logging.info(download_url)
+                logging.info("[%s] - No specific downloader found. Using general downloader. This may not work!", self.ME.upper())
                 await self.LIMIT.wait()
                 success = await f.download_file(self.config, download_url, self.headers, dpath, f"{filename}.{extension}", no_impersonation=True)
-                logging.info("General downloader success: %s", success)
+                logging.info("[%s] - General downloader success: %s", self.ME.upper(), success)
                 if success is True:
                     return success
             except ConnectionError, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadTimeout:
                 logging.error(
-                    "[REDDIT] - ConnectionError encountered when attempting to download https://reddit.com/comments/%s using the default downloader.",
+                    "[%s] - ConnectionError encountered when attempting to download https://reddit.com/comments/%s using the default downloader.",
+                    self.ME.upper(),
                     post_data["id"],
                 )
 
             # If general fails, will try to download highest-res reddit preview image available
-            logging.warning("General downloader failed. Trying to download reddit previews.")
+            logging.warning("[%s] - General downloader failed. Trying to download reddit previews.", self.ME.upper())
             try:
                 success = True
                 for preview_img in post_data["preview"]["images"]:
@@ -587,7 +594,9 @@ class RedditAPI(scraper.TaggableScraper):
                         res = await self.session.get(url=preview_url)
                         await self.response_header_sleep(res.headers)
                         if res.headers["Content-Length"] == "510":
-                            logging.error("[REDDIT] - Reddit preview is imgur removed file: https://reddit.com%s .", post_data["permalink"])
+                            logging.error(
+                                "[%s] - Reddit preview is imgur removed file: https://reddit.com%s .", self.ME.upper(), post_data["permalink"]
+                            )
                             return False
                         await self.LIMIT.wait()
                         success = success and await f.download_file(
@@ -600,19 +609,21 @@ class RedditAPI(scraper.TaggableScraper):
                         )
                     except Exception as error:
                         logging.warning(
-                            "[REDDIT] - %s encountered when trying to download reddit preview: https://reddit.com%s .",
+                            "[%s] - %s encountered when trying to download reddit preview: https://reddit.com%s .",
+                            self.ME.upper(),
                             cf.get_full_class_name(error),
                             post_data["permalink"],
                         )
                         success = False
             except KeyError as error:
                 logging.error(
-                    "[REDDIT] - %s encountered when trying to download reddit preview: https://reddit.com%s .",
+                    "[%s] - %s encountered when trying to download reddit preview: https://reddit.com%s .",
+                    self.ME.upper(),
                     cf.get_full_class_name(error),
                     post_data["permalink"],
                 )
                 return False
 
         if success is False:
-            logging.error("[REDDIT] - general downloder could not download post: https://reddit.com%s .", post_data["permalink"])
+            logging.error("[%s] - general downloder could not download post: https://reddit.com%s .", self.ME.upper(), post_data["permalink"])
         return success

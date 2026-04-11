@@ -36,7 +36,7 @@ class TangsGalleryAPI(scraper.ArtistWebsiteScraper):
 
             # Cannot use if any() call here because mypy is too stupid for that : ^)
             if not isinstance(post_consent, str) or not isinstance(post_redirect, str) or not isinstance(post_token, str):
-                logging.error("[TANGSGALLERY] - Some HTML extracted values were incorrect.")
+                logging.error("[%s] - Some HTML extracted values were incorrect.", self.ME.upper())
                 raise ValueError("Some HTML extracted values were incorrect.")
 
             res = await self.session.post(

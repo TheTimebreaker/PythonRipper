@@ -75,13 +75,14 @@ class HentaiFoundry(scraper.TaggableScraper):
                 )
             except KeyError:
                 logging.error(
-                    "[HENTAIFOUNDRY] - Could not initialize content filter settings. Please set them manually in the config. %s",
+                    "[%s] - Could not initialize content filter settings. Please set them manually in the config. %s",
+                    self.ME.upper(),
                     self.config._config_path(),
                 )
                 return False
 
             if x.status_code != 200:
-                logging.error("[HENTAIFOUNDRY] - Could not session update preference filters.")
+                logging.error("[%s] - Could not session update preference filters.", self.ME.upper())
                 return False
 
             return True
@@ -100,7 +101,7 @@ class HentaiFoundry(scraper.TaggableScraper):
         res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
         result = bool("The requested page does not exist" not in res.text)
         if not result:
-            logging.error("[HENTAIFOUNDRY] - Username %s does not exist", tagname)
+            logging.error("[%s] - Username %s does not exist", self.ME.upper(), tagname)
         return result
 
     async def _is_banned(self, tagname: str) -> bool:
@@ -108,7 +109,7 @@ class HentaiFoundry(scraper.TaggableScraper):
         res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
         result = bool("Sorry, this user has been banned" in res.text)
         if result:
-            logging.error("[HENTAIFOUNDRY] - Username %s was banned", tagname)
+            logging.error("[%s] - Username %s was banned", self.ME.upper(), tagname)
         return result
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
@@ -143,7 +144,7 @@ class HentaiFoundry(scraper.TaggableScraper):
                     elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
                 )
 
-        logging.error("[HENTAIFOUNDRY] - No download link for post id %s could be found.", post_id)
+        logging.error("[%s] - No download link for post id %s could be found.", self.ME.upper(), post_id)
         raise cf.ExtractorExitError("No download link for post id %s could be found.", post_id)
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
@@ -153,7 +154,7 @@ class HentaiFoundry(scraper.TaggableScraper):
             await self.LIMIT.wait()
             res = await self.session.get(tmp_url, follow_redirects=True)
             if res.status_code != 200:
-                logging.error("Maxpages got non-200 response. %s %s . Maybe they got removed?", tmp_url, res.status_code)
+                logging.error("[%s] - Maxpages got non-200 response. %s %s . Maybe they got removed?", self.ME.upper(), tmp_url, res.status_code)
                 raise cf.ExtractorExitError()
             soup = bs4.BeautifulSoup(res.text, "html.parser")
             found = soup.find("div", {"class": "galleryFooter"})

@@ -73,9 +73,10 @@ class PatreonAPI(scraper.TaggableScraper):
         def _load_cookies() -> bool:
             if not self.jar_path.is_file():
                 logging.error(
-                    "[PATREON] - Login via password unsupported. "
+                    "[%s] - Login via password unsupported. "
                     "Log into Patreon via your browser and export your cookies in the Netscape format via an extension."
                     "Rename the file to 'patreon_cookies.txt' and place it here: %s",
+                    self.ME.upper(),
                     self.jar_path,
                 )
                 return False
@@ -97,7 +98,8 @@ class PatreonAPI(scraper.TaggableScraper):
             res = await self.session.get("https://www.patreon.com/api/current_user")
             if "This route is restricted to logged in users." in str(res.json()) or res.status_code != 200:
                 logging.error(
-                    "[PATREON] - The cookies provided did not log in properly. Delete %s and re-run script to receive instructions for new cookies.",
+                    "[%s] - The cookies provided did not log in properly. Delete %s and re-run script to receive instructions for new cookies.",
+                    self.ME.upper(),
                     self.jar_path,
                 )
                 return False
