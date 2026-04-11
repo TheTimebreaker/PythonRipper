@@ -8,7 +8,7 @@ exclude = [
   "dist",
   "__pycache__",
   "__init__.py",
-  "test.py",
+  "test*.*",
 ]
 
 [tool.ruff.lint]
@@ -46,7 +46,7 @@ enable = [
   "W1203", #fstring in logging
   "C0103", #invalid name
 ]
-ignore-paths = [".venv", ".venv-windows", ".venv-linux", "test.py"]
+ignore-paths = [".venv", ".venv-windows", ".venv-linux", "test*.*"]
 
 
 [tool.black]
@@ -62,7 +62,7 @@ disallow_any_generics = true
 check_untyped_defs = true
 warn_unused_ignores = true
 warn_return_any = true
-exclude = ["test.py", ".venv", ".venv-windows", ".venv-linux"]
+exclude = ["test*.*", ".venv", ".venv-windows", ".venv-linux"]
 
 
 [[tool.mypy.overrides]]
