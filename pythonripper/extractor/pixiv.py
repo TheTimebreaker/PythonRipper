@@ -19,8 +19,7 @@ import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 
 
-@final
-class PixivAPI(scraper.TaggableScraper):
+class PixivRoot(scraper.TaggableScraper):
     HOMEPAGE = "https://www.pixiv.net"
     URL_TAG = "https://www.pixiv.net/en/users/{tagname}"
     TAG_PATTERN = r"https://(?:www\.)?pixiv\.net/en/users/(\d+)"
@@ -129,20 +128,23 @@ class PixivAPI(scraper.TaggableScraper):
 
         return True
 
-    async def does_this_exist(self, tagname: str) -> bool:
-        tagname = self.format_tagname(tagname)
-        res = await self.session.get(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
-        return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
-
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         def _extract_tags() -> list[str]:
             tags = []
-            assert isinstance(json_data["tags"], list)  # type: ignore
-            for tag in json_data["tags"]:  # type: ignore
+            if not json_data:
+                raise
+            if not isinstance(json_data["tags"], list):
+                raise
+
+            for tag in json_data["tags"]:
                 if tag["translated_name"] and tag["translated_name"] != "None":
                     tags.append(tag["translated_name"])
                 else:
                     tags.append(tag["name"])
+
+            if json_data.get("illust_ai_type", 0) == 2:
+                tags.append("AI-generated")
+
             return tags
 
         if json_data is None:
@@ -188,21 +190,24 @@ class PixivAPI(scraper.TaggableScraper):
 
         result = scraper.PostData(
             identifier=post_id,
+            title=json_data.get("title", "unknown title"),
             source=user_id,
             elements=elements,
             tags=scraper.TagsData(tags=_extract_tags()),
         )
         return result
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _endpoint_fetch_posts(
+        self, endpoint: Literal["user/illusts", "search/illust"], params: dict[str, str | int], update_ids: list[str] | None = None
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 
-        tagname = self.format_tagname(tagname)
         offset = 0
         while True:
             await self.LIMIT.wait()
-            res = await self.session.get(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname, "offset": offset})
+            params["offset"] = offset
+            res = await self.session.get(f"{self.base_api_url}/v1/{endpoint}", params=params)
 
             try:
                 for image in res.json()["illusts"]:
@@ -226,3 +231,30 @@ class PixivAPI(scraper.TaggableScraper):
         h = {"Referer": "https://app-api.pixiv.net/"}
         await self.LIMIT.wait()
         return await f.download_file(config=self.config, url=url, headers=h, path=path, filename=filename)
+
+
+@final
+class PixivArtistAPI(PixivRoot):
+    async def does_this_exist(self, tagname: str) -> bool:
+        tagname = self.format_tagname(tagname)
+        res = await self.session.get(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
+        return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
+
+    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+        params: dict[str, str | int] = {"user_id": self.format_tagname(tagname)}
+        async for entry in self._endpoint_fetch_posts("user/illusts", params, update_ids=update_ids):
+            yield entry
+
+
+@final
+class PixivTagAPI(PixivRoot):
+    async def does_this_exist(self, tagname: str) -> bool:
+        res = await self.session.get(
+            f"{self.base_api_url}/v1/search/illust", params={"word": self.format_tagname(tagname), "search_target": "partial_match_for_tags"}
+        )
+        return bool(res.json().get("illusts"))
+
+    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+        params: dict[str, str | int] = {"word": self.format_tagname(tagname), "search_target": "partial_match_for_tags"}
+        async for entry in self._endpoint_fetch_posts("search/illust", params, update_ids=update_ids):
+            yield entry
