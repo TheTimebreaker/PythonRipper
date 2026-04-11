@@ -512,7 +512,6 @@ class CombinedBooruFile(CombinedFile):
         "rule34paheal",
         "rule34us",
         "rule34xxx",
-        "rule34xyz",
         "yandere",
     ]
     tag_type = "booru tag"
