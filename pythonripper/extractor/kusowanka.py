@@ -47,7 +47,7 @@ class SqlTagIDs:
 
 
 @final
-class KusowankaAPI(scraper.BooruScraper):
+class KusowankaAPI(scraper.DownloadhistoryScraper):
     """Front facing API class for kusowanka"""
 
     HOMEPAGE = "https://kusowanka.com/"

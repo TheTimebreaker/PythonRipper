@@ -412,7 +412,7 @@ class TaggableScraper(Scraper):
         return downloaded_counter == len(posts)
 
 
-class BooruScraper(TaggableScraper):
+class DownloadhistoryScraper(TaggableScraper):
     def __init__(self, config: cfg.Config) -> None:
         super().__init__(config)
         self.history = f.SqlDownloadHistory(self.ME, self.config)

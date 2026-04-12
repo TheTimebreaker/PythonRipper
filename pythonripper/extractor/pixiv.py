@@ -19,7 +19,7 @@ import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 
 
-class PixivRoot(scraper.TaggableScraper):
+class PixivRoot(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://www.pixiv.net"
 
     client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"  # hard coded, from the app afaik

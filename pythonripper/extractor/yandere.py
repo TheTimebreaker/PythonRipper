@@ -13,7 +13,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 
 @final
-class YandereAPI(scraper.BooruScraper):
+class YandereAPI(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://yande.re"
     API_URL = "https://yande.re/post.json"
     URL_TAG = "https://yande.re/post?tags={tagname}"

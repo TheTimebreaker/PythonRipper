@@ -14,7 +14,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 
 @final
-class Rule34usAPI(scraper.BooruScraper):
+class Rule34usAPI(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://rule34.us/index.php"
     API_URL = HOMEPAGE
     URL_TAG = "https://rule34.us/index.php?r=posts/index&q={tagname}"

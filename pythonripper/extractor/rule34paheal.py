@@ -13,7 +13,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 
 @final
-class Rule34pahealAPI(scraper.BooruScraper):
+class Rule34pahealAPI(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://rule34.paheal.net"
     API_URL = HOMEPAGE
     URL_TAG = "https://rule34.paheal.net/post/list/{tagname}/1"

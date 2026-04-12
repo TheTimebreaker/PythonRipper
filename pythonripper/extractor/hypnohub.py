@@ -17,7 +17,7 @@ class NetworkError(Exception):
 
 
 @final
-class HypnohubAPI(scraper.BooruScraper):
+class HypnohubAPI(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://hypnohub.net/index.php"
     API_URL = HOMEPAGE
     URL_TAG = "https://hypnohub.net/index.php?page=post&s=list&tags={tagname}"

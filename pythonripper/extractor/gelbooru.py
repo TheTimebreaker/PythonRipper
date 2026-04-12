@@ -15,7 +15,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 
 @final
-class GelbooruAPI(scraper.BooruScraper):
+class GelbooruAPI(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://gelbooru.com/index.php"
     API_URL = HOMEPAGE
     URL_POST = "https://gelbooru.com/index.php?page=post&s=view&id={post_id}"

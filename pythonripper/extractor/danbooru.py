@@ -13,7 +13,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 
 @final
-class DanbooruAPI(scraper.BooruScraper):
+class DanbooruAPI(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://danbooru.donmai.us/"
     API_TAG_URL = "https://danbooru.donmai.us/posts.json"
     API_POST_URL = "https://danbooru.donmai.us/posts/{post_id}.json"
