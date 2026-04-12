@@ -21,5 +21,5 @@ async def main(config: cfg.Config) -> None:
 
 if __name__ == "__main__":
     config = cfg.Config()
-    cf.init_logger(config, "info", False)
+    cf.init_logger(config, "error", True)
     asyncio.run(main(config))

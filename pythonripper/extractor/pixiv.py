@@ -39,7 +39,7 @@ class PixivRoot(scraper.TaggableScraper):
     POST_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net(?:/en|/jp)/artworks/(\d+)"
     USER_PATTERN = BASE_PATTERN + r"/(?:(?:en/)?u(?:sers)?/|member\.php\?id=|(?:mypage\.php)?#id=)(\d+)(?:$|[?#])?"
 
-    LIMIT = asynciolimiter.Limiter(2)
+    LIMIT = asynciolimiter.LeakyBucketLimiter(3, capacity=200)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False
 
@@ -235,7 +235,7 @@ class PixivArtistAPI(PixivRoot):
     URL_TAG = "https://www.pixiv.net/en/users/{tagname}"
     TAG_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net/(?:en/)?users/(\d+)"
 
-    ME = "pixiv-artist"
+    ME = "pixiv-artists"
 
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
