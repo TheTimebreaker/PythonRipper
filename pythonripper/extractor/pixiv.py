@@ -39,8 +39,8 @@ class PixivRoot(scraper.TaggableScraper):
     POST_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net(?:/en|/jp)/artworks/(\d+)"
     USER_PATTERN = BASE_PATTERN + r"/(?:(?:en/)?u(?:sers)?/|member\.php\?id=|(?:mypage\.php)?#id=)(\d+)(?:$|[?#])?"
 
-    LIMIT = asynciolimiter.Limiter(100)
-    SPACE_REPLACE = "%20"
+    LIMIT = asynciolimiter.Limiter(2)
+    SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
@@ -239,7 +239,10 @@ class PixivArtistAPI(PixivRoot):
 
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
+        await self.LIMIT.wait()
         res = await self.session.get(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
+        if res.status_code == 429:
+            raise cf.ExtractorStopError("Rate limited")
         return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
@@ -256,9 +259,12 @@ class PixivTagAPI(PixivRoot):
     ME = "pixiv-tags"
 
     async def does_this_exist(self, tagname: str) -> bool:
+        await self.LIMIT.wait()
         res = await self.session.get(
             f"{self.base_api_url}/v1/search/illust", params={"word": self.format_tagname(tagname), "search_target": "partial_match_for_tags"}
         )
+        if res.status_code == 429:
+            raise cf.ExtractorStopError("Rate limited")
         return bool(res.json().get("illusts"))
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:

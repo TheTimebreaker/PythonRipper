@@ -221,13 +221,7 @@ class CombinedFile:
             found_some = False
             for url_to_format in urls_to_format:
                 this_url = url_to_format.format(tagname=obj.format_tagname(tagname))
-                try:
-                    matched = re.match(obj.TAG_PATTERN, urllib.parse.unquote(this_url))
-                    if not matched:
-                        raise AttributeError("Matching failed, which should never happen! %s - %s ", obj.TAG_PATTERN, this_url)
-                    this_tagname = matched.group(1)
-                except AttributeError:
-                    this_tagname = tagname
+                this_tagname = tagname
 
                 try:
                     x = await obj.does_this_exist(this_tagname)
