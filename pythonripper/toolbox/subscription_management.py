@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import urllib.parse
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, ClassVar, NotRequired, TypedDict, cast
@@ -54,7 +55,8 @@ class CombinedFile:
         "newgrounds": {"object": newgrounds.NewgroundsAPI},
         "kusowanka": {"object": kusowanka.KusowankaAPI},
         "patreon": {"object": patreon.PatreonAPI},
-        "pixiv": {"object": pixiv.PixivAPI},
+        "pixiv-artists": {"object": pixiv.PixivArtistAPI},
+        "pixiv-tags": {"object": pixiv.PixivTagAPI},
         "reddit": {"object": reddit.RedditAPI},
         "rule34paheal": {"object": rule34paheal.Rule34pahealAPI},
         "rule34us": {"object": rule34us.Rule34usAPI},
@@ -66,6 +68,7 @@ class CombinedFile:
     websites: ClassVar[list[str]]
     path: Path
     tag_type: str = ""
+    encoding = "utf-8"
 
     google_url = "https://www.google.com/search?q={query}"
     google_space_replace = "+"
@@ -76,7 +79,7 @@ class CombinedFile:
         self.check_keys()
 
     def read(self) -> dict[Any, Any]:
-        with open(self.path, encoding="utf-8") as file:
+        with open(self.path, encoding=self.encoding) as file:
             result: dict[Any, Any] = json.load(file)
             return result
 
@@ -91,32 +94,25 @@ class CombinedFile:
                 elif isinstance(value, list) and len(value) == 1:
                     temp[key] = value[0]
                 elif isinstance(value, list):
-                    temp[key] = sorted(list(dict.fromkeys(value)), key=lambda k: str(k).lower())
+                    temp[key] = sorted(list(dict.fromkeys(value)), key=lambda k: str(k))
                 else:
                     temp[key] = value
-            return dict(sorted(temp.items(), key=lambda k: str(k[0]).lower()))
+            return dict(sorted(temp.items(), key=lambda k: str(k[0])))
 
         # Cleanup
         for sort_tag in self.data:
-            trans = {
-                "_": " ",
-                "%20": " ",
-                "%28": "(",
-                "%29": ")",
-                "%3a": ":",
-            }
             for website in self.data[sort_tag]:
                 if isinstance(self.data[sort_tag][website], str):
-                    self.data[sort_tag][website] = cf.multi_character_replace(str(self.data[sort_tag][website]).lower(), trans)
+                    self.data[sort_tag][website] = cf.unquote_tagnames(str(self.data[sort_tag][website]))
                 elif isinstance(self.data[sort_tag][website], list) and all(isinstance(test, str) for test in self.data[sort_tag][website]):
-                    self.data[sort_tag][website] = [cf.multi_character_replace(str(text).lower(), trans) for text in self.data[sort_tag][website]]
+                    self.data[sort_tag][website] = [cf.unquote_tagnames(str(text)) for text in self.data[sort_tag][website]]
 
         # Recursively sorts dictionary
         self.data = recursive_sort(self.data)
 
     async def write(self) -> None:
         self.sort()
-        await f.atomic_write(filepath=self.path, data=json.dumps(self.data, indent=4), encoding="utf-8")
+        await f.atomic_write(filepath=self.path, data=self.data, encoding=self.encoding)
 
     async def _add_activate_dict(self, config: cfg.Config, choice: str | None = None) -> None:
         async def task(key: str, obj_type: type[scraper.TaggableScraper]) -> None:
@@ -226,16 +222,17 @@ class CombinedFile:
             for url_to_format in urls_to_format:
                 this_url = url_to_format.format(tagname=obj.format_tagname(tagname))
                 try:
-                    matched = re.match(obj.TAG_PATTERN, this_url)
+                    matched = re.match(obj.TAG_PATTERN, urllib.parse.unquote(this_url))
                     if not matched:
                         raise AttributeError("Matching failed, which should never happen! %s - %s ", obj.TAG_PATTERN, this_url)
-                    this_tagname = matched.group(1).replace(" ", obj.SPACE_REPLACE)
+                    this_tagname = matched.group(1)
                 except AttributeError:
                     this_tagname = tagname
 
                 try:
-                    if await obj.does_this_exist(this_tagname):
-                        result.append(this_url)
+                    x = await obj.does_this_exist(this_tagname)
+                    if x:
+                        result.add(this_url)
                         found_some = True
                     else:
                         continue
@@ -244,19 +241,18 @@ class CombinedFile:
 
             if found_some is False:
                 if obj.IS_GOOGLE_SEARCHABLE is True:
-                    result.append(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
+                    result.add(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
                 if dont_add_homepage is False:
-                    result.append(obj.HOMEPAGE)
+                    result.add(obj.HOMEPAGE)
 
-        result: list[str] = []
+        result: set[str] = set()
         tasks: list[asyncio.Task[None]] = []
         for key in self.websites:
             if website is None or website == key:
                 obj = self.websiteinfo[key]["object_active"]
                 tasks.append(asyncio.create_task(task(obj)))
         await asyncio.gather(*tasks)
-
-        return result
+        return list(result)
 
     def _add_get_confirmed_urls(self, driver: WebDriver, fallback_handle: str) -> list[str]:
         """
@@ -283,7 +279,7 @@ class CombinedFile:
         driver.switch_to.window(fallback_handle)
         return confirmed_urls
 
-    async def process_urls(self, new_tag: str, url_list: list[str]) -> None:
+    async def process_urls(self, new_tag: str, url_list: list[str], choice: str | None = None) -> None:
         if new_tag in self.data:
             new_tag_obj = self.data[new_tag]
         else:
@@ -293,25 +289,27 @@ class CombinedFile:
                 new_tag_obj[key] = []
 
         for url in url_list:
+            url = urllib.parse.unquote(url)
             for key in self.websites:
-                obj = self.websiteinfo[key]["object_active"]
-                try:
-                    matched = re.match(obj.TAG_PATTERN, url)
-                    if not matched:
-                        raise AttributeError
-                    tag_formatted = matched.group(1)
-                    tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
-                    while tag.startswith((" ", "+")):
-                        tag = tag[1:]
-                    while tag.endswith((" ", "+")):
-                        tag = tag[:-1]
+                if not choice or choice == key:
+                    obj = self.websiteinfo[key]["object_active"]
+                    try:
+                        matched = re.match(obj.TAG_PATTERN, url)
+                        if not matched:
+                            raise AttributeError
+                        tag_formatted = matched.group(1)
+                        tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
+                        while tag.startswith((" ", "+")):
+                            tag = tag[1:]
+                        while tag.endswith((" ", "+")):
+                            tag = tag[:-1]
 
-                    if re.match(r"^(?:\s?[A-Za-z]\s)+$", tag):
-                        raise ValueError("Tag %s was detected with spaces from url %s and pattern %s", tag, url, obj.TAG_PATTERN)
-                    new_tag_obj[key].append(tag)
-                    break
-                except AttributeError:
-                    continue
+                        if re.match(r"^(?:\s?[A-Za-z]\s)+$", tag):
+                            raise ValueError("Tag %s was detected with spaces from url %s and pattern %s", tag, url, obj.TAG_PATTERN)
+                        new_tag_obj[key].append(tag)
+                        break
+                    except AttributeError:
+                        continue
             else:
                 print(f"Could not verify link {url} .")
         self.data[new_tag] = new_tag_obj
@@ -321,13 +319,24 @@ class CombinedFile:
         self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str | None = None
     ) -> None:
         for i, artist in artists:
-            artist_aliases = {artist, *self.get_list(artist=artist)}
+            artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist)}
+            artist_aliases: set[str] = {
+                artist_alias.replace("artist/", "").replace("tag/", "").replace("character/", "").replace("parody/", "").replace("metadata/", "")
+                for artist_alias in artist_aliases_tmp
+            }
+
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
             await q.put((i, artist, url_list))
         await q.put(STOP)
 
     async def worker_consumer(
-        self, q: asyncio.Queue[tuple[int, str, list[str]] | object], processing_length: int, driver: WebDriver, fallback_handle: str
+        self,
+        q: asyncio.Queue[tuple[int, str, list[str]] | object],
+        processing_length: int,
+        driver: WebDriver,
+        fallback_handle: str,
+        choice: str | None = None,
+        skip_empty: bool = False,
     ) -> None:
         while True:
             item = await q.get()
@@ -336,24 +345,34 @@ class CombinedFile:
             item = cast(tuple[int, str, list[str]], item)
             i, artist, url_list = item
 
-            if len(url_list) == 0:
+            if len(url_list) == 0 and skip_empty:
                 print(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
-                await self.process_urls(artist, [])
+                await self.process_urls(artist, [], choice)
                 continue
 
             await asyncio.to_thread(self._add_open_urls_in_new_tabs, driver, url_list, fallback_handle)
             await asyncio.to_thread(input, f"#{i} / {processing_length} - {artist} - Press ENTER to confirm...")
             confirmed_urls = await asyncio.to_thread(self._add_get_confirmed_urls, driver, fallback_handle)
-            await self.process_urls(artist, confirmed_urls)
+            await self.process_urls(artist, confirmed_urls, choice)
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
 
-    async def add_website(self, choice: str) -> None:
+    async def add_website(self, choice: str, skip_empty: bool) -> None:
 
         await self._add_activate_dict(self.config, choice=choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
         homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == choice]
-        self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
+        self._add_open_urls_in_new_tabs(
+            driver,
+            [
+                "https://google.com?q=hi",
+                "https://ublockorigin.com/",
+                "https://www.tampermonkey.net/",
+                "https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm",
+                *homepages,
+            ],
+            fallback_handle,
+        )
         self._add_userconfirm_console("CONTINUE WHEN EVERYTHING LOADS")
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
@@ -366,7 +385,9 @@ class CombinedFile:
             artists.append((i, artist_name))
 
         q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=30)
-        await asyncio.gather(self.worker_consumer(q, self_data_len, driver, fallback_handle), self.worker_producer(artists, q, choice))
+        await asyncio.gather(
+            self.worker_consumer(q, self_data_len, driver, fallback_handle, choice, skip_empty), self.worker_producer(artists, q, choice)
+        )
 
     async def add_tags(self) -> None:
         def get_new_tag_name() -> str:
@@ -433,7 +454,7 @@ class CombinedFile:
                                     )
                                 taglist.append(sublink)
 
-        return sorted([str(x).lower() for x in taglist])
+        return sorted([str(x) for x in taglist])
 
     def get_all(self) -> dict[Any, Any]:
         """Returns sorted list of all entries from all websites."""
@@ -486,7 +507,7 @@ class CombinedArtistFile(CombinedFile):
         "kusowanka",
         "newgrounds",
         "patreon",
-        "pixiv",
+        "pixiv-artists",
         "reddit",
         "rule34paheal",
         "rule34us",
@@ -509,6 +530,7 @@ class CombinedBooruFile(CombinedFile):
         "gelbooru",
         "hypnohub",
         "kusowanka",
+        "pixiv-tags",
         "rule34paheal",
         "rule34us",
         "rule34xxx",

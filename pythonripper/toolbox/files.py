@@ -155,7 +155,7 @@ async def atomic_write(
             newline = None
         elif isinstance(data, dict):
             write_type = "a"
-            data = json.dumps(data, indent=4)
+            data = json.dumps(data, indent=4, ensure_ascii=False)
         else:
             raise TypeError("Tried to write invalid data to %s.", filepath)
 
@@ -172,7 +172,7 @@ async def atomic_write(
             newline = None
         elif isinstance(data, dict):
             write_type = "w"
-            data = json.dumps(data, indent=4)
+            data = json.dumps(data, indent=4, ensure_ascii=False)
         async with aiofiles.tempfile.NamedTemporaryFile(
             write_type, encoding=encoding, dir=filepath.parent, delete=False, newline=newline
         ) as tmp_file:  # type: ignore

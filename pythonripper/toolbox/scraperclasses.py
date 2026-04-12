@@ -82,6 +82,7 @@ class Scraper(ABC):
         combined_tags = (
             tags.get("artists", []) + tags.get("characters", []) + tags.get("parodies", []) + tags.get("metatags", []) + tags.get("tags", [])
         )
+        combined_tags = [x.lower() for x in combined_tags]
         if any(blacklist_tag in combined_tags for blacklist_tag in self.blacklist_tags):
             return True
 
@@ -257,9 +258,6 @@ class Scraper(ABC):
         return full_success
 
 
-# init blacklist???
-
-
 class GalleryScraper(Scraper): ...
 
 
@@ -378,6 +376,7 @@ class TaggableScraper(Scraper):
             generator = self._fetch_posts(tagname, update_ids, endpoint=endpoint)  # type: ignore
         elif custom_mode == "newgrounds":
             generator = self._fetch_posts(tagname, update_ids, endpoint=endpoint, fetch_favorites=fetch_favorites)  # type: ignore
+
         async for i, post in asyncstdlib.enumerate(generator):
             print(f'Downloading {self.ME} tag "{tagname}" (#{i})')
 

@@ -21,8 +21,6 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 class PixivRoot(scraper.TaggableScraper):
     HOMEPAGE = "https://www.pixiv.net"
-    URL_TAG = "https://www.pixiv.net/en/users/{tagname}"
-    TAG_PATTERN = r"https://(?:www\.)?pixiv\.net/en/users/(\d+)"
 
     client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"  # hard coded, from the app afaik
     client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"  # same
@@ -41,10 +39,9 @@ class PixivRoot(scraper.TaggableScraper):
     POST_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net(?:/en|/jp)/artworks/(\d+)"
     USER_PATTERN = BASE_PATTERN + r"/(?:(?:en/)?u(?:sers)?/|member\.php\?id=|(?:mypage\.php)?#id=)(\d+)(?:$|[?#])?"
 
-    ME = "pixiv"
     LIMIT = asynciolimiter.Limiter(100)
-    SPACE_REPLACE = "-"
-    IS_GOOGLE_SEARCHABLE = True
+    SPACE_REPLACE = "%20"
+    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 
@@ -235,6 +232,11 @@ class PixivRoot(scraper.TaggableScraper):
 
 @final
 class PixivArtistAPI(PixivRoot):
+    URL_TAG = "https://www.pixiv.net/en/users/{tagname}"
+    TAG_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net/(?:en/)?users/(\d+)"
+
+    ME = "pixiv-artist"
+
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
         res = await self.session.get(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
@@ -248,6 +250,11 @@ class PixivArtistAPI(PixivRoot):
 
 @final
 class PixivTagAPI(PixivRoot):
+    URL_TAG = "https://www.pixiv.net/en/tags/{tagname}/artworks"
+    TAG_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net/(?:en/)?tags/([^/?=]+)(?:/artworks)?"
+
+    ME = "pixiv-tags"
+
     async def does_this_exist(self, tagname: str) -> bool:
         res = await self.session.get(
             f"{self.base_api_url}/v1/search/illust", params={"word": self.format_tagname(tagname), "search_target": "partial_match_for_tags"}

@@ -8,6 +8,7 @@ import random
 import shutil
 import string
 import time
+import urllib.parse
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -75,10 +76,8 @@ def asynctimeoutseconds() -> int:
     return 60  # seconds
 
 
-def multi_character_replace(string_input: str, translate: dict[str, str]) -> str:
-    for what, by in translate.items():
-        string_input = string_input.replace(what, by)
-    return string_input
+def unquote_tagnames(string_input: str) -> str:
+    return urllib.parse.unquote(string_input)
 
 
 def init_blacklist_tags(ignore_symbol: str = "//") -> list[str]:
@@ -197,6 +196,7 @@ def init_selenium(headless: bool = False) -> WebDriver:
     driver: WebDriver = webdriver.Chrome(service=service, options=options)
     print("ublock lite: https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh")
     print("Tampermonkey: https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo")
+    print("Cookie Editor: https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm")
     return driver
 
 

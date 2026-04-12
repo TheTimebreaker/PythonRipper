@@ -497,7 +497,7 @@ class RedditAPI(scraper.TaggableScraper):
             success = await scraper.download_from_scraper_object(self.config, newgrounds.NewgroundsAPI, download_url, dpath, filename)
         elif any(term in download_url for term in ("pximg", "pixiv")):
             logging.info("[%s] - Detected pixiv link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, pixiv.PixivAPI, download_url, dpath, filename)
+            success = await scraper.download_from_scraper_object(self.config, pixiv.PixivArtistAPI, download_url, dpath, filename)
         elif "rule34.paheal.net" in download_url:
             logging.info("[%s] - Detected rule34.paheal.net link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, rule34paheal.Rule34pahealAPI, download_url, dpath, filename)
