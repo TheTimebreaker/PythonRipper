@@ -234,6 +234,11 @@ async def download_file(
                 except curl_cffi.requests.exceptions.Timeout:
                     await asyncio.sleep(i)
                     continue
+                except curl_cffi.requests.exceptions.IncompleteRead:
+                    logging.error(
+                        "download_file encountered an IncompleteRead (response was shorter than announced). Download cancelled. Url: %s", url
+                    )
+                    return False
                 except curl_cffi.requests.exceptions.ConnectionError:
                     logging.warning("ConnectionError when downloading url %s ...", url)
                     return False
