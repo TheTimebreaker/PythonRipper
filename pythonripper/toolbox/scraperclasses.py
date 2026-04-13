@@ -246,9 +246,9 @@ class Scraper(ABC):
             await self.LIMIT.wait()
             success = await self._download_post_from_postelem(element, dpath=dpath, filename=this_filename)
             if success:
-                logging.debug("[%s] - Download of post %s successful.", self.ME, data["identifier"])
+                logging.info("[%s] - Download of file #%s of post %s successful.", self.ME, i, data["identifier"])
             else:
-                logging.debug("[%s] - Download of post %s failed.", self.ME, data["identifier"])
+                logging.error("[%s] - Download of file #%s of post %s failed.", self.ME, i, data["identifier"])
             downloaded_counter += success
 
         full_success = downloaded_counter == len_elements
