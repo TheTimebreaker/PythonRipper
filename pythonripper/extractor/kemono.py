@@ -169,10 +169,24 @@ class KemonoTypeUser(KemonoBase):
 
 
 @final
-class KemonoPatreon(KemonoTypeUser):
+class KemonoAfdian(KemonoTypeUser):
     @property
     def service(self) -> str:
-        return "patreon"
+        return "afdian"
+
+
+@final
+class KemonoBoosty(KemonoTypeUser):
+    @property
+    def service(self) -> str:
+        return "boosty"
+
+
+@final
+class KemonoDlsite(KemonoTypeUser):
+    @property
+    def service(self) -> str:
+        return "dlsite"
 
 
 @final
@@ -190,20 +204,6 @@ class KemonoFantia(KemonoTypeUser):
 
 
 @final
-class KemonoAfdian(KemonoTypeUser):
-    @property
-    def service(self) -> str:
-        return "afdian"
-
-
-@final
-class KemonoBoosty(KemonoTypeUser):
-    @property
-    def service(self) -> str:
-        return "boosty"
-
-
-@final
 class KemonoGumroad(KemonoTypeUser):
     @property
     def service(self) -> str:
@@ -211,14 +211,14 @@ class KemonoGumroad(KemonoTypeUser):
 
 
 @final
+class KemonoPatreon(KemonoTypeUser):
+    @property
+    def service(self) -> str:
+        return "patreon"
+
+
+@final
 class KemonoSubscribestar(KemonoTypeUser):
     @property
     def service(self) -> str:
         return "subscribestar"
-
-
-@final
-class KemonoDlsite(KemonoTypeUser):
-    @property
-    def service(self) -> str:
-        return "dlsite"
