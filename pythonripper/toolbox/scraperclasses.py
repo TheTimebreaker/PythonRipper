@@ -503,13 +503,18 @@ async def update_stuff(
     if tag_list is None:
         # import necessary here to prevent circular imports
         import pythonripper.toolbox.subscription_management as sm  # noqa: I001, RUF100
+        import pythonripper.extractor.kemono as kemono
 
         tag_object: sm.CombinedFile
         if update_type == "artists":
             tag_object = sm.CombinedArtistFile(config)
         elif update_type == "tags":
             tag_object = sm.CombinedBooruFile(config)
-        tag_list = tag_object.get_list(obj.ME)
+        if isinstance(obj, kemono.KemonoBase):
+            website = obj.service
+        else:
+            website = obj.ME
+        tag_list = tag_object.get_list(website)
     random.shuffle(tag_list)
 
     # Download

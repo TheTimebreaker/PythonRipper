@@ -60,7 +60,7 @@ class KemonoBase(scraper.TaggableScraper):
     async def does_this_exist(self, tagname: str) -> bool:
         await self.LIMIT.wait()
         res = await self.session.get(self.API_ARTIST_URL_PROFILE.format(service=self.service, type=self.type, username=self.format_tagname(tagname)))
-        print(res.text)
+        print(res.status_code)
         return res.status_code == 200
 
     async def resolve_tagnames_to_id(self, tagname: str) -> str:
@@ -170,6 +170,8 @@ class KemonoTypeUser(KemonoBase):
 
 @final
 class KemonoAfdian(KemonoTypeUser):
+    ME = "kemono-afdian"
+
     @property
     def service(self) -> str:
         return "afdian"
@@ -177,6 +179,8 @@ class KemonoAfdian(KemonoTypeUser):
 
 @final
 class KemonoBoosty(KemonoTypeUser):
+    ME = "kemono-boosty"
+
     @property
     def service(self) -> str:
         return "boosty"
@@ -184,13 +188,17 @@ class KemonoBoosty(KemonoTypeUser):
 
 @final
 class KemonoDlsite(KemonoTypeUser):
+    ME = "kemono-dlsite"
+
     @property
     def service(self) -> str:
         return "dlsite"
 
 
 @final
-class KemonoFanbox(KemonoTypeUser):
+class KemonoPixivfanbox(KemonoTypeUser):
+    ME = "kemono-fanbox"
+
     @property
     def service(self) -> str:
         return "fanbox"
@@ -198,6 +206,8 @@ class KemonoFanbox(KemonoTypeUser):
 
 @final
 class KemonoFantia(KemonoTypeUser):
+    ME = "kemono-fantia"
+
     @property
     def service(self) -> str:
         return "fantia"
@@ -205,6 +215,8 @@ class KemonoFantia(KemonoTypeUser):
 
 @final
 class KemonoGumroad(KemonoTypeUser):
+    ME = "kemono-gumroad"
+
     @property
     def service(self) -> str:
         return "gumroad"
@@ -212,6 +224,8 @@ class KemonoGumroad(KemonoTypeUser):
 
 @final
 class KemonoPatreon(KemonoTypeUser):
+    ME = "kemono-patreon"
+
     @property
     def service(self) -> str:
         return "patreon"
@@ -219,6 +233,8 @@ class KemonoPatreon(KemonoTypeUser):
 
 @final
 class KemonoSubscribestar(KemonoTypeUser):
+    ME = "kemono-subscribestar"
+
     @property
     def service(self) -> str:
         return "subscribestar"
