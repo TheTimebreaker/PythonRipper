@@ -269,11 +269,35 @@ class DeviantartAPI(scraper.TaggableScraper):
 
     async def does_this_exist(self, tagname: str) -> bool:
         url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
+        res = await self.request(url)
+        return res.status_code == 200
+
+    async def request(
+        self, url: str, headers: dict[str, Any] | None = None, params: dict[str, Any] | None = None, follow_redirects: bool = False
+    ) -> httpx.Response:
+        if headers is None:
+            headers = {}
+        if params is None:
+            params = {}
+
         await self.LIMIT.wait()
-        res = await self.session.get(url)
+
+        res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
         if res.status_code == 429:
             raise cf.ExtractorStopError("Rate limited.")
-        return res.status_code == 200
+
+        elif res.status_code == 401 and res.json().get("error", "") == "invalid_token":
+            if await self.init():
+                res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+            else:
+                raise cf.ExtractorStopError("Could not regenerate tokens")
+
+        elif res.status_code > 400:
+            msg = f"[{self.ME.upper()}] - Deviantart request {url} got invalid response code: {res.status_code} ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg)
+
+        return res
 
     async def _get_deviation_id(self, url: str | None = None, post_id: str | None = None) -> str:
         if url is None:
@@ -281,10 +305,7 @@ class DeviantartAPI(scraper.TaggableScraper):
                 raise ValueError("Neither post_id nor url given (one is necessary).")
             url = self.URL_POST.format(post_id=post_id)
 
-        await self.LIMIT.wait()
-        res = await self.session.get(url, follow_redirects=True)
-        if res.status_code == 429:
-            raise cf.ExtractorStopError
+        res = await self.request(url, follow_redirects=True)
         if res.status_code != 200:
             raise cf.ExtractorExitError("Could not get deviation id from %s : response status was not 200: %s", url or post_id, res.status_code)
 
@@ -317,10 +338,7 @@ class DeviantartAPI(scraper.TaggableScraper):
         assert isinstance(params["limit"], int)
 
         while True:
-            await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL.format(endpoint=f"{endpoint}/folders"), params=params)
-            if res.status_code == 429:
-                raise cf.ExtractorStopError
+            res = await self.request(self.API_URL.format(endpoint=f"{endpoint}/folders"), params=params)
 
             for entry in res.json()["results"]:
                 entry_name = str(entry["name"])
@@ -341,10 +359,7 @@ class DeviantartAPI(scraper.TaggableScraper):
                 raise ValueError("Neither post_id nor json_data given (one is necessary).")
             deviation_id = await self._get_deviation_id(post_id=post_id)
 
-            await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL.format(endpoint=f"deviation/{deviation_id}"))
-            if res.status_code == 429:
-                raise cf.ExtractorStopError
+            res = await self.request(self.API_URL.format(endpoint=f"deviation/{deviation_id}"))
             json_data = res.json()
 
         source = json_data["author"]["username"]
@@ -395,10 +410,7 @@ class DeviantartAPI(scraper.TaggableScraper):
         more_files = True
         fetch_counter = 0
         while more_files:
-            await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL.format(endpoint=f"{endpoint}/{folder_id}"), params=params)
-            if res.status_code == 429:
-                raise cf.ExtractorStopError
+            res = await self.request(self.API_URL.format(endpoint=f"{endpoint}/{folder_id}"), params=params)
 
             for entry in res.json()["results"]:
                 post_data = await self._get_post_data(json_data=entry)
@@ -490,8 +502,7 @@ class DeviantartAPI(scraper.TaggableScraper):
             )
             return False
 
-            await self.LIMIT.wait()
-            res = await self.session.get(
+            res = await self.request(
                 self.API_URL.format(endpoint="deviation/content"),
                 params={"deviationid": deviation_data["deviationid"], "mature_content": True},
             )

@@ -534,11 +534,13 @@ async def update_stuff(
                 "".join(tb.format()),
             )
             success = False
-        except cf.ExtractorStopError:
+        except cf.ExtractorStopError as error:
+            tb = traceback.TracebackException.from_exception(error)
             logging.error(
-                "[%s-%s-UPDATER] - Extractor was signaled to stop execution.",
+                "[%s-%s-UPDATER] - Extractor was signaled to stop execution. Message : %s",
                 obj.ME.upper(),
                 update_type.upper(),
+                "".join(tb.format()),
             )
             return False
         if not success:

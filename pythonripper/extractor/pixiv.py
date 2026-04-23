@@ -1,5 +1,6 @@
 """Main module for interacting with https://www.pixiv.net/ ."""
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -39,7 +40,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
     POST_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net(?:/en|/jp)/artworks/(\d+)"
     USER_PATTERN = BASE_PATTERN + r"/(?:(?:en/)?u(?:sers)?/|member\.php\?id=|(?:mypage\.php)?#id=)(\d+)(?:$|[?#])?"
 
-    LIMIT = asynciolimiter.LeakyBucketLimiter(3, capacity=200)
+    LIMIT = asynciolimiter.LeakyBucketLimiter(2, capacity=2)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False
 
@@ -125,6 +126,30 @@ class PixivRoot(scraper.DownloadhistoryScraper):
 
         return True
 
+    async def request(
+        self, url: str, headers: dict[str, Any] | None = None, params: dict[str, Any] | None = None, follow_redirects: bool = False
+    ) -> httpx.Response:
+        if headers is None:
+            headers = {}
+        if params is None:
+            params = {}
+
+        await self.LIMIT.wait()
+
+        res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+        if res.status_code == 429:
+            await asyncio.sleep(60)
+            res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+            if res.status_code > 399:
+                raise cf.ExtractorStopError("Rate limited.")
+
+        elif res.status_code > 400:
+            print(res.text)
+            print(res.status_code)
+            input("...")  # noqa: ASYNC250
+
+        return res
+
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         def _extract_tags() -> list[str]:
             tags = []
@@ -148,8 +173,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
             if post_id is None:
                 raise ValueError("Neither post_id nor json_data given (one is necessary).")
 
-            await self.LIMIT.wait()
-            res = await self.session.get(f"{self.base_api_url}/v1/illust/detail", params={"illust_id": str(post_id)})
+            res = await self.request(f"{self.base_api_url}/v1/illust/detail", params={"illust_id": str(post_id)})
             if res.status_code != 200:
                 raise cf.ExtractorExitError("Could not get post data from %s ", post_id)
             json_data = res.json()["illust"]
@@ -202,9 +226,8 @@ class PixivRoot(scraper.DownloadhistoryScraper):
 
         offset = 0
         while True:
-            await self.LIMIT.wait()
             params["offset"] = offset
-            res = await self.session.get(f"{self.base_api_url}/v1/{endpoint}", params=params)
+            res = await self.request(f"{self.base_api_url}/v1/{endpoint}", params=params)
 
             try:
                 for image in res.json()["illusts"]:
@@ -239,10 +262,7 @@ class PixivArtistAPI(PixivRoot):
 
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
-        await self.LIMIT.wait()
-        res = await self.session.get(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
-        if res.status_code == 429:
-            raise cf.ExtractorStopError("Rate limited")
+        res = await self.request(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
         return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
@@ -259,12 +279,9 @@ class PixivTagAPI(PixivRoot):
     ME = "pixiv-tags"
 
     async def does_this_exist(self, tagname: str) -> bool:
-        await self.LIMIT.wait()
-        res = await self.session.get(
+        res = await self.request(
             f"{self.base_api_url}/v1/search/illust", params={"word": self.format_tagname(tagname), "search_target": "partial_match_for_tags"}
         )
-        if res.status_code == 429:
-            raise cf.ExtractorStopError("Rate limited")
         return bool(res.json().get("illusts"))
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
