@@ -153,8 +153,7 @@ class Worker:
             print(f"Currently moving: {file.parent} ...", end="\r")
             if should_move_but_with_id(file):
                 ext = f.match_extension(file.name)
-                file = file.with_name(file.name.replace(f".{ext}", f"-{cf.id_generator(6)}.{ext}"))
-                dst_path = dest_path / file
+                dst_path = dest_path / file.with_name(file.name.replace(f".{ext}", f"-{cf.id_generator(6)}.{ext}"))
             elif not should_exclude(file):
                 dst_path = dest_path / file
             else:
