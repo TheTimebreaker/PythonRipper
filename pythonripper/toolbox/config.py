@@ -1,18 +1,21 @@
 """Provides the central Config class, which should be used whereever configuration things are needed."""
 
+import platformdirs
 import json
 import os
 import shutil
 from pathlib import Path
 
-# This sets my personal default value to make things run smoothly in DOCKER and on my host OS
-os.environ.setdefault("DOWNLOAD_DIR", str(Path(r"G:\Documents\Visual Studio Code projects\Downloader\!Downloaded stuff")))
-os.environ.setdefault("CONFIG_DIR", str(Path(r"G:\Documents\Visual Studio Code projects\Downloader\config")))
-os.environ.setdefault("DOWNLOADHISTORY_DIR", str(Path(r"G:\Documents\Visual Studio Code projects\Downloader\download_history")))
-os.environ.setdefault("CHROMEDRIVER_DIR", str(Path(r"G:\Documents\Visual Studio Code projects\_chromedriver")))
+user_config_dir = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
+
+# This sets the default values for the config dirs to make things run smoothly in DOCKER and on host OS
+os.environ.setdefault("DOWNLOAD_DIR", str(user_config_dir / "!Downloaded stuff"))
+os.environ.setdefault("CONFIG_DIR", str(user_config_dir / "config"))
+os.environ.setdefault("DOWNLOADHISTORY_DIR", str(user_config_dir / "download_history"))
+os.environ.setdefault("CHROMEDRIVER_DIR", str(Path(r"D:\Documents\Visual Studio Code projects\_chromedriver")))
 
 
-class Config:  # pylint:disable=too-few-public-methods
+class Config:
     """Class for configuration elements loaded from config.json"""
 
     def __init__(self) -> None:

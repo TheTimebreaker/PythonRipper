@@ -129,7 +129,8 @@ class Worker:
         move_with_id_files: list[str] | tuple[str, ...] | None = None,
     ) -> None:
         def should_exclude(file: Path) -> bool:
-            assert exclude_files
+            if exclude_files is None:
+                raise
             return any(exclude_file in file.name for exclude_file in exclude_files)
 
         def should_move_but_with_id(file: Path) -> bool:
@@ -153,12 +154,13 @@ class Worker:
             print(f"Currently moving: {file.parent} ...", end="\r")
             if should_move_but_with_id(file):
                 ext = f.match_extension(file.name)
-                dst_path = dest_path / file.with_name(file.name.replace(f".{ext}", f"-{cf.id_generator(6)}.{ext}"))
+                dst_path_file = dest_path / file.with_name(file.name.replace(f".{ext}", f"-{cf.id_generator(6)}.{ext}")).name
+
             elif not should_exclude(file):
-                dst_path = dest_path / file
+                dst_path_file = dest_path / file.name
             else:
                 continue
-            shutil.move(file, dst_path)
+            shutil.move(file, dst_path_file)
 
     def remove_unwanted_file_formats(self, path: Path, unwanted_extensions: Iterable[str] | None = None) -> None:
         print("Removing unwanted file formats.")
@@ -172,7 +174,7 @@ class Worker:
         print("=" * 25)
 
     def convert_files(self, path: Path) -> None:
-        print("Converting files to jpg.")
+        print(f"Converting files to jpg in {path}.")
         if self.config.data["general"]["convert_processed_files_to"] is False:
             print("No file conversion conducted due to settings.")
         else:
@@ -186,7 +188,7 @@ class Worker:
                 for i, file in enumerate(list_files):
                     if cf.progress_bar_timed(lasttime, timing_seconds, i + 1, len_list_files, "Converting files"):
                         lasttime = time.time()
-                    image_converter(file, goal_format="jpg", delete_source=True, quality_setting=self.config.data["general"]["connvert_quality"])
+                    image_converter(file, goal_format=".jpg", delete_source=True, quality_setting=self.config.data["general"]["connvert_quality"])
         print("=" * 25)
 
     def merge_folders(self, path: Path) -> None:
@@ -325,7 +327,6 @@ class Worker:
 
 def image_converter(file: Path, goal_format: str, delete_source: bool, quality_setting: int) -> None:
     Image.MAX_IMAGE_PIXELS = None
-    goal_format = goal_format.replace(".", "")
 
     # Takes in feed from fileopener-dialogue and converts and saves it.
     def funnel(
@@ -335,16 +336,16 @@ def image_converter(file: Path, goal_format: str, delete_source: bool, quality_s
         quality_setting: int,
     ) -> None:
         img = pipe.convert("RGB")
-        file_converted = file.with_name(f"{file.stem}.{goal_format}")
+        file_converted = file.with_name(f"{file.stem}{goal_format}")
         if file_converted.is_file():
             file_converted = file_converted.with_name(f"{file.stem}-{cf.id_generator()}.{goal_format}")
-        if goal_format == "png":
+        if goal_format == ".png":
             img.save(file_converted)
-        elif goal_format == "jpg":
+        elif goal_format == ".jpg":
             img.save(file_converted, quality=quality_setting)
 
     try:
-        if (not file.suffix.lower() == goal_format) and file.suffix.lower() in ("png", "jpg", "jpeg", "bmp", "webp", "tif", "tiff", "gif"):
+        if (not file.suffix.lower() == goal_format) and file.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff", ".gif"):
             with Image.open(file) as img:
                 funnel(
                     pipe=img,
@@ -352,7 +353,7 @@ def image_converter(file: Path, goal_format: str, delete_source: bool, quality_s
                     goal_format=goal_format,
                     quality_setting=quality_setting,
                 )
-        elif (not file.suffix.lower() == goal_format) and file.suffix.lower() in ("psd"):
+        elif (not file.suffix.lower() == goal_format) and file.suffix.lower() in (".psd"):
             psd = PSDImage.open(file)
             funnel(
                 pipe=psd.composite(),

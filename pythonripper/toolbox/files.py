@@ -255,6 +255,11 @@ async def download_file(
                 elif res.status_code > 400:  # Immediately stop when encountering a BIG problem
                     logging.warning("download_file encountered a %s. Download cancelled. Url: %s", res.status_code, url)
                     return False
+
+                elif not str(res.headers.get("Content-Type", "")).lower().startswith("image/"):
+                    logging.error("download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url)
+                    return False
+
                 else:
                     logging.debug(res.status_code)
                     await asyncio.sleep(i)

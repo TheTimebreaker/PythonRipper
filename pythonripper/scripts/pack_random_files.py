@@ -1,4 +1,3 @@
-import datetime
 import random
 import shutil
 from pathlib import Path
@@ -35,7 +34,4 @@ for i, file in enumerate(collected_files):
     cf.progress_bar(i + 1, NUMBER, "Moving files...")
     shutil.move(file, temppath)
 
-# Zip
-print(f"{datetime.datetime.now()} - Creating zip file (may take a couple of minutes)... ", end="")
-shutil.make_archive(str(temppath), "zip", temppath)  # can take up to 10 min
 print("Done!")
