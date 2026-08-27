@@ -31,7 +31,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
 
     async def init(self) -> bool:
         self.random_tag_name = "random:1000"
-        self.headers = self.download_headers = {"User-Agent": "Mozilla/5.0 (compatible)"}
+        self.headers = self.download_headers = {"User-Agent": "PythonRipper/v1"}
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
         return True
 
