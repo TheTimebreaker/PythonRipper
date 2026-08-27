@@ -23,7 +23,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?rule34\.us/index\.php\?(?:.+)?q=([^/&\?]+)"
 
     ME = "rule34us"
-    LIMIT = asynciolimiter.Limiter(100)
+    LIMIT = asynciolimiter.LeakyBucketLimiter(1, capacity=10)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False
 
@@ -38,6 +38,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
         params: dict[str, str | int] = {"r": "posts/index", "q": self.format_tagname(tagname)}
         await self.LIMIT.wait()
         res = await self.session.get(self.API_URL, params=params)
+        res.raise_for_status()
         return "No results found for this search query" not in res.text
 
     async def _get_post_data(self, post_id: str | None = None, _json_data: Any = None, post_soup: bs4.Tag | None = None) -> scraper.PostData:
@@ -49,6 +50,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
         url = f"""{self.API_URL}?r=posts/view&id={post_id}"""
         await self.LIMIT.wait()
         res = await self.session.get(url)
+        res.raise_for_status()
         soup = bs4.BeautifulSoup(res.text, "html.parser")
 
         tags_soup = {
@@ -110,6 +112,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
         while more_files:
             await self.LIMIT.wait()
             res = await self.session.get(self.API_URL, params=params)
+            res.raise_for_status()
 
             # pagination limit reached. Recalculation of tagname parameter
             if "This browsing action would use up too much CPU" in res.text:

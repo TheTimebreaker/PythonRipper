@@ -543,6 +543,15 @@ async def update_stuff(
                 "".join(tb.format()),
             )
             return False
+        except httpx.HTTPStatusError as error:
+            tb = traceback.TracebackException.from_exception(error)
+            logging.error(
+                "[%s-%s-UPDATER] - Extractor encountered a 4xx or 5xx HTTP response. Message : %s",
+                obj.ME.upper(),
+                update_type.upper(),
+                "".join(tb.format()),
+            )
+            return False
         if not success:
             full_success = False
             logging.error(
