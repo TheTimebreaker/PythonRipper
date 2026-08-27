@@ -167,7 +167,9 @@ class PatreonAPI(scraper.TaggableScraper):
         if username in campaign_ids.keys():
             return str(campaign_ids[username])
         else:
-            raise cf.ExtractorExitError from NotImplementedError("Add campaign ID for user %s manually please.", username)
+            raise cf.ExtractorExitError from NotImplementedError(
+                "Add campaign ID for user %s to %s manually please.", username, self.campaign_ids_path
+            )
 
     def convert_included_to_lookup(self, included: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, Any]]]:
         lookup: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
