@@ -38,7 +38,7 @@ class ArtstationAPI(scraper.TaggableScraper):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0",
             "Accept-Language": "en-US,en;q=0.5",
         }
-        self.session = curl_cffi.requests.AsyncSession(headers=self.headers, impersonate="chrome101")
+        self.session = curl_cffi.requests.AsyncSession(headers=self.headers, impersonate="chrome131")
         return True
 
     async def does_this_exist(self, tagname: str) -> bool:
@@ -52,8 +52,9 @@ class ArtstationAPI(scraper.TaggableScraper):
             raise ValueError("No post id given. Other fetching methods are impossible.")
 
         api_url = self.API_URL_POST.format(post_id=post_id)
+        logging.info("[%s] - url: %s", self.ME.upper(), api_url)
         await self.LIMIT.wait()
-        res = await self.session.get(api_url, headers=self.headers, impersonate="chrome101")
+        res = await self.session.get(api_url, headers=self.headers, impersonate="chrome131")
 
         if res.status_code != 200:
             logging.error("[%s] - %s for downloading post %s . Impersonation?", self.ME.upper(), res.status_code, post_id)
