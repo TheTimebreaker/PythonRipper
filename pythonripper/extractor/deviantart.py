@@ -1,5 +1,6 @@
 """Main module for interacting with https://www.deviantart.com/ ."""
 
+import asyncio
 import json
 import logging
 import re
@@ -273,7 +274,12 @@ class DeviantartAPI(scraper.TaggableScraper):
         return res.status_code == 200
 
     async def request(
-        self, url: str, headers: dict[str, Any] | None = None, params: dict[str, Any] | None = None, follow_redirects: bool = False
+        self,
+        url: str,
+        headers: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        follow_redirects: bool = False,
+        no_retry: bool = False,
     ) -> httpx.Response:
         if headers is None:
             headers = {}
@@ -284,7 +290,10 @@ class DeviantartAPI(scraper.TaggableScraper):
 
         res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
         if res.status_code == 429:
-            raise cf.ExtractorStopError("Rate limited.")
+            if no_retry is True:
+                raise cf.ExtractorStopError("Rate limited.")
+            await asyncio.sleep(60)
+            return await self.request(url=url, headers=headers, params=params, follow_redirects=follow_redirects, no_retry=True)
 
         elif res.status_code == 401 and res.json().get("error", "") == "invalid_token":
             if await self.init():
