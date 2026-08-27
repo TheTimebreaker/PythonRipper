@@ -90,10 +90,12 @@ class YandereAPI(scraper.DownloadhistoryScraper):
                 raise cf.ExtractorExitError("Request status code %s :(", res.status_code)
 
             data = res.json()
+            logging.info("[%s] - data %s", self.ME.upper(), data)
             for post in data:
                 post_data = await self._get_post_data(json_data=post)
-                if post_data["identifier"] in update_ids:
+                if str(post_data["identifier"]) in update_ids:
                     return
+                logging.info("[%s] - post data %s", self.ME.upper(), post_data)
                 yield post_data
 
             more_files = bool(data)
