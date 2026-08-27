@@ -133,7 +133,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             data = res.json()
             for post in data:
                 post_data = await self._get_post_data(json_data=post)
-                if post_data["identifier"] in update_ids:
+                if str(post_data["identifier"]) in update_ids:
                     return
                 yield post_data
 
