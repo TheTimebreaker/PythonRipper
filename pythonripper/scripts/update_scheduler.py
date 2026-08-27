@@ -2,8 +2,7 @@ import asyncio
 import json
 import logging
 import time
-import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from plyer import notification
@@ -22,14 +21,11 @@ import pythonripper.updater.update_kusowanka
 import pythonripper.updater.update_newgrounds
 import pythonripper.updater.update_patreon
 import pythonripper.updater.update_pixiv
-import pythonripper.updater.update_reddit
 import pythonripper.updater.update_rule34paheal
 import pythonripper.updater.update_rule34us
 import pythonripper.updater.update_rule34xxx
 import pythonripper.updater.update_tumblr
 import pythonripper.updater.update_yandere
-
-# ruff: noqa: ERA001
 
 
 def read_update_scheduler(config: cfg.Config) -> dict[Any, Any]:
@@ -45,8 +41,17 @@ async def write_update_scheduler(config: cfg.Config, data: dict[Any, Any]) -> No
     await f.atomic_write(config.update_scheduler_json_path(), json.dumps(data, indent=True))
 
 
-async def chain(*awaitables: Callable[[Any], Any], config: cfg.Config) -> list[Any]:
-    return [await func(config) for func in awaitables]
+async def run_group(group: dict[str, Callable[[cfg.Config], Coroutine[None, None, bool]]], config: cfg.Config) -> dict[str, bool]:
+    results = {}
+    for func_name, func in group.items():
+        res = await func(config)
+        results[func_name] = res
+    return results
+
+
+async def run_all_groups(groups: dict[str, dict[str, Callable[[cfg.Config], Coroutine[None, None, bool]]]], config: cfg.Config) -> dict[str, bool]:
+    group_results = await asyncio.gather(*(run_group(group, config) for group in groups.values()))
+    return {func_name: result for group_result in group_results for func_name, result in group_result.items()}
 
 
 def unpack_downloader_results(results_packed: list[Any] | tuple[Any, ...]) -> list[Any]:
@@ -72,76 +77,58 @@ def windows_notification(title: str = "", message: str = "", app_name: str = "",
 
 
 async def update_all(config: cfg.Config) -> dict[str, bool]:
-    scheduler: list[tuple[Callable[[Any], Any], int]] = [  # Function, repeat every X days
-        # ### higher prio because they are either very important or take long
-        # (pythonripper.updater.update_reddit.update_reddit_monthly, 0),
-        (pythonripper.updater.update_yandere.update_yandere_artists, 28),
-        # (updater.update_yandere.update_yandere_tags, 3),
-        # ### regular priority
+    scheduler: list[tuple[Callable[[Any], Any], int]] = [
         (pythonripper.updater.update_artstation.update_artstation_artists, 28),
         (pythonripper.updater.update_artist_websites.update_supersatanson, 60),
-        (pythonripper.updater.update_artist_websites.update_shellvi, 45),
-        (pythonripper.updater.update_artist_websites.update_tangsgallery, 47),
+        (pythonripper.updater.update_artist_websites.update_akairiot, 60),
+        (pythonripper.updater.update_artist_websites.update_shellvi, 60),
+        (pythonripper.updater.update_artist_websites.update_tangsgallery, 60),
         (pythonripper.updater.update_danbooru.update_danbooru_artists, 28),
-        # (updater.update_danbooru.update_danbooru_tags, 4),
+        (pythonripper.updater.update_danbooru.update_danbooru_tags, 4),
         (pythonripper.updater.update_deviantart.update_deviantart_artists, 28),
         (pythonripper.updater.update_deviantart.update_deviantart_favorites, 8),
         (pythonripper.updater.update_gelbooru.update_gelbooru_artists, 28),
-        # (updater.update_gelbooru.update_gelbooru_tags, 4),
+        (pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4),
         (pythonripper.updater.update_hentaifoundry.update_hentaifoundry_artists, 28),
         (pythonripper.updater.update_hypnohub.update_hypnohub_artists, 28),
-        # (updater.update_hypnohub.update_hypnohub_tags, 14),
+        (pythonripper.updater.update_hypnohub.update_hypnohub_tags, 14),
         (pythonripper.updater.update_kusowanka.update_kusowanka_artists, 28),
-        # (updater.update_kusowanka.update_kusowanka_tags, 7),
+        (pythonripper.updater.update_kusowanka.update_kusowanka_tags, 7),
         (pythonripper.updater.update_newgrounds.update_newgrounds_artists, 28),
         (pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 7),
         (pythonripper.updater.update_patreon.update_patreon_artists, 28),
         (pythonripper.updater.update_pixiv.update_pixiv_artists, 28),
-        # (pythonripper.updater.update_reddit.update_reddit_artists, 28),
-        # (pythonripper.updater.update_reddit.update_reddit_subs, 6),
         (pythonripper.updater.update_rule34paheal.update_rule34paheal_artists, 28),
-        # (updater.update_rule34paheal.update_rule34paheal_tags, 7),
+        (pythonripper.updater.update_rule34paheal.update_rule34paheal_tags, 7),
         (pythonripper.updater.update_rule34us.update_rule34us_artists, 28),
-        # (updater.update_rule34us.update_rule34us_tags, 7),
+        (pythonripper.updater.update_rule34us.update_rule34us_tags, 7),
         (pythonripper.updater.update_rule34xxx.update_rule34xxx_artists, 28),
-        # (updater.update_rule34xxx.update_rule34xxx_tags, 4),
+        (pythonripper.updater.update_rule34xxx.update_rule34xxx_tags, 4),
         (pythonripper.updater.update_tumblr.update_tumblr_artists, 28),
+        (pythonripper.updater.update_yandere.update_yandere_artists, 28),
+        (pythonripper.updater.update_yandere.update_yandere_tags, 3),
     ]
 
     last_run = read_update_scheduler(config)
-    tasks: dict[str, list[Callable[[Any], Any]]] = {}
-    success_dict = {}
+    tasks: dict[str, dict[str, Callable[[Any], Any]]] = {}
     for fn, num in scheduler:
-        if fn.__name__ not in last_run.keys() or last_run[fn.__name__] + 60 * 60 * 24 * num < time.time():  # If it is already time for the update
-            taskname = fn.__name__
-            success_dict[taskname] = False
-
+        func_name = fn.__name__
+        if func_name not in last_run.keys() or last_run[func_name] + 60 * 60 * 24 * num < time.time():  # If it is already time for the update
             fn_module = str(fn.__module__)
             if fn_module not in tasks:
-                tasks[fn_module] = []
-            tasks[fn_module].append(fn)
+                tasks[fn_module] = {}
+            tasks[fn_module][func_name] = fn
 
-    chains = [chain(*functions, config=config) for functions in list(tasks.values())]
-    for task in asyncio.as_completed(chains):
-        try:
-            result = await task
-            result = repack_downloader_results(result)
-            for success_bool, taskname in result:
-                success_dict[taskname] = success_bool
-                if success_bool is True:
-                    last_run[taskname] = time.time()
-                    await write_update_scheduler(config, last_run)
-        except Exception as error:
-            windows_notification(
-                title="Update scheduler encountered exception!",
-                message=f"Exception encountered while running: {error}. {traceback.format_exc()}",
-                app_name="update_scheduler.py",
-            )
-        else:
-            pass  # easygui.msgbox(f'{taskname}: {successBool}')
+    results = await run_all_groups(tasks, config)
+
+    for func_name, func_result in results.items():
+        if func_result is True:
+            last_run[func_name] = time.time()
+
+    await write_update_scheduler(config, last_run)
 
     print("Finished running... Exiting...")
-    return success_dict
+    return results
 
 
 if __name__ == "__main__":
