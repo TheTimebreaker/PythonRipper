@@ -23,7 +23,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?danbooru\.donmai\.us/posts\?(?:.+)?tags=([^/&\?]+)"
 
     ME = "danbooru"
-    LIMIT = asynciolimiter.Limiter(100)
+    LIMIT = asynciolimiter.LeakyBucketLimiter(rate=1, capacity=10)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False
 
