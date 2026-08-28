@@ -1,8 +1,9 @@
 """Main module for interacting with https://rule34.xxx/ ."""
 
+import asyncio
 import json
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from typing import Any, final
 
 import aiofiles
@@ -25,7 +26,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?rule34\.xxx/index\.php\?(?:.+)?tags=([^/&\?]+)"
 
     ME = "rule34xxx"
-    LIMIT = asynciolimiter.Limiter(100)
+    LIMIT = asynciolimiter.LeakyBucketLimiter(1.8, capacity=10)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = True
 
@@ -68,10 +69,21 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
 
         return True
 
+    async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
+        for i in (0, 3, 5, 7, 10, 10, 60, 60):
+            await self.LIMIT.wait()
+            res = await self.session.get(url, params=params)
+            if res.status_code == 429:
+                logging.warning("[%s] - waiting because status code is %s", self.ME.upper(), res.status_code)
+                await asyncio.sleep(i)
+                continue
+
+            return res
+        raise cf.ExtractorStopError("Probably hit a hard rate limit")
+
     async def does_this_exist(self, tagname: str) -> bool:
         params: dict[str, str | int] = {"s": "post", "tags": self.format_tagname(tagname)}
-        await self.LIMIT.wait()
-        res = await self.session.get(self.API_URL, params=params)
+        res = await self.request(self.API_URL, params=params)
         return bool(res.text)
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
@@ -80,8 +92,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
                 raise ValueError("Neither post_id nor json_data given (one is necessary).")
 
             params = {"s": "post", "id": post_id}
-            await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL, params=params)
+            res = await self.request(self.API_URL, params=params)
             json_data = res.json()[0]
 
         download_url = json_data["file_url"]
@@ -112,8 +123,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
         data: dict[Any, Any] = {}
 
         while more_files:
-            await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL, params=params)
+            res = await self.request(self.API_URL, params=params)
 
             # API limit reached. Recalculation of tagNameFormatted
             if params["pid"] > 2000:
