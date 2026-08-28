@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import traceback
 
 import aiofiles
+import httpx
 
 import pythonripper.extractor.deviantart as deviantart
 import pythonripper.toolbox.centralfunctions as cf
@@ -37,7 +39,36 @@ async def update_deviantart_favorites(config: cfg.Config) -> bool | tuple[bool, 
         download_folder = config.dpath() / "deviantart-favorites" / f.verify_filename(fav)
         download_folder.mkdir(parents=True, exist_ok=True)
 
-        success = await obj.download_tag(fav, download_folder, True, custom_mode="deviantart", fetch_favorites=True)
+        try:
+            success = await obj.download_tag(fav, download_folder, True, custom_mode="deviantart", fetch_favorites=True)
+        except cf.ExtractorExitError as error:
+            tb = traceback.TracebackException.from_exception(error)
+            logging.error(
+                "[%s-%s-UPDATER] - Extractor signaled to exit current tag. Message : %s ",
+                obj.ME.upper(),
+                "FAVS",
+                "".join(tb.format()),
+            )
+            success = False
+        except cf.ExtractorStopError as error:
+            tb = traceback.TracebackException.from_exception(error)
+            logging.error(
+                "[%s-%s-UPDATER] - Extractor was signaled to stop execution. Message : %s",
+                obj.ME.upper(),
+                "FAVS",
+                "".join(tb.format()),
+            )
+            return False
+        except httpx.HTTPStatusError as error:
+            tb = traceback.TracebackException.from_exception(error)
+            logging.error(
+                "[%s-%s-UPDATER] - Extractor encountered a 4xx or 5xx HTTP response. Message : %s",
+                obj.ME.upper(),
+                "FAVS",
+                "".join(tb.format()),
+            )
+            return False
+
         if not success:
             full_success = False
             logging.error("[DEVIANTART-FAVS-UPDATER] - Some issue occurred that prevented some images by fav %s being correctly downloaded.", fav)
