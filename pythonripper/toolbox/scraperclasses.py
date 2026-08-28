@@ -377,30 +377,34 @@ class TaggableScraper(Scraper):
         elif custom_mode == "newgrounds":
             generator = self._fetch_posts(tagname, update_ids, endpoint=endpoint, fetch_favorites=fetch_favorites)  # type: ignore
 
-        async for i, post in asyncstdlib.enumerate(generator):
-            print(f'Downloading {self.ME} tag "{tagname}" (#{i})')
+        try:
+            async for i, post in asyncstdlib.enumerate(generator):
+                print(f'Downloading {self.ME} tag "{tagname}" (#{i})')
 
-            try:
-                result = await self.download_post(
-                    data=post, dpath=dpath, ignore_blacklist=ignore_blacklist, ignore_download_history=ignore_download_history
-                )
-            except cf.ExtractorExitError:
-                logging.error("[%s] - Download of %s lead to the extractor being forced to exit.", self.ME.upper(), post["identifier"])
-                raise
-            except cf.ExtractorStopError:
-                logging.error("[%s] - Download of %s lead to the extractor being forced to stop.", self.ME.upper(), post["identifier"])
-                raise
-            except cf.ExtractorSkipError:
-                logging.error("[%s] - Download of %s lead to the extractor being forced to skip this post.", self.ME.upper(), post["identifier"])
-                continue
+                try:
+                    result = await self.download_post(
+                        data=post, dpath=dpath, ignore_blacklist=ignore_blacklist, ignore_download_history=ignore_download_history
+                    )
+                except cf.ExtractorExitError:
+                    logging.error("[%s] - Download of %s lead to the extractor being forced to exit.", self.ME.upper(), post["identifier"])
+                    raise
+                except cf.ExtractorStopError:
+                    logging.error("[%s] - Download of %s lead to the extractor being forced to stop.", self.ME.upper(), post["identifier"])
+                    raise
+                except cf.ExtractorSkipError:
+                    logging.error("[%s] - Download of %s lead to the extractor being forced to skip this post.", self.ME.upper(), post["identifier"])
+                    continue
 
-            if result is True:
-                logging.info("[%s] - Download of %s was successful.", self.ME.upper(), post["identifier"])
-            else:
-                logging.error("[%s] - Download of %s was not successful.", self.ME.upper(), post["identifier"])
+                if result is True:
+                    logging.info("[%s] - Download of %s was successful.", self.ME.upper(), post["identifier"])
+                else:
+                    logging.error("[%s] - Download of %s was not successful.", self.ME.upper(), post["identifier"])
 
-            downloaded_counter += result
-            posts.append(post["identifier"])
+                downloaded_counter += result
+                posts.append(post["identifier"])
+        except Exception as error:
+            logging.error("[%s] - The generator failed to initialize or iterate.", self.ME.upper())
+            raise cf.ExtractorStopError from error
 
         if len(posts) == 0:
             print(f"{self.ME.upper()} : {tagname} : Skipped : No new files!")
