@@ -524,11 +524,16 @@ async def update_stuff(
     # Download
     full_success = True
     for i, tag in enumerate(tag_list):
+        ignore_blacklist = False
+        if tag.startswith("~~") and tag.endswith("~~"):
+            tag = tag[2:-2]
+            ignore_blacklist = True
+
         this_path = config.dpath() / obj.ME / f.verify_filename(tag)
         print(f"{i+1}/{len(tag_list)} - {tag} - {obj.ME}")
         this_path.mkdir(parents=True, exist_ok=True)
         try:
-            success = await obj.download_tag(tagname=tag, dpath=this_path, update=True)
+            success = await obj.download_tag(tagname=tag, dpath=this_path, update=True, ignore_blacklist=ignore_blacklist)
         except cf.ExtractorExitError as error:
             tb = traceback.TracebackException.from_exception(error)
             logging.error(
