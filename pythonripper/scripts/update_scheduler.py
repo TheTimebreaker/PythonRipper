@@ -41,31 +41,40 @@ async def write_update_scheduler(config: cfg.Config, data: dict[Any, Any]) -> No
     await f.atomic_write(config.update_scheduler_json_path(), json.dumps(data, indent=True))
 
 
-async def run_group(group: dict[str, Callable[[cfg.Config], Coroutine[None, None, bool]]], config: cfg.Config) -> dict[str, bool]:
+async def save_success(config: cfg.Config, last_run: dict[Any, Any], func_name: str, completed_at: float, write_lock: asyncio.Lock) -> None:
+    async with write_lock:
+        last_run[func_name] = completed_at
+        await write_update_scheduler(config, last_run)
+
+
+async def run_group(
+    group: dict[str, Callable[[cfg.Config], Coroutine[None, None, bool]]], config: cfg.Config, last_run: dict[Any, Any], write_lock: asyncio.Lock
+) -> dict[str, bool]:
     results = {}
+
     for func_name, func in group.items():
         res = await func(config)
         results[func_name] = res
+
+        if res is True:
+            completed_at = time.time()
+            save_task = asyncio.create_task(save_success(config, last_run, func_name, completed_at, write_lock))
+            try:
+                await asyncio.shield(save_task)
+            except asyncio.CancelledError:
+                await save_task
+                raise
+
     return results
 
 
-async def run_all_groups(groups: dict[str, dict[str, Callable[[cfg.Config], Coroutine[None, None, bool]]]], config: cfg.Config) -> dict[str, bool]:
-    group_results = await asyncio.gather(*(run_group(group, config) for group in groups.values()))
+async def run_all_groups(
+    groups: dict[str, dict[str, Callable[[cfg.Config], Coroutine[None, None, bool]]]], config: cfg.Config, last_run: dict[Any, Any]
+) -> dict[str, bool]:
+
+    write_lock = asyncio.Lock()
+    group_results = await asyncio.gather(*(run_group(group, config, last_run, write_lock) for group in groups.values()))
     return {func_name: result for group_result in group_results for func_name, result in group_result.items()}
-
-
-def unpack_downloader_results(results_packed: list[Any] | tuple[Any, ...]) -> list[Any]:
-    results_unpacked = []
-    for entry in results_packed:
-        if isinstance(entry, list | tuple):
-            results_unpacked.extend(unpack_downloader_results(entry))
-        else:
-            results_unpacked.append(entry)
-    return results_unpacked
-
-
-def repack_downloader_results(results: list[Any] | tuple[Any, ...]) -> list[tuple[Any, ...]]:
-    return cf.grouped_iterable(unpack_downloader_results(results), 2)
 
 
 def windows_notification(title: str = "", message: str = "", app_name: str = "", timeout: int = 10) -> None:
@@ -119,14 +128,7 @@ async def update_all(config: cfg.Config) -> dict[str, bool]:
                 tasks[fn_module] = {}
             tasks[fn_module][func_name] = fn
 
-    results = await run_all_groups(tasks, config)
-
-    for func_name, func_result in results.items():
-        if func_result is True:
-            last_run[func_name] = time.time()
-
-    await write_update_scheduler(config, last_run)
-
+    results = await run_all_groups(tasks, config, last_run)
     print("Finished running... Exiting...")
     return results
 
