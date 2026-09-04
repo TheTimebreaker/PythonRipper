@@ -263,6 +263,7 @@ class PixivArtistAPI(PixivRoot):
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
         res = await self.request(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
+        print(res.status_code, res.text)
         return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:

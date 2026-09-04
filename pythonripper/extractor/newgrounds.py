@@ -196,7 +196,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
         post_title = str(soup.find("title").contents[0])  # type: ignore
 
         # get audio
-        audio_script_tag = soup.find("script", string=re.compile("embedController"))  # type: ignore
+        audio_script_tag = soup.find("script", string=re.compile("embedController"))
         if audio_script_tag:
             generator = _iter_over_audio(audio_script_tag)
         else:

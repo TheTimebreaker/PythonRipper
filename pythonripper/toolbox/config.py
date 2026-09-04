@@ -1,10 +1,11 @@
 """Provides the central Config class, which should be used whereever configuration things are needed."""
 
-import platformdirs
 import json
 import os
 import shutil
 from pathlib import Path
+
+import platformdirs
 
 user_config_dir = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
 
