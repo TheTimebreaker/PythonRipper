@@ -33,7 +33,7 @@ class YandereAPI(scraper.DownloadhistoryScraper):
         return True
 
     def format_tagname(self, tagname: str) -> str:
-        return tagname.replace(" ", "_").replace(";", "%3B")
+        return tagname.replace(" ", "_")
 
     async def does_this_exist(self, tagname: str) -> bool:
         params: dict[str, int | str] = {"limit": 50, "page": 1, "tags": self.format_tagname(tagname)}
