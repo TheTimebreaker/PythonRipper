@@ -1,3 +1,5 @@
+# too unreliable
+
 import asyncio
 
 import pythonripper.extractor.kemono as kemono
@@ -44,5 +46,5 @@ async def main(config: cfg.Config) -> None:
 
 if __name__ == "__main__":
     config = cfg.Config()
-    cf.init_logger(config, "error", False)
+    cf.init_logger(config, "debug", False)
     asyncio.run(main(config))

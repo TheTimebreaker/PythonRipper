@@ -1,5 +1,7 @@
 """Main module for interacting with https://kemono.cr/ ."""
 
+# API too unreliable
+
 import json
 import logging
 from abc import abstractmethod
@@ -49,11 +51,15 @@ class KemonoBase(scraper.TaggableScraper):
 
     async def init(self) -> bool:
         self.headers = {
-            "User-Agent": "Mozilla/5.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0",
             "Accept": "text/css",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Referer": "https://kemono.cr/",
+            "Connection": "keep-alive",
         }
         self.download_headers = self.headers.copy()
-        self.download_headers["Referer"] = "https://kemono.cr/"
+        # self.download_headers["Referer"] = "https://kemono.cr/"
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
         return True
 
@@ -65,9 +71,14 @@ class KemonoBase(scraper.TaggableScraper):
 
     async def resolve_tagnames_to_id(self, tagname: str) -> str:
         await self.LIMIT.wait()
-        res = await self.session.get(self.API_ARTIST_URL_PROFILE.format(service=self.service, type=self.type, username=self.format_tagname(tagname)))
+        url = self.API_ARTIST_URL_PROFILE.format(service=self.service, type=self.type, username=self.format_tagname(tagname))
+        logging.info("[%s] - Resolving %s to the user ID.", self.ME.upper(), url)
+        res = await self.session.get(
+            url,
+            headers=self.headers,
+        )
         if res.status_code == 200:
-            ide = res.json().get("id")
+            ide = res.json().get("id", None)
             if ide:
                 return str(ide)
         msg = f"[{self.ME.upper()}] - Could not resolve tagname {tagname} ."
@@ -141,6 +152,7 @@ class KemonoBase(scraper.TaggableScraper):
                 new_tagname = await self.resolve_tagnames_to_id(tagname)
                 if new_tagname == tagname:
                     return
+                tagname = new_tagname
                 continue
             data = res.json()
 
