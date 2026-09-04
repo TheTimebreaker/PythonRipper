@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from typing import Any, final
 
 import asynciolimiter
@@ -37,15 +37,42 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
 
     async def does_this_exist(self, tag_name: str) -> bool:
         params: dict[str, str | int] = {"tags": self.format_tagname(tag_name)}
-        await self.LIMIT.wait()
-        res = await self.session.get(self.API_TAG_URL, params=params)
+        res = await self.request(self.API_TAG_URL, params=params)
         return bool(res.json())
+
+    async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
+        for i in (1, 3, 5, 7, 10, 30, 30, 30):
+            await self.LIMIT.wait()
+            res = await self.session.get(url, params=params)
+            if res.status_code == 429:  # Too Many Requests
+                logging.warning(
+                    "[%s] - Request to %s encountered %s status code. sleeping and retrying, to make it go away.",
+                    self.ME.upper(),
+                    url,
+                    res.status_code,
+                )
+                await asyncio.sleep(i)
+                continue
+            if res.status_code == 503:  # Internal Server Error
+                sleep = 10 if i < 10 else i
+                logging.warning(
+                    "[%s] - Request to %s encountered %s status code. sleeping and retrying, to make it go away.",
+                    self.ME.upper(),
+                    url,
+                    res.status_code,
+                )
+                await asyncio.sleep(sleep)
+                continue
+            return res
+        raise cf.ExtractorStopError(
+            "A request failed to return a valid status code. Indicates a deeper issue with either rate limit or the destination server."
+        )
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         if json_data is None:
             if post_id is None:
                 raise ValueError("Neither post id nor json_data given (one is necessary).")
-            res = await self.session.get(self.API_POST_URL.format(post_id=post_id))
+            res = await self.request(self.API_POST_URL.format(post_id=post_id))
             json_data = res.json()
         if post_id is None:
             post_id = str(json_data["id"])
@@ -77,8 +104,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
 
         data: dict[Any, Any] = {}
         while more_files:
-            await self.LIMIT.wait()
-            res = await self.session.get(self.API_TAG_URL, params=params)
+            res = await self.request(self.API_TAG_URL, params=params)
 
             try:
                 if res.json()["success"] is False and res.json()["message"] == "The database timed out running your query.":
