@@ -403,7 +403,7 @@ class TaggableScraper(Scraper):
                 downloaded_counter += result
                 posts.append(post["identifier"])
         except Exception as error:
-            logging.error("[%s] - The generator failed to initialize or iterate.", self.ME.upper())
+            logging.error("[%s] - The generator failed to initialize or iterate. tag = %s", self.ME.upper(), tagname)
             raise cf.ExtractorStopError from error
 
         if len(posts) == 0:
