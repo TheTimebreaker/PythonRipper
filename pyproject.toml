@@ -14,6 +14,7 @@ dependencies = [
   "curl-cffi>=0.16.3",
   "duplicate_image_finder @ https://github.com/TheTimebreaker/duplicate_image_finder/releases/download/v2.0.3/duplicate_image_finder-2.0.3-py3-none-any.whl",
   "httpx>=0.28.1",
+  "plyer>=2.1.0",
   "psd-tools>=1.19.0",
   "requests>=2.34.2",
   "selenium>=4.48.0",
