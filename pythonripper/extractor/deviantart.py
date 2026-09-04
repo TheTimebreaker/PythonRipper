@@ -50,7 +50,7 @@ class DeviantartAPI(scraper.TaggableScraper):
     URL_TAG = "https://deviantart.com/{tagname}"
 
     IMAGE_POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/art/([\w\d\-_]+)"
-    POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/art/(?:[\w\d\-_]+\-|)|deviation/)(\d+)"
+    POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/(?:art|journal)/(?:[\w\d\-_]+\-|)|deviation/)(\d+)"
     FAVORITES_GALLERY_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/(favourites|gallery)/?([/\w\d\-_]*)?"
     TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
 
