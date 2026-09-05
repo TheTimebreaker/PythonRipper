@@ -55,75 +55,78 @@ class PixivRoot(scraper.DownloadhistoryScraper):
         self.credentials_path = self.config._credentials_path() / "pixiv_credentials.json"
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
 
-        def default_header() -> Literal[True]:
-            self.timenow = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S+00:00")
-            self.timehash = hashlib.md5((self.timenow + self.hash_secret).encode()).hexdigest()
-            self.headers = {
-                "User-Agent": "PixivAndroidApp/5.0.234 (Android 11; Pixel 5)",
-                "Accept-Language": "en_US",
-                "App-OS": "android",
-                "App-OS-Version": "4.4.2",
-                "App-Version": "5.0.145",
-                "X-Client-Time": self.timenow,
-                "X-Client-Hash": self.timehash,
-            }
-            return True
+        return await self.setup_token_and_headers()
 
-        def bearer_header() -> Literal[True]:
-            if not self.headers:
-                default_header()
-            self.headers["Authorization"] = f"Bearer {self.access_token}"
-            return True
-
-        async def get_token() -> bool:
-            try:
-                async with aiofiles.open(self.credentials_path) as file:
-                    data = json.loads(await file.read())
-                    self.refresh_token = data["refresh_token"]
-            except FileNotFoundError, KeyError:
-                logging.error(
-                    "[%s] - Credentials file not found at %s or invalid data. "
-                    "The file must be a json with a 'refresh_token' field set to a valid refresh token.",
-                    self.ME.upper(),
-                    self.credentials_path,
-                )
-                return False
-
-            logging.info("[%s] - Refreshing access token", self.ME.upper())
-            url = "https://oauth.secure.pixiv.net/auth/token"
-            data = {
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "grant_type": "refresh_token",
-                "refresh_token": self.refresh_token,
-                "get_secure_url": "1",
-            }
-            async with httpx.AsyncClient(timeout=cf.asynctimeoutseconds()) as session:
-                res = await session.post(url, headers=self.headers, data=data)
-            if res.status_code >= 400:
-                logging.debug("[%s] - res text: %s", self.ME.upper(), res.text)
-                raise ConnectionRefusedError("Invalid refresh token")
-
-            data = res.json()["response"]
-            assert isinstance(data["user"], dict)
-            self.username = data["user"]["name"]
-            self.access_token = data["access_token"]
-            self.valid_until = float(data["expires_in"]) + time.time()
-            return True
-
-        def setup_headers() -> bool:
-            self.session.headers = self.headers
-            return True
-
-        default_header()
-        if await get_token():
+    async def setup_token_and_headers(self) -> bool:
+        self._default_header()
+        if await self._get_token():
             logging.debug("[%s] - Access token gotted! %s", self.ME.upper(), self.access_token)
-            if not bearer_header():
+            if not self._bearer_header():
                 return False
 
-        if not setup_headers():
+        if not self._setup_headers():
             return False
 
+        return True
+
+    def _default_header(self) -> Literal[True]:
+        self.timenow = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        self.timehash = hashlib.md5((self.timenow + self.hash_secret).encode()).hexdigest()
+        self.headers = {
+            "User-Agent": "PixivAndroidApp/5.0.234 (Android 11; Pixel 5)",
+            "Accept-Language": "en_US",
+            "App-OS": "android",
+            "App-OS-Version": "4.4.2",
+            "App-Version": "5.0.145",
+            "X-Client-Time": self.timenow,
+            "X-Client-Hash": self.timehash,
+        }
+        return True
+
+    def _bearer_header(self) -> Literal[True]:
+        if not self.headers:
+            self._default_header()
+        self.headers["Authorization"] = f"Bearer {self.access_token}"
+        return True
+
+    async def _get_token(self) -> bool:
+        try:
+            async with aiofiles.open(self.credentials_path) as file:
+                data = json.loads(await file.read())
+                self.refresh_token = data["refresh_token"]
+        except FileNotFoundError, KeyError:
+            logging.error(
+                "[%s] - Credentials file not found at %s or invalid data. "
+                "The file must be a json with a 'refresh_token' field set to a valid refresh token.",
+                self.ME.upper(),
+                self.credentials_path,
+            )
+            return False
+
+        logging.info("[%s] - Refreshing access token", self.ME.upper())
+        url = "https://oauth.secure.pixiv.net/auth/token"
+        data = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": self.refresh_token,
+            "get_secure_url": "1",
+        }
+        async with httpx.AsyncClient(timeout=cf.asynctimeoutseconds()) as session:
+            res = await session.post(url, headers=self.headers, data=data)
+        if res.status_code >= 400:
+            logging.debug("[%s] - res text: %s", self.ME.upper(), res.text)
+            raise ConnectionRefusedError("Invalid refresh token")
+
+        data = res.json()["response"]
+        assert isinstance(data["user"], dict)
+        self.username = data["user"]["name"]
+        self.access_token = data["access_token"]
+        self.valid_until = float(data["expires_in"]) + time.time()
+        return True
+
+    def _setup_headers(self) -> bool:
+        self.session.headers = self.headers
         return True
 
     async def request(
@@ -137,6 +140,14 @@ class PixivRoot(scraper.DownloadhistoryScraper):
         await self.LIMIT.wait()
 
         res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+
+        if res.status_code == 400 and "Please check your Access Token to fix this" in res.json().get("error", {}).get("message", ""):
+            retry = await self.setup_token_and_headers()
+            if retry is False:
+                raise cf.ExtractorExitError("Pixiv regeneration of token was unsuccessful.")
+            else:
+                return await self.request(url, headers=headers, params=params, follow_redirects=follow_redirects)
+
         if res.status_code == 429:
             await asyncio.sleep(60)
             res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
@@ -263,7 +274,6 @@ class PixivArtistAPI(PixivRoot):
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
         res = await self.request(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
-        print(res.status_code, res.text)
         return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
