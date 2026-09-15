@@ -131,7 +131,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
                 try:
                     post_data = await self._get_post_data(json_data=post)
                 except KeyError:
-                    logging.error(
+                    logging.warning(
                         "[%s] - Keyerror encountered on post %s . Often indicates gold-account-locked or deleted posts.", self.ME.upper(), post["id"]
                     )
                     continue
