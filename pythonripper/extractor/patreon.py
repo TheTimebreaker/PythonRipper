@@ -248,9 +248,9 @@ class PatreonAPI(scraper.TaggableScraper):
                                 url = str(paragraph_content["attrs"]["src"])
                                 extension = f.match_extension(url)
                                 if not extension:
-                                    logging.error("[%s] - Post %s could not match file extension from this url: %s", self.ME.upper(), post_id, durl)
+                                    logging.error("[%s] - Post %s could not match file extension from this url: %s", self.ME.upper(), post_id, url)
                                     raise cf.ExtractorSkipError from TypeError(
-                                        "Post %s Could not match file extension from this url: %s", post_id, durl
+                                        "Post %s Could not match file extension from this url: %s", post_id, url
                                     )
                                 yield scraper.PostElementLinks(download_url=url, extension=extension)
                             else:
@@ -264,8 +264,8 @@ class PatreonAPI(scraper.TaggableScraper):
                         url = str(content["attrs"]["src"])
                         extension = f.match_extension(url)
                         if not extension:
-                            logging.error("[%s] - Post %s could not match file extension from this url: %s", self.ME.upper(), post_id, durl)
-                            raise cf.ExtractorSkipError from TypeError("Post %s Could not match file extension from this url: %s", post_id, durl)
+                            logging.error("[%s] - Post %s could not match file extension from this url: %s", self.ME.upper(), post_id, url)
+                            raise cf.ExtractorSkipError from TypeError("Post %s Could not match file extension from this url: %s", post_id, url)
                         yield scraper.PostElementLinks(download_url=url, extension=extension)
 
                     elif content["type"] == "cta":
