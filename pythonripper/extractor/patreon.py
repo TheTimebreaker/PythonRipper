@@ -53,7 +53,7 @@ async def verify_patreon_artist_list(config: cfg.Config, artist_list: list[str])
 class PatreonAPI(scraper.TaggableScraper):
     HOMEPAGE = "https://patreon.com/"
     URL_TAG = "https://patreon.com/{tagname}"
-    POST_PATTERN = r"(?:https?://)?(?:www\.)?patreon\.com/posts/(?:[\w\-]+-)?(\d+)"
+    POST_PATTERN = r"(?:https?://)?(?:www\.)?patreon\.com/(?:[\w\d\-]+/)?posts/(?:[\w\-]+-)?(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?patreon\.com/(?:c/|cw/)?([^/&\?]+)"
 
     ME = "patreon"
