@@ -457,26 +457,6 @@ class ArtistWebsiteScraper(Scraper):
         return downloaded_counter == len(posts)
 
 
-async def download_from_scraper_object(config: cfg.Config, obj_ref: type[Scraper], url: str, dpath: Path, filename: str | None = None) -> bool:
-    try:
-        ignore_blacklist = config.data["booru_third_party_linked"]["ignore_booru_blacklists"]
-        ignore_history = config.data["booru_third_party_linked"]["ignore_booru_downloadhistory"]
-        if not isinstance(ignore_blacklist, bool):
-            ignore_blacklist = True
-        if not isinstance(ignore_history, bool):
-            ignore_history = True
-    except KeyError:
-        logging.error("The settings at 'booru_third_party_linked/ignore_booru_blacklists' or '/ignore_booru_downloadhistory' must be bools.")
-        ignore_blacklist = True
-        ignore_history = True
-
-    obj = obj_ref(config=config)
-    if not await obj.init():
-        logging.error("[%s] - Download url %s from scraper object failed because initialization failed.", obj.ME.upper(), url)
-        return False
-    return await obj.download_post(url=url, dpath=dpath, filename=filename, ignore_blacklist=ignore_blacklist, ignore_download_history=ignore_history)
-
-
 async def artist_website_updater(config: cfg.Config, obj_ref: type[ArtistWebsiteScraper]) -> bool:
     obj = obj_ref(config)
     if not await obj.init():
