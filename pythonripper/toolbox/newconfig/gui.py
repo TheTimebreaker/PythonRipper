@@ -1,11 +1,10 @@
 from enum import Enum, StrEnum
-from typing import Any, get_args, get_origin
+from typing import Any, TypeVar, get_args, get_origin
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from pydantic.fields import FieldInfo
-from PySide6.QtCore import QEvent, QObject, Qt
-from PySide6.QtWidgets import QCheckBox, QSizePolicy
-from PySide6.QtGui import QMouseEvent, QWheelEvent
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QMouseEvent, QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
@@ -20,19 +19,24 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
-    QVBoxLayout,
     QWidget,
 )
 
 from .model import AppSettings
 
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
-class SettingsManager:
-    def load(self) -> AppSettings:  # TODO(TheTimebreaker): implement when ready
-        return AppSettings()
 
-    def save(self, settings: AppSettings) -> None: ...
+class SettingsManager[ModelT: BaseModel]:
+    def __init__(self, model_type: type[ModelT]) -> None:
+        self.model_type = model_type
+
+    def load(self) -> ModelT:  # TODO(TheTimebreaker): implement when ready
+        return self.model_type()
+
+    def save(self, settings: ModelT) -> None: ...
 
 
 class FieldKind(StrEnum):
@@ -47,12 +51,12 @@ class FieldKind(StrEnum):
 
 
 class NoWheelSpinBox(QSpinBox):
-    def wheelEvent(self, event: QWheelEvent) -> None:
+    def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
         event.ignore()
 
 
 class NoWheelComboBox(QComboBox):
-    def wheelEvent(self, event: QWheelEvent) -> None:
+    def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
         event.ignore()
 
 
@@ -60,9 +64,9 @@ class PersistentMenu(QMenu):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self._pressed_action = None
+        self._pressed_action: QAction | None = None
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         action = self.actionAt(event.position().toPoint())
 
         if action is not None and action.isCheckable():
@@ -73,7 +77,7 @@ class PersistentMenu(QMenu):
         self._pressed_action = None
         super().mousePressEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         action = self.actionAt(event.position().toPoint())
 
         if action is not None and action is self._pressed_action and action.isCheckable():
@@ -86,8 +90,11 @@ class PersistentMenu(QMenu):
         super().mouseReleaseEvent(event)
 
 
-def enum_sort_key(option: Enum) -> object:
-    return getattr(option, "sort_key", option.value)
+def enum_sort_key(option: Enum) -> str | int:
+    result = getattr(option, "sort_key", option.value)
+    if isinstance(result, int) or isinstance(result, str):
+        return result
+    raise ValueError(f"The sort key is not a supported type. This is almost certainly a bug. The actual type was {type(result)}")
 
 
 class EnumSetWidget(QPushButton):
@@ -104,7 +111,7 @@ class EnumSetWidget(QPushButton):
 
         self.setText(self._button_text())
 
-        self.menu = PersistentMenu(self)
+        self.menu: PersistentMenu = PersistentMenu(self)  # type: ignore
 
         for option in sorted(enum_type, key=enum_sort_key):
             action = self.menu.addAction(getattr(option, "title", option.name))
@@ -183,8 +190,9 @@ def classify_field(field: FieldInfo) -> FieldKind:
     return FieldKind.UNKNOWN
 
 
-def create_widget(field: Field, value: Any) -> QWidget:
+def create_widget(field: FieldInfo, value: Any) -> QWidget:
     kind = classify_field(field)
+    widget: QWidget
 
     if kind is FieldKind.BOOL:
         widget = QCheckBox()
@@ -216,6 +224,8 @@ def create_widget(field: Field, value: Any) -> QWidget:
         widget.setFocusPolicy(Qt.FocusPolicy.TabFocus)
 
         enum_type = field.annotation
+        if enum_type is None or not issubclass(enum_type, Enum):
+            raise TypeError(f"Expected an enum annotation, got {enum_type!r}")
 
         for option in enum_type:
             widget.addItem(
@@ -234,6 +244,28 @@ def create_widget(field: Field, value: Any) -> QWidget:
     raise TypeError(f"Don't know how to create a widget for {field.annotation!r}")
 
 
+def get_widget_value(widget: QWidget) -> object:
+    if isinstance(widget, QCheckBox):
+        return widget.isChecked()
+
+    if isinstance(widget, QSpinBox):
+        return widget.value()
+
+    if isinstance(widget, QDoubleSpinBox):
+        return widget.value()
+
+    if isinstance(widget, QLineEdit):
+        return widget.text()
+
+    if isinstance(widget, QComboBox):
+        return widget.currentData()
+
+    if isinstance(widget, EnumSetWidget):
+        return widget.value()
+
+    raise TypeError(f"Unsupported widget: {type(widget).__name__}")
+
+
 class ClickableLabel(QLabel):
     def __init__(
         self,
@@ -244,7 +276,7 @@ class ClickableLabel(QLabel):
         super().__init__(text, parent)
         self.target = target
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         self.target.setFocus()
         QTest.mouseClick(
             self.target,
@@ -253,13 +285,13 @@ class ClickableLabel(QLabel):
         super().mousePressEvent(event)
 
 
-class SettingsForm(QWidget):
-    def __init__(self, model: BaseModel, parent: QGroupBox | None = None) -> None:
+class SettingsForm[ModelT: BaseModel](QWidget):
+    def __init__(self, model: ModelT, parent: QGroupBox | None = None) -> None:
         super().__init__(parent)
 
-        self.model_type = type(model)
+        self.model_type: type[ModelT] = type(model)
         self.widgets: dict[str, QWidget] = {}
-        self.child_forms: dict[str, SettingsForm] = {}
+        self.child_forms: dict[str, SettingsForm[ModelT]] = {}
 
         layout = QFormLayout(self)
 
@@ -303,11 +335,25 @@ class SettingsForm(QWidget):
 
         return group
 
+    def get_values(self) -> dict[str, object]:
+        values: dict[str, object] = {}
+
+        for name, widget in self.widgets.items():
+            values[name] = get_widget_value(widget)
+
+        for name, form in self.child_forms.items():
+            values[name] = form.get_values()
+
+        return values
+
+    def get_model(self) -> ModelT:
+        return self.model_type.model_validate(self.get_values())
+
 
 if __name__ == "__main__":
     app = QApplication([])
 
-    settings = SettingsManager().load()
+    settings = SettingsManager(AppSettings).load()
 
     window = QMainWindow()
     scroll = QScrollArea()
@@ -319,3 +365,6 @@ if __name__ == "__main__":
     window.show()
 
     app.exec()
+
+    settings = form.get_model()
+    print(settings)

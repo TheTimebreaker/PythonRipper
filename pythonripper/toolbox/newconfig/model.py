@@ -40,7 +40,7 @@ class Format(StrEnum):
     WMA = ".wma"
 
     @property
-    def title(self) -> str:
+    def title(self) -> str:  # type: ignore
         return {
             self.JPEG: "JPEG image (.jpg)",
             self.GIF: "GIF image (.gif)",
@@ -204,7 +204,7 @@ class GeneralSettings(BaseModel):
     # TODO(TheTimebreaker): addvideo and audio conversions
 
     unwanted_file_extensions: set[Format] = Field(
-        default={},
+        default=set(),
         title="Unwanted file extensions",
         description="Choose file extensions that you do not want to download and that you wish to be deleted when downloads are processed.",
     )
@@ -368,8 +368,8 @@ class HentaifoundryToggles(StrEnum):
     YURI = "yuri"
 
     @property
-    def title(self) -> str:
-        return self
+    def title(self) -> str:  # type: ignore
+        return self.capitalize()
 
 
 HF_TIEREDFILTER_DESC = "Choose, which level of {what} is allowed. Anything higher than the chosen level will be disallowed."
@@ -420,7 +420,7 @@ class NewgroundsRating(StrEnum):
     ADULT = "a"
 
     @property
-    def title(self) -> str:
+    def title(self) -> str:  # type: ignore
         return {
             self.EVERYONE: "Everyone",
             self.TEEN: "Teen",
@@ -429,7 +429,7 @@ class NewgroundsRating(StrEnum):
         }[self]
 
     @property
-    def sort_key(self) -> str:
+    def sort_key(self) -> int:
         return {
             self.EVERYONE: 0,
             self.TEEN: 1,
