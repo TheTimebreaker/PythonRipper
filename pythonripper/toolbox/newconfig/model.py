@@ -1,7 +1,9 @@
+import logging
 from enum import IntEnum, StrEnum
+from pathlib import Path
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 
 class Format(StrEnum):
@@ -178,23 +180,23 @@ ImageFormat = Annotated[
 class ImageConversionSettings(BaseModel):
     enabled: bool = Field(
         default=True,
-        title="Enable on-processing file conversion.",
+        title="Enable file conversion during processing of downloads.",
         description=(
-            "Choose whether or not the application will, when downloads are processed and moved to storage "
-            "convert all image files that are not the target format to that target format."
+            "Choose whether the application should convert all downloaded image files that are not already in the "
+            "target format when files are processed and moved to storage."
         ),
     )
     target_format: ImageFormat = Field(
         default=Format.JPEG,
         title="Set target file format",
-        description="(Optional) Set target format for on-processing file conversion. Does not affect downloads.",
+        description="(Optional) Set the target format for image file conversions. This does not affect downloads.",
     )
-    target_quality: int = Field(
+    target_quality: int = Field(  # TODO(TheTimebreaker): gte limiters
         default=90,
         title="Set target file quality",
         description=(
-            "(Optional) Set target file quality for on-processing file conversion. Does not affect downloads. "
-            "Only relevant if the target format uses a quality setting for conversions."
+            "(Optional) Set the target file quality for image file conversions. This does not affect downloads. "
+            "This is only relevant if the target format supports a quality setting for conversions."
         ),
     )
 
@@ -206,7 +208,7 @@ class GeneralSettings(BaseModel):
     unwanted_file_extensions: set[Format] = Field(
         default=set(),
         title="Unwanted file extensions",
-        description="Choose file extensions that you do not want to download and that you wish to be deleted when downloads are processed.",
+        description="Choose file extensions that you do not want to download, and that should be deleted when downloads are processed.",
     )
     overwrite_existing_files: bool = Field(
         default=False,
@@ -215,11 +217,8 @@ class GeneralSettings(BaseModel):
     )
     update: bool = Field(
         default=True,
-        title="Set updating mode of application",
-        description=(
-            "Choose whether the application will (try to) update an existing copy of the remote files or not. "
-            "SHOULD BE TURNED ON AT ALL TIMES UNLESS DEBUGGING!"
-        ),
+        title="Set the application's update mode",
+        description=("Choose whether the application should update existing downloaded files. " "Keep this enabled unless you are debugging."),
     )
 
 
@@ -235,18 +234,18 @@ class ExtractorDeviantartSettings(BaseModel):
     save_text_posts: bool = Field(
         default=True,
         title="Save text posts",
-        description="Allow downloading text posts on deviantart.",
+        description="Allow downloading text posts on DeviantArt.",
         examples=["https://www.deviantart.com/thequiethours/art/False-Confidence-1367267965"],
     )
     save_video_posts: bool = Field(
         default=True,
         title="Save video posts",
-        description="Allow downloading video posts on deviantart.",
+        description="Allow downloading video posts on DeviantArt.",
     )
     allow_mature_content: bool = Field(
         default=True,
         title="Allow mature content",
-        description="Allow posts marked as 'mature' on deviantart.",
+        description="Allow posts marked as 'mature' on DeviantArt.",
     )
 
 
@@ -372,7 +371,7 @@ class HentaifoundryToggles(StrEnum):
         return self.capitalize()
 
 
-HF_TIEREDFILTER_DESC = "Choose, which level of {what} is allowed. Anything higher than the chosen level will be disallowed."
+HF_TIEREDFILTER_DESC = "Choose which level of {what} is allowed. Any value above the chosen level will be disallowed."
 
 
 class ExtractorHentaifoundrySettings(BaseModel):
@@ -442,7 +441,7 @@ class ExtractorNewgroundsSettings(BaseModel):
     content_ratings: set[NewgroundsRating] = Field(
         default=set(NewgroundsRating),
         title="Allowed content ratings",
-        description="Choose, which Newgrounds content ratings are allowed.",
+        description="Choose which Newgrounds content ratings are allowed.",
     )
 
 
@@ -450,7 +449,7 @@ class ExtractorPatreonSettings(BaseModel):
     save_links: bool = Field(
         default=True,
         title="Save links",
-        description="Allow downloading links on patreon.",
+        description="Allow downloading links on Patreon.",
     )
 
 
@@ -458,7 +457,7 @@ class ExtractorTumblrSettings(BaseModel):
     save_text_posts: bool = Field(
         default=True,
         title="Save text posts",
-        description="Allow downloading text posts on tumblr.",
+        description="Allow downloading text posts on Tumblr.",
     )
 
 
@@ -472,8 +471,10 @@ class ExtractorSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
-    general: GeneralSettings = Field(default_factory=GeneralSettings)
-    extractor: ExtractorSettings = Field(default_factory=ExtractorSettings)
+    model_config = ConfigDict(extra="forbid")
+
+    general: GeneralSettings = Field(default_factory=GeneralSettings, title="General")
+    extractor: ExtractorSettings = Field(default_factory=ExtractorSettings, title="Extractors", description="Settings for supported extractors.")
 
 
 if __name__ == "__main__":
