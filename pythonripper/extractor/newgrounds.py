@@ -15,6 +15,7 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.model import NewgroundsRating
 
 
 class NewgroundsAPI(scraper.TaggableScraper):
@@ -47,7 +48,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
     session: httpx.AsyncClient
 
     async def init(self) -> bool:
-        self.jar_path = self.config._credentials_path() / "newgrounds_cookies.txt"
+        self.jar_path = self.config.paths._credentials() / "newgrounds_cookies.txt"
         self.suitabilites_config: dict[str, bool]
         self.csrf_token: str
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds())
@@ -114,23 +115,14 @@ class NewgroundsAPI(scraper.TaggableScraper):
             return False
 
         def suitabilities_from_config() -> bool:
-            try:
-                content_settings = self.config.data["extractor"]["newgrounds"]["content_ratings"]
-                self.suitabilites_config = {
-                    "e": bool(content_settings["e"]),
-                    "t": bool(content_settings["t"]),
-                    "m": bool(content_settings["m"]),
-                    "a": bool(content_settings["a"]),
-                }
-                return True
-            except KeyError:
-                logging.error(
-                    "[%s] - Could not read content filters from config."
-                    'Please add them at ["extractor"]/["newgrounds"]/["content_ratings"]/["e"], /["t"], /["m"], /["a"]'
-                    "as booleans.",
-                    self.ME.upper(),
-                )
-                return False
+            content_settings = self.config.settings.extractor.newgrounds.content_ratings
+            self.suitabilites_config = {
+                "e": bool(NewgroundsRating.EVERYONE in content_settings),
+                "t": bool(NewgroundsRating.TEEN in content_settings),
+                "m": bool(NewgroundsRating.MATURE in content_settings),
+                "a": bool(NewgroundsRating.ADULT in content_settings),
+            }
+            return True
 
         async def check_suitabilities() -> None:
             url = "https://www.newgrounds.com/art"

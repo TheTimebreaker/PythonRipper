@@ -63,7 +63,9 @@ class Animepictures(scraper.DownloadhistoryScraper):
 
         async def _set_explicit_images() -> bool:
             try:
-                allow = self.config.settings.extractor.animepictures.allow_erotic_images
+                allow = (
+                    self.config.settings.extractor.animepictures.allow_erotic_images
+                )  # TODO(TheTimebreaker): cleanup / dont think that this setting is used
                 if not (allow is True or allow is False):
                     raise KeyError
             except KeyError:

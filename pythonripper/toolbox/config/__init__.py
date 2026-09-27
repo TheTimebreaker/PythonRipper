@@ -1,6 +1,6 @@
 """Provides the central Config class, which should be used whereever configuration things are needed."""
 
 from .model import AppSettings, get_settings_object
-from .paths import Config
+from .paths import config
 
-__all__ = ["AppSettings", "get_settings_object", "Config"]
+__all__ = ["AppSettings", "get_settings_object", "config"]

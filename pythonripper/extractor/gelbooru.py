@@ -33,7 +33,7 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
 
     async def init(self) -> bool:
         self.random_tag_name = "sort:random"
-        self.credentials_path = self.config._credentials_path() / "gelbooru_credentials.json"
+        self.credentials_path = self.config.paths._credentials() / "gelbooru_credentials.json"
         self.download_headers = {"Referer": self.API_URL}
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds())
 

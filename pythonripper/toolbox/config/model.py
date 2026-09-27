@@ -6,7 +6,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from pydantic_gui_settings_editor import ConfigCollapeNestedSettings, SettingsManager, SettingsManagerConfig, Theme
 from pydantic_gui_settings_editor.types import DirectoryPath
 
-__user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
+_user_config_path_djkd = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
 
 
 class Format(StrEnum):
@@ -235,7 +235,7 @@ class AudioConversionSettings(BaseModel):
 
 class PathSettings(BaseModel):
     downloads: DirectoryPath = Field(
-        default=__user_config_path / "downloads",
+        default=_user_config_path_djkd / "downloads",
         title="Download root directory",
         description=(
             "Choose a root directory, where all recently downloaded files are stored within.\n"
@@ -243,7 +243,7 @@ class PathSettings(BaseModel):
         ),
     )
     storage: DirectoryPath = Field(
-        default=__user_config_path / "storage",
+        default=_user_config_path_djkd / "storage",
         title="Storage root directory",
         description=(
             "Choose a root directory, where all processed files are stored within.\n"
@@ -253,7 +253,7 @@ class PathSettings(BaseModel):
         ),
     )
     archive: DirectoryPath = Field(
-        default=__user_config_path / "archive",
+        default=_user_config_path_djkd / "archive",
         title="Download root directory",
         description=(
             "Choose a root directory, where all archived files and filehashes are stored within.\n"
@@ -261,12 +261,12 @@ class PathSettings(BaseModel):
         ),
     )
     download_history: DirectoryPath = Field(
-        default=__user_config_path / "download_history",
+        default=_user_config_path_djkd / "download_history",
         title="Download history directory",
         description="Choose a root directory, where all download history objects are stored.",
     )
     selenium_driver_root: DirectoryPath = Field(
-        default=__user_config_path / "selenium_drivers",
+        default=_user_config_path_djkd / "selenium_drivers",
         title="Selenium webdriver (Chromedriver & Geckodriver) directory",
         description=(
             "Choose a root directory, where all chromedriver and geckodriver binaries are stored.\n"
@@ -594,5 +594,7 @@ if __name__ == "__main__":
     manager = SettingsManager(AppSettings, settings_path=config_json_path, additional_config=manager_settings)
     manager.load()
     manager.edit_gui()
+
+    print(manager.model.extractor.hentaifoundry.nudity.value, type(manager.model.extractor.hentaifoundry.nudity.value))
 
 # TODO(TheTimebreaker): AI toggle

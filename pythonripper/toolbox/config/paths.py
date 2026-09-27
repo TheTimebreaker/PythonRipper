@@ -6,7 +6,7 @@ from pythonripper.toolbox.config import get_settings_object
 from pythonripper.toolbox.config.model import AppSettings
 
 __user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
-__settings: AppSettings = get_settings_object()
+_settings: AppSettings = get_settings_object()
 
 
 class Paths:
@@ -61,15 +61,15 @@ class Paths:
         return __user_config_path / "_test"
 
     def downloads(self) -> Path:
-        p: Path = __settings.general.paths.downloads
+        p: Path = _settings.general.paths.downloads
         return p
 
     def storage(self) -> Path:
-        p: Path = __settings.general.paths.storage
+        p: Path = _settings.general.paths.storage
         return p
 
     def done_path(self) -> Path:
-        p: Path = __settings.general.paths.archive
+        p: Path = _settings.general.paths.archive
         return p
 
     def downloads_temp(self) -> Path:
@@ -77,11 +77,11 @@ class Paths:
         return dl.with_name(dl.name + "-temp")
 
     def downloadhistory(self) -> Path:
-        p: Path = __settings.general.paths.download_history
+        p: Path = _settings.general.paths.download_history
         return p
 
     def __selenium_driver(self) -> Path:
-        p: Path = __settings.general.paths.selenium_driver_root
+        p: Path = _settings.general.paths.selenium_driver_root
         return p
 
     def chromedriver_path(self) -> Path:  # TODO(TheTimebreaker): add geckodriver support AND setting for it
@@ -91,9 +91,12 @@ class Paths:
         return self.__selenium_driver() / "geckodriver_binaries"
 
 
-__paths = Paths()
+_paths = Paths()
 
 
 class Config:
-    paths: Paths = __paths
-    settings: AppSettings = __settings
+    paths: Paths = _paths
+    settings: AppSettings = _settings
+
+
+config = Config()

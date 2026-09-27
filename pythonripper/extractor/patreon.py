@@ -19,13 +19,13 @@ import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 
 
-async def verify_patreon_artist_list(config: cfg.AppSettings, artist_list: list[str]) -> list[str]:
+async def verify_patreon_artist_list(config: cfg.Config, artist_list: list[str]) -> list[str]:
     """Verifies the full artist list (containing ALL artists) with the json of memberships
     provided in patreon_memberships.json
 
     Returns an updated list, containing only those with an active membership.
     """
-    membsfile = config.patreon_membership_status_json()
+    membsfile = config.paths.patreon_membership_status_json()
     async with aiofiles.open(membsfile) as file:
         data = json.loads(await file.read())
 
@@ -64,7 +64,7 @@ class PatreonAPI(scraper.TaggableScraper):
     session: httpx.AsyncClient
 
     async def init(self) -> bool:
-        self.campaign_ids_path = cfg.c._downloadhistory_path() / "patreon_campaignIDs.json"
+        self.campaign_ids_path = self.config.paths.downloadhistory() / "patreon_campaignIDs.json"
         self.jar_path = cfg.c._credentials_path() / "patreon_cookies.txt"
         self.headers = {"User-Agent": "Patreon/126.9.0.15 (Android; Android 14; Scale/2.10)"}
         self.download_headers = {}

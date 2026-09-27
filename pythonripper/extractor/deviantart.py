@@ -69,7 +69,7 @@ class DeviantartAPI(scraper.TaggableScraper):
         self.refresh_token: str | int
         self.headers: dict[str, str]
         self.valid_until: float | None = None
-        self.credentials_path = self.config._credentials_path() / "deviantart_credentials.json"
+        self.credentials_path = self.config.paths._credentials() / "deviantart_credentials.json"
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds())
         self.credentials: Credentials
 
@@ -233,9 +233,7 @@ class DeviantartAPI(scraper.TaggableScraper):
 
         def set_content_filters() -> bool:
             try:
-                result = self.config.data["extractor"]["deviantart"]["allow_mature_content"]
-                assert isinstance(result, bool)
-                self.allow_mature_content = result
+                self.allow_mature_content = self.config.settings.extractor.deviantart.allow_mature_content
             except KeyError, AssertionError:
                 logging.error(
                     "[%s] - Settings for mature content not correctly set."
@@ -477,7 +475,7 @@ class DeviantartAPI(scraper.TaggableScraper):
         # Downloads video posts. Example (SFW) https://www.deviantart.com/charmingis/art/Aaravos-Sente-Mais-1302395606
         elif "videos" in deviation_data.keys() and deviation_data["videos"]:
             logging.info("[%s] - Video post detected.", self.ME.upper())
-            if not self.config.data["extractor"]["deviantart"]["saveVideoPosts"]:
+            if not self.config.settings.extractor.deviantart.save_video_posts:
                 logging.info("[%s] - Video post %s skipped due to config flag.", self.ME.upper(), post_url)
                 return True
 
@@ -500,7 +498,7 @@ class DeviantartAPI(scraper.TaggableScraper):
         # Downloads text posts, if config says do it. Literature Example (SFW) https://www.deviantart.com/hoaxdreams/art/Chainsmoker-962491467
         elif "text_content" in deviation_data:
             logging.info("[%s] - Text post detected.", self.ME.upper())
-            if not self.config.data["extractor"]["deviantart"]["saveTextPosts"]:
+            if not self.config.settings.extractor.deviantart.save_text_posts:
                 logging.info("[%s] - Text post %s skipped due to config flag.", self.ME.upper(), post_url)
                 return True
 

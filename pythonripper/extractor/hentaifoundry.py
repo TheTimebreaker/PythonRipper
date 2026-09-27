@@ -39,47 +39,47 @@ class HentaiFoundry(scraper.TaggableScraper):
         async def _setup_session() -> bool:
             await self.LIMIT.wait()
             await self.session.get(f"{self.URL_BASE}", follow_redirects=True, params={"enterAgree": 1})
-            try:
-                await self.LIMIT.wait()
-                x = await self.session.post(
-                    f"{self.URL_BASE}/site/filters",
-                    follow_redirects=True,
-                    data={
-                        "YII_CSRF_TOKEN": self.session.cookies["YII_CSRF_TOKEN"].split("%22")[1].replace("%3D", "="),
-                        # General filters
-                        "rating_nudity": self.config.data["extractor"]["hentaifoundry"]["tiered_filters"]["nudity"],
-                        "rating_violence": self.config.data["extractor"]["hentaifoundry"]["tiered_filters"]["violence"],
-                        "rating_profanity": self.config.data["extractor"]["hentaifoundry"]["tiered_filters"]["profanity"],
-                        "rating_racism": self.config.data["extractor"]["hentaifoundry"]["tiered_filters"]["racism"],
-                        "rating_sex": self.config.data["extractor"]["hentaifoundry"]["tiered_filters"]["sex"],
-                        "rating_spoilers": self.config.data["extractor"]["hentaifoundry"]["tiered_filters"]["spoilers"],
-                        # Specific filters
-                        "rating_yaoi": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["yaoi"],
-                        "rating_yuri": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["yuri"],
-                        "rating_teen": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["teen"],
-                        "rating_guro": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["guro"],
-                        "rating_furry": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["furry"],
-                        "rating_beast": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["beast"],
-                        "rating_male": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["male"],
-                        "rating_female": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["female"],
-                        "rating_futa": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["futa"],
-                        "rating_other": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["other"],
-                        "rating_scat": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["scat"],
-                        "rating_incest": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["incest"],
-                        "rating_rape": self.config.data["extractor"]["hentaifoundry"]["checkbox_filters"]["rape"],
-                        # Some sorting stuff
-                        "filter_media": "A",
-                        "filter_order": "date_new",
-                        "filter_type": 0,
-                    },
-                )
-            except KeyError:
-                logging.error(
-                    "[%s] - Could not initialize content filter settings. Please set them manually in the config. %s",
-                    self.ME.upper(),
-                    self.config._config_path(),
-                )
-                return False
+            await self.LIMIT.wait()
+            filter_settings = self.config.settings.extractor.hentaifoundry
+            toggles = filter_settings.toggle_filters
+
+            def checkbox_check(lookup: str) -> list[int]:
+                if lookup in toggles:
+                    return [0, 1]
+                return [0]
+
+            x = await self.session.post(
+                f"{self.URL_BASE}/site/filters",
+                follow_redirects=True,
+                data={
+                    "YII_CSRF_TOKEN": self.session.cookies["YII_CSRF_TOKEN"].split("%22")[1].replace("%3D", "="),
+                    # General filters
+                    "rating_nudity": filter_settings.nudity,
+                    "rating_violence": filter_settings.violence,
+                    "rating_profanity": filter_settings.profanity,
+                    "rating_racism": filter_settings.racism,
+                    "rating_sex": filter_settings.sexualcontent,
+                    "rating_spoilers": filter_settings.spoilers,
+                    # Specific filters
+                    "rating_yaoi": checkbox_check("yaoi"),
+                    "rating_yuri": checkbox_check("yuri"),
+                    "rating_teen": checkbox_check("teen"),
+                    "rating_guro": checkbox_check("guro"),
+                    "rating_furry": checkbox_check("furry"),
+                    "rating_beast": checkbox_check("beast"),
+                    "rating_male": checkbox_check("male"),
+                    "rating_female": checkbox_check("female"),
+                    "rating_futa": checkbox_check("futa"),
+                    "rating_other": checkbox_check("other"),
+                    "rating_scat": checkbox_check("scat"),
+                    "rating_incest": checkbox_check("incest"),
+                    "rating_rape": checkbox_check("rape"),
+                    # Some sorting stuff
+                    "filter_media": "A",
+                    "filter_order": "date_new",
+                    "filter_type": 0,
+                },
+            )
 
             if x.status_code != 200:
                 logging.error("[%s] - Could not session update preference filters.", self.ME.upper())
