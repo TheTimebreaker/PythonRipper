@@ -825,6 +825,24 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-gui-settings-editor"
+version = "0.3.0"
+source = { url = "https://github.com/TheTimebreaker/pydantic-gui-settings-editor/releases/download/v0.3.0/pydantic_gui_settings_editor-0.3.0-py3-none-any.whl" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pyside6" },
+]
+wheels = [
+    { url = "https://github.com/TheTimebreaker/pydantic-gui-settings-editor/releases/download/v0.3.0/pydantic_gui_settings_editor-0.3.0-py3-none-any.whl", hash = "sha256:5bd77ffbcb43797e9a3ef446ab1b91f259b3453790203d2d7adbf7afbcd1e9e3" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pyside6", specifier = ">=6.11.2" },
+]
+
+[[package]]
 name = "pyside6"
 version = "6.11.2"
 source = { registry = "https://pypi.org/simple" }
@@ -896,6 +914,7 @@ dependencies = [
     { name = "plyer" },
     { name = "psd-tools" },
     { name = "pydantic" },
+    { name = "pydantic-gui-settings-editor" },
     { name = "pyside6" },
     { name = "requests" },
     { name = "selenium" },
@@ -927,6 +946,7 @@ requires-dist = [
     { name = "plyer", specifier = ">=2.1.0" },
     { name = "psd-tools", specifier = ">=1.19.0" },
     { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pydantic-gui-settings-editor", url = "https://github.com/TheTimebreaker/pydantic-gui-settings-editor/releases/download/v0.3.0/pydantic_gui_settings_editor-0.3.0-py3-none-any.whl" },
     { name = "pyside6", specifier = ">=6.11.2" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "selenium", specifier = ">=4.48.0" },

@@ -31,7 +31,7 @@ class Animepictures(scraper.DownloadhistoryScraper):
     IS_GOOGLE_SEARCHABLE = False
 
     async def init(self) -> bool:
-        self.credentials_path = self.config._credentials_path() / "animepictures_credentials.json"
+        self.credentials_path = self.config.paths._credentials() / "animepictures_credentials.json"
         self.page_start = 0
         self.download_headers = {"Cookie": "sitelang=en; kira=6"}
         self.session = curl_cffi.requests.AsyncSession(timeout=cf.asynctimeoutseconds(), impersonate="chrome142")
@@ -63,7 +63,7 @@ class Animepictures(scraper.DownloadhistoryScraper):
 
         async def _set_explicit_images() -> bool:
             try:
-                allow = self.config.data["extractor"]["animepictures"]["allow_erotic_images"]
+                allow = self.config.settings.extractor.animepictures.allow_erotic_images
                 if not (allow is True or allow is False):
                     raise KeyError
             except KeyError:

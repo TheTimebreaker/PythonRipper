@@ -1,9 +1,12 @@
-import logging
 from enum import IntEnum, StrEnum
-from pathlib import Path
 from typing import Annotated
 
+import platformdirs
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic_gui_settings_editor import ConfigCollapeNestedSettings, SettingsManager, SettingsManagerConfig, Theme
+from pydantic_gui_settings_editor.types import DirectoryPath
+
+__user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
 
 
 class Format(StrEnum):
@@ -171,9 +174,20 @@ def validate_image_format(value: Format) -> Format:
     return value
 
 
+def validate_audio_format(value: Format) -> Format:
+    if value not in AUDIO_FORMATS:
+        raise ValueError(f"{value} is not an image format")
+    return value
+
+
 ImageFormat = Annotated[
     Format,
     AfterValidator(validate_image_format),
+]
+
+AudioFormat = Annotated[
+    Format,
+    AfterValidator(validate_audio_format),
 ]
 
 
@@ -191,8 +205,10 @@ class ImageConversionSettings(BaseModel):
         title="Set target file format",
         description="(Optional) Set the target format for image file conversions. This does not affect downloads.",
     )
-    target_quality: int = Field(  # TODO(TheTimebreaker): gte limiters
+    target_quality: int = Field(
         default=90,
+        ge=0,
+        le=100,
         title="Set target file quality",
         description=(
             "(Optional) Set the target file quality for image file conversions. This does not affect downloads. "
@@ -201,10 +217,70 @@ class ImageConversionSettings(BaseModel):
     )
 
 
-class GeneralSettings(BaseModel):
-    image_conversion_settings: ImageConversionSettings = ImageConversionSettings()
-    # TODO(TheTimebreaker): addvideo and audio conversions
+class AudioConversionSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enable file conversion during processing of downloads.",
+        description=(
+            "Choose whether the application should convert all downloaded audio files that are not already in the "
+            "target format when files are processed and moved to storage."
+        ),
+    )
+    target_format: AudioFormat = Field(  # TODO(TheTimebreaker): actually use this
+        default=Format.MP3,
+        title="Set target file format",
+        description="(Optional) Set the target format for image file conversions. This does not affect downloads.",
+    )
 
+
+class PathSettings(BaseModel):
+    downloads: DirectoryPath = Field(
+        default=__user_config_path / "downloads",
+        title="Download root directory",
+        description=(
+            "Choose a root directory, where all recently downloaded files are stored within.\n"
+            "Files will be moved to 'storage' when processed (which will do file conversions and duplication checks)."
+        ),
+    )
+    storage: DirectoryPath = Field(
+        default=__user_config_path / "storage",
+        title="Storage root directory",
+        description=(
+            "Choose a root directory, where all processed files are stored within.\n"
+            "Files will be moved from 'downloads' to this when processed (which will do file conversions and duplication checks).\n"
+            "Files can be moved further to 'archive', where files and filehashes can be stored, "
+            "so they can still be referenced by duplication checks."
+        ),
+    )
+    archive: DirectoryPath = Field(
+        default=__user_config_path / "archive",
+        title="Download root directory",
+        description=(
+            "Choose a root directory, where all archived files and filehashes are stored within.\n"
+            "Files will be moved from 'storage' to this when archived, so they can still be referenced by duplication checks."
+        ),
+    )
+    download_history: DirectoryPath = Field(
+        default=__user_config_path / "download_history",
+        title="Download history directory",
+        description="Choose a root directory, where all download history objects are stored.",
+    )
+    selenium_driver_root: DirectoryPath = Field(
+        default=__user_config_path / "selenium_drivers",
+        title="Selenium webdriver (Chromedriver & Geckodriver) directory",
+        description=(
+            "Choose a root directory, where all chromedriver and geckodriver binaries are stored.\n"
+            "These binaries are required for easily adding things-to-download to your configuration."
+        ),
+    )
+
+
+class GeneralSettings(BaseModel):
+    paths: PathSettings = Field(
+        default_factory=PathSettings,
+        title="Path settings",
+        description="Set the paths to various things.",
+    )
     unwanted_file_extensions: set[Format] = Field(
         default=set(),
         title="Unwanted file extensions",
@@ -218,7 +294,18 @@ class GeneralSettings(BaseModel):
     update: bool = Field(
         default=True,
         title="Set the application's update mode",
-        description=("Choose whether the application should update existing downloaded files. " "Keep this enabled unless you are debugging."),
+        description=("Choose whether the application should update existing downloaded files. Keep this enabled unless you are debugging."),
+    )
+
+    image_conversion_settings: ImageConversionSettings = Field(
+        default_factory=ImageConversionSettings,
+        title="Image Conversion Settings",
+        description="Choose, if and how image files will be converted through this application.",
+    )
+    audio_conversion_settings: AudioConversionSettings = Field(
+        default_factory=AudioConversionSettings,
+        title="Audio Conversion Settings",
+        description="Choose, if and how audio files will be converted through this application.",
     )
 
 
@@ -477,8 +564,35 @@ class AppSettings(BaseModel):
     extractor: ExtractorSettings = Field(default_factory=ExtractorSettings, title="Extractors", description="Settings for supported extractors.")
 
 
+def get_settings_object() -> AppSettings:
+    user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
+    config_json_path = user_config_path / "config" / "config-new.json"
+
+    manager_settings = SettingsManagerConfig(
+        title="PythonRipper settings",
+        theme=Theme.DARK,
+        collapsed_nested_settings=ConfigCollapeNestedSettings.ENABLED_EXPANDED,
+    )
+
+    manager = SettingsManager(AppSettings, settings_path=config_json_path, additional_config=manager_settings)
+    manager.load()
+    settings: AppSettings = manager.model
+    return settings
+
+
 if __name__ == "__main__":
+    user_config_dir = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
+    config_json_path = user_config_dir / "config" / "config-new.json"
+
     settings = AppSettings()
-    print(settings)
-    print(settings.extractor.newgrounds.content_ratings)
+    manager_settings = SettingsManagerConfig(
+        title="PythonRipper settings",
+        theme=Theme.DARK,
+        collapsed_nested_settings=ConfigCollapeNestedSettings.ENABLED_EXPANDED,
+    )
+
+    manager = SettingsManager(AppSettings, settings_path=config_json_path, additional_config=manager_settings)
+    manager.load()
+    manager.edit_gui()
+
 # TODO(TheTimebreaker): AI toggle

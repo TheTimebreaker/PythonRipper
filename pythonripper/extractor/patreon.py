@@ -19,7 +19,7 @@ import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 
 
-async def verify_patreon_artist_list(config: cfg.Config, artist_list: list[str]) -> list[str]:
+async def verify_patreon_artist_list(config: cfg.AppSettings, artist_list: list[str]) -> list[str]:
     """Verifies the full artist list (containing ALL artists) with the json of memberships
     provided in patreon_memberships.json
 
