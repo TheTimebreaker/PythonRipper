@@ -59,6 +59,7 @@ class Scraper(ABC):
     LIMIT: asynciolimiter._BaseLimiter
     SPACE_REPLACE: str
     IS_GOOGLE_SEARCHABLE: bool = True
+    IS_CASE_SENSITIVE: bool = False
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
     def __init__(self, config: ConfigObject) -> None:
@@ -67,6 +68,7 @@ class Scraper(ABC):
         self.download_headers: dict[str, str] = {}
         self.history: f.SqlDownloadHistory | None = None
         self.blacklist_tags: set[str] = set()
+        self.init_blacklist()
 
     @abstractmethod
     async def init(self) -> bool: ...
@@ -74,16 +76,166 @@ class Scraper(ABC):
     def format_tagname(self, tagname: str) -> str:
         return tagname.replace(" ", self.SPACE_REPLACE)
 
+    def init_blacklist(self) -> None:
+        self.blacklist_tags = self.config.settings.general.exclusions.blacklisted_tags
+        if self.config.settings.general.exclusions.disallow_ai is True:
+            bonus_tags: set[str]
+            match self.ME:
+                case "akairiot":
+                    bonus_tags = set()
+                case "animepictures":
+                    bonus_tags = set()
+                case "artstation":
+                    bonus_tags = {"ai", "aigenerated", "midjourney", "createdwithaI"}
+                case "danbooru":
+                    bonus_tags = {
+                        "ai-generated",
+                        "ai-generated background",
+                        "ai-assisted",
+                        "dall-e",
+                        "nai diffusion",
+                        "midjourney",
+                        "stable diffusion",
+                    }
+                # Deviantart blacklisting does not actually work, because there seemingly is no way of getting the tags from the API
+                case "deviantart":
+                    bonus_tags = {"aiart", "generatedart", "aigenerated", "aigeneratedart"}
+                case "gelbooru":
+                    bonus_tags = {
+                        "ai",
+                        "ai-generated",
+                        "ai-generated background",
+                        "ai-assisted",
+                        "dall-e",
+                        "midjourney",
+                        "stable diffusion",
+                    }
+                # Hentaifoundry blacklisting does not actually work, because no API
+                case "hentaifoundry":
+                    bonus_tags = set()
+                case "hypnohub":
+                    bonus_tags = {"ai art"}
+                # Kemono blacklisting does not actually work, because no API
+                case "kemono":
+                    bonus_tags = set()
+                case "kusowanka":
+                    bonus_tags = {"ai-generated", "ai-generated background"}
+                case "newgrounds":
+                    bonus_tags = {"ai-generated", "ai-generated-pokemon", "ai-assisted", "dall-e", "midjourney", "stable-diffusion"}
+                case "patreon":
+                    bonus_tags = set()
+                case "pixiv" | "pixiv-artists" | "pixiv-tags":
+                    bonus_tags = {
+                        "AIイラスト",
+                        "Aiイラスト",
+                        "aiイラスト",
+                        "AI生成",
+                        "Ai生成",
+                        "ai生成",
+                        "AI生成イラスト",
+                        "Ai生成イラスト",
+                        "ai生成イラスト",
+                        "AI Generated",
+                        "AI generated",
+                        "Ai Generated",
+                        "aI Generated",
+                        "ai Generated",
+                        "aI generated",
+                        "Ai generated",
+                        "ai generated",
+                        "Ai绘画",
+                        "AI绘画",
+                        "ai绘画",
+                        "aI绘画",
+                        "AIGenerated",
+                        "AIgenerated",
+                        "AiGenerated",
+                        "aIGenerated",
+                        "Aigenerated",
+                        "aIgenerated",
+                        "aiGenerated",
+                        "aIイラスト",
+                        "aI生成",
+                        "AIGeneratedイラスト",
+                        "AIgeneratedイラスト",
+                        "AiGeneratedイラスト",
+                        "aIGeneratedイラスト",
+                        "Aigeneratedイラスト",
+                        "aIgeneratedイラスト",
+                        "aiGeneratedイラスト",
+                        "AI-Generated",
+                        "AI-generated",
+                        "Ai-Generated",
+                        "aI-Generated",
+                        "aI-generated",
+                        "ai-Generated",
+                        "AIGenerated illustration",
+                        "AIgenerated illustration",
+                        "AiGenerated illustration",
+                        "aIGenerated illustration",
+                        "Aigenerated illustration",
+                        "aIgenerated illustration",
+                        "aiGenerated illustration",
+                    }
+                case "rule34paheal":
+                    bonus_tags = {"ai-generated", "stablediffusion"}
+                case "rule34us":
+                    bonus_tags = {
+                        "ai generated",
+                        "ai-generated",
+                        "ai generated video",
+                        "ai generated background",
+                        "ai-generated background",
+                        "ai-created",
+                        "ai created",
+                        "ai-assisted",
+                        "ai assisted",
+                        "stable diffusion",
+                        "midjourney",
+                    }
+                case "rule34xxx":
+                    bonus_tags = {
+                        "ai",
+                        "ai art",
+                        "ai assisted",
+                        "ai generated",
+                        "ai-created",
+                        "ai-generated",
+                        "dalley le alpha",
+                        "ai generated video",
+                        "ai generated background",
+                        "ai created",
+                        "ai-assisted",
+                        "stable diffusion",
+                        "midjourney",
+                    }
+                case "shellvi":
+                    bonus_tags = set()
+                case "supersatanson":
+                    bonus_tags = set()
+                case "tangsgallery":
+                    bonus_tags = set()
+                case "tumblr":
+                    bonus_tags = set()
+                case "yandere":
+                    bonus_tags = set()
+                case _:
+                    raise NotImplementedError(f"{self.ME} has no AI blacklisted tags hardcoded.")
+            self.blacklist_tags.update(bonus_tags)
+
     def blacklist_tag_found(self, data: PostData) -> bool:
-        tags = data.get("tags")
+        tags = data.get("tags", None)
         if not tags:
             return False
 
         combined_tags = (
             tags.get("artists", []) + tags.get("characters", []) + tags.get("parodies", []) + tags.get("metatags", []) + tags.get("tags", [])
         )
-        combined_tags = [x.lower() for x in combined_tags]
-        if any(blacklist_tag.lower() in combined_tags for blacklist_tag in self.blacklist_tags):
+        if self.IS_CASE_SENSITIVE is False:
+            combined_tags = [x.lower() for x in combined_tags]
+            self.blacklist_tags = {x.lower() for x in self.blacklist_tags}
+
+        if any(blacklist_tag in combined_tags for blacklist_tag in self.blacklist_tags):
             return True
 
         return False
@@ -267,20 +419,9 @@ class TaggableScraper(Scraper):
 
     def __init__(self, config: ConfigObject) -> None:
         super().__init__(config)
-        self.init_blacklist()
 
     @abstractmethod
     async def does_this_exist(self, tagname: str) -> bool: ...
-
-    def init_blacklist(self) -> None:
-        self.blacklist_tags = self.config.settings.general.exclusions.blacklisted_tags
-        if self.config.settings.general.exclusions.disallow_ai is True:
-            match self.ME:
-                case "artstation":
-                    bonus_tags = {"ai", "aigenerated", "midjourney", "createdwithaI"}
-                case _:
-                    bonus_tags = set()
-            self.blacklist_tags.update(bonus_tags)
 
     @overload
     async def download_tag(
