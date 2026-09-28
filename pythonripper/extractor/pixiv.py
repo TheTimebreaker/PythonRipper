@@ -23,6 +23,8 @@ import pythonripper.toolbox.scraperclasses as scraper
 class PixivRoot(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://www.pixiv.net"
 
+    ME = "pixiv"
+
     client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"  # hard coded, from the app afaik
     client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"  # same
     hash_secret = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
@@ -163,7 +165,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         def _extract_tags() -> list[str]:
-            tags = []
+            tags: list[str] = []
             if not json_data:
                 raise
             if not isinstance(json_data["tags"], list):
@@ -171,14 +173,14 @@ class PixivRoot(scraper.DownloadhistoryScraper):
 
             for tag in json_data["tags"]:
                 if tag["translated_name"] and tag["translated_name"] != "None":
-                    tags.append(tag["translated_name"])
+                    tags.append(str(tag["translated_name"]))
                 else:
-                    tags.append(tag["name"])
+                    tags.append(str(tag["name"]))
 
             if json_data.get("illust_ai_type", 0) == 2:
                 tags.append("AI-generated")
 
-            return tags
+            return [tag.replace(self.SPACE_REPLACE, " ") for tag in tags]
 
         if json_data is None:
             if post_id is None:
