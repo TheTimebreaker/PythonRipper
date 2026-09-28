@@ -60,8 +60,9 @@ class ArtstationAPI(scraper.TaggableScraper):
             logging.error("[%s] - %s for downloading post %s . Impersonation?", self.ME.upper(), res.status_code, post_id)
             raise cf.ExtractorExitError("%s for downloading post %s . Impersonation?", res.status_code, post_id)
 
-        data = res.json()  # type: ignore
+        data: dict[str, Any] = res.json()  # type: ignore
         artist = data["user"]["username"]
+        _tags: list[str] = data.get("tags", [])
         elements: list[scraper.PostElement] = []
         for url in [asset["image_url"] for asset in data["assets"]]:
             assert isinstance(url, str)
@@ -78,6 +79,7 @@ class ArtstationAPI(scraper.TaggableScraper):
             filehash=post_hash,
             elements=elements,
             source=artist,
+            tags=scraper.TagsData(tags=_tags),
         )
 
     async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
