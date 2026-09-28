@@ -51,7 +51,7 @@ class Worker:
     def __init__(self, config: ConfigObject) -> None:
         logging.info("Start main.")
         self.config = config
-        self.unwanted_formats = self.config.settings.general.unwanted_file_extensions
+        self.unwanted_formats = self.config.settings.general.exclusions.unwanted_file_extensions
         self.path_download = self.config.paths.downloads()
         self.path_tempdownload = self.config.paths.downloads_temp()
         self.path_storage = self.config.paths.storage()
@@ -164,16 +164,14 @@ class Worker:
 
     def remove_unwanted_file_formats(self, path: Path, unwanted_extensions: Iterable[str] | None = None) -> None:
         print("Removing unwanted file formats.")
-        if unwanted_extensions is None:
-            pass
-        else:
+        if unwanted_extensions:
             for file in f.iter_files(path):
                 mat = f.match_extension(file.name)
                 if mat and mat in unwanted_extensions:
                     file.unlink()
         print("=" * 25)
 
-    def convert_files(self, path: Path) -> None:  # TODO(TheTimebreaker): do that lol
+    def _convert_images(self, path: Path) -> None:
         print(f"Converting image files in {path}.")
         settings = self.config.settings.general.image_conversion_settings
         if settings.enabled is False:
@@ -192,6 +190,9 @@ class Worker:
             else:
                 print(f"Selected target file format not supported: {settings.target_format}")
         print("=" * 25)
+
+    def convert_files(self, path: Path) -> None:
+        self._convert_images(path)
 
     def merge_folders(self, path: Path) -> None:
         def merge_folders_artists(self: Self, path: Path) -> None:

@@ -80,17 +80,6 @@ def unquote_tagnames(string_input: str) -> str:
     return urllib.parse.unquote(string_input)
 
 
-def init_blacklist_tags(ignore_symbol: str = "//") -> list[str]:
-    blpath = config.paths.blacklist_tags_path()
-    backlist_tags = []
-    with open(blpath, encoding="utf-16") as f:
-        for tag in f.read().split("\n"):
-            if str(tag).startswith(ignore_symbol):
-                continue
-            backlist_tags.append(tag)
-    return backlist_tags
-
-
 def get_digits(integer: int) -> int:
     return len(str(integer))
 

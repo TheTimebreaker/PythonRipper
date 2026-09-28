@@ -212,7 +212,7 @@ async def download_file(
     filename = verify_filename(filename)
     path_to_filename = path / filename
 
-    if path_to_filename.suffix in config.settings.general.unwanted_file_extensions:
+    if path_to_filename.suffix in config.settings.general.exclusions.unwanted_file_extensions:
         logging.info("[DOWNLOAD FILE] - File skipped, because it is an unwanted file type according to config.")
         return True
 

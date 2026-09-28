@@ -66,7 +66,7 @@ class Scraper(ABC):
         self.headers: dict[str, str] = {}
         self.download_headers: dict[str, str] = {}
         self.history: f.SqlDownloadHistory | None = None
-        self.blacklist_tags: list[str] = []
+        self.blacklist_tags: set[str] = set()
 
     @abstractmethod
     async def init(self) -> bool: ...
@@ -273,7 +273,7 @@ class TaggableScraper(Scraper):
     async def does_this_exist(self, tagname: str) -> bool: ...
 
     def init_blacklist(self) -> None:
-        self.blacklist_tags = cf.init_blacklist_tags("_")
+        self.blacklist_tags = self.config.settings.general.exclusions.blacklisted_tags
 
     @overload
     async def download_tag(

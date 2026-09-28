@@ -217,22 +217,6 @@ class ImageConversionSettings(BaseModel):
     )
 
 
-class AudioConversionSettings(BaseModel):
-    enabled: bool = Field(
-        default=True,
-        title="Enable file conversion during processing of downloads.",
-        description=(
-            "Choose whether the application should convert all downloaded audio files that are not already in the "
-            "target format when files are processed and moved to storage."
-        ),
-    )
-    target_format: AudioFormat = Field(  # TODO(TheTimebreaker): actually use this
-        default=Format.MP3,
-        title="Set target file format",
-        description="(Optional) Set the target format for image file conversions. This does not affect downloads.",
-    )
-
-
 class PathSettings(BaseModel):
     downloads: DirectoryPath = Field(
         default=_user_config_path_djkd / "downloads",
@@ -267,7 +251,7 @@ class PathSettings(BaseModel):
     )
     selenium_driver_root: DirectoryPath = Field(
         default=_user_config_path_djkd / "selenium_drivers",
-        title="Selenium webdriver (Chromedriver & Geckodriver) directory",
+        title="Selenium webdriver directory",
         description=(
             "Choose a root directory, where all chromedriver and geckodriver binaries are stored.\n"
             "These binaries are required for easily adding things-to-download to your configuration."
@@ -275,37 +259,52 @@ class PathSettings(BaseModel):
     )
 
 
-class GeneralSettings(BaseModel):
-    paths: PathSettings = Field(
-        default_factory=PathSettings,
-        title="Path settings",
-        description="Set the paths to various things.",
+class Exclusions(BaseModel):
+    disallow_ai: bool = Field(
+        default=True,
+        title="Disallow AI",
+        description=(
+            "Choose, whether or not to allow or forbid AI generated things to be downloaded.\n"
+            "Note, that not all websites have good options to detect AI, so you may still download AI things."
+        ),
     )
     unwanted_file_extensions: set[Format] = Field(
         default=set(),
         title="Unwanted file extensions",
         description="Choose file extensions that you do not want to download, and that should be deleted when downloads are processed.",
     )
+    blacklisted_tags: set[str] = Field(
+        default=set(),
+        title="Blacklisted tags",
+        description=(
+            "Set tags that are blacklisted, which will prevent files tagged with these from being downloaded.\n"
+            "Also allows cleanup functions to remove these files.\n"
+            "Note, that tags are handled differently between extractors, meaning that some cannot act upon this blacklist."
+        ),
+    )
+
+
+class GeneralSettings(BaseModel):
     overwrite_existing_files: bool = Field(
         default=False,
         title="Overwrite existing files",
         description="Choose whether existing files can be overwritten by the downloader (or not).",
     )
-    update: bool = Field(
-        default=True,
-        title="Set the application's update mode",
-        description=("Choose whether the application should update existing downloaded files. Keep this enabled unless you are debugging."),
+
+    exclusions: Exclusions = Field(
+        default_factory=Exclusions, title="Exclusions", description="Settings to prevent downloads of certain things based on the rules defined here."
+    )
+
+    paths: PathSettings = Field(
+        default_factory=PathSettings,
+        title="Path settings",
+        description="Set the paths to various things.",
     )
 
     image_conversion_settings: ImageConversionSettings = Field(
         default_factory=ImageConversionSettings,
         title="Image Conversion Settings",
         description="Choose, if and how image files will be converted through this application.",
-    )
-    audio_conversion_settings: AudioConversionSettings = Field(
-        default_factory=AudioConversionSettings,
-        title="Audio Conversion Settings",
-        description="Choose, if and how audio files will be converted through this application.",
     )
 
 
@@ -597,4 +596,4 @@ if __name__ == "__main__":
 
     print(manager.model.extractor.hentaifoundry.nudity.value, type(manager.model.extractor.hentaifoundry.nudity.value))
 
-# TODO(TheTimebreaker): AI toggle
+# TODO(TheTimebreaker): make AI toggle do anything

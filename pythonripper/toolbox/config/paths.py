@@ -31,9 +31,6 @@ class Paths:
     def linkspath(self) -> Path:
         return self._config() / "!ripped_links.log"
 
-    def blacklist_tags_path(self) -> Path:
-        return self._config() / "blacklist_tags.txt"  # TODO(TheTimebreaker): PUT INTO CONFIG
-
     def artists_tags_path(self) -> Path:
         return self._config() / "artists.json"
 
