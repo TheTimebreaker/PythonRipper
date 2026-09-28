@@ -7,21 +7,21 @@ import httpx
 
 import pythonripper.extractor.newgrounds as newgrounds
 import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.paths import _Config
 
 
-async def update_newgrounds_artists(config: cfg.Config) -> bool:
+async def update_newgrounds_artists(config: _Config) -> bool:
     return await scraper.update_stuff(config, newgrounds.NewgroundsAPI, "artists")
 
 
-async def update_newgrounds_favorites(config: cfg.Config) -> bool | tuple[bool, str]:
+async def update_newgrounds_favorites(config: _Config) -> bool | tuple[bool, str]:
     print("Updating local copy of newgrounds favorites.")
     update_type = "favorites"
 
     favorites = []
-    async with aiofiles.open(config.newgrounds_favs_path(), newline="") as file:
+    async with aiofiles.open(config.paths.newgrounds_favs_path(), newline="") as file:
         contents = await file.read()
         for i, favorite in enumerate(contents.split("\n")):
             if i <= 1:
@@ -35,7 +35,7 @@ async def update_newgrounds_favorites(config: cfg.Config) -> bool | tuple[bool, 
     full_success = True
     for i, fav in enumerate(favorites):
         print(f"{i+1}/{len(favorites)} - {fav} - newgrounds-favorites")
-        download_folder = config.dpath() / "newgrounds-favorites" / f.verify_filename(fav)
+        download_folder = config.paths.downloads() / "newgrounds-favorites" / f.verify_filename(fav)
         download_folder.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -80,12 +80,12 @@ async def update_newgrounds_favorites(config: cfg.Config) -> bool | tuple[bool, 
     return full_success
 
 
-async def main(config: cfg.Config) -> None:
+async def main(config: _Config) -> None:
     await update_newgrounds_artists(config)
     await update_newgrounds_favorites(config)
 
 
 if __name__ == "__main__":
-    config = cfg.Config()
+    config = _Config()
     cf.init_logger(config, "error", True)
     asyncio.run(main(config))

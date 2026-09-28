@@ -18,7 +18,8 @@ import requests
 import wget
 from selenium.webdriver.remote.webdriver import WebDriver
 
-import pythonripper.toolbox.config as cfg
+from pythonripper.toolbox.config import config
+from pythonripper.toolbox.config.paths import _Config
 
 
 def timeout(max_timeout_seconds: int) -> Callable[[Any], Any]:
@@ -81,7 +82,7 @@ def unquote_tagnames(string_input: str) -> str:
 
 
 def init_blacklist_tags(ignore_symbol: str = "//") -> list[str]:
-    blpath = cfg.Config().blacklist_tags_path()
+    blpath = config.paths.blacklist_tags_path()
     backlist_tags = []
     with open(blpath, encoding="utf-16") as f:
         for tag in f.read().split("\n"):
@@ -95,7 +96,7 @@ def get_digits(integer: int) -> int:
     return len(str(integer))
 
 
-def init_logger(config: cfg.Config, level: str, log2file: bool) -> None:
+def init_logger(config: _Config, level: str, log2file: bool) -> None:
     level = level.lower()
     match level:  # Matches the level argument to the words logging actually understands :)
         case "debug":
@@ -115,11 +116,11 @@ def init_logger(config: cfg.Config, level: str, log2file: bool) -> None:
     msg_format = "[%(asctime)s][%(levelname)s]%(message)s"
 
     if log2file:
-        print(f"Logs will be logged into: {config.errorpath()}")
+        print(f"Logs will be logged into: {config.paths.errorpath()}")
         logging.basicConfig(
             handlers=[
                 logging.StreamHandler(),
-                logging.FileHandler(config.errorpath(), encoding="utf-16"),
+                logging.FileHandler(config.paths.errorpath(), encoding="utf-16"),
             ],
             level=level,
             format=msg_format,
@@ -142,7 +143,7 @@ def init_selenium(headless: bool = False) -> WebDriver:
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
 
-    chromedriver_main = cfg.Config().chromedriver_path()
+    chromedriver_main = config.paths.chromedriver_path()
 
     def chromeversion_download() -> tuple[Path, Path]:
         """Checks latest Chrome-for-testing and Chromedriver version, downloads them (if needed)

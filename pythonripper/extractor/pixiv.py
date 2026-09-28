@@ -52,7 +52,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
         self.access_token: str
         self.username: str
         self.valid_until: float
-        self.credentials_path = self.config._credentials_path() / "pixiv_credentials.json"
+        self.credentials_path = self.config.paths._credentials() / "pixiv_credentials.json"
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
 
         return await self.setup_token_and_headers()

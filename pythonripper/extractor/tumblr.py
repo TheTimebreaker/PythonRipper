@@ -32,7 +32,7 @@ class TumblrAPI(scraper.TaggableScraper):
 
     async def init(self) -> bool:
         self.api_key: str
-        self.credentials_path = self.config._credentials_path() / "tumblr_credentials.json"
+        self.credentials_path = self.config.paths._credentials() / "tumblr_credentials.json"
         self.session = curl_cffi.requests.AsyncSession(timeout=cf.asynctimeoutseconds())
 
         async def get_api_key() -> bool:
@@ -172,7 +172,7 @@ class TumblrAPI(scraper.TaggableScraper):
 
     async def __download_post_text(self, post_element_data: dict[str, Any], dpath: Path, filename: str | None) -> bool:
         logging.info("[%s] - Part of post detected as text.", self.ME.upper())
-        if not self.config.data["extractor"]["tumblr"]["saveTextPosts"]:
+        if not self.config.settings.extractor.tumblr.save_text_posts:
             return True
         else:
             return await f.download_text(

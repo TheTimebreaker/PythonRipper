@@ -5,15 +5,16 @@ import platformdirs
 from pythonripper.toolbox.config import get_settings_object
 from pythonripper.toolbox.config.model import AppSettings
 
-__user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
 _settings: AppSettings = get_settings_object()
 
 
 class Paths:
     """Class for configuration elements loaded from the config file on-disk"""
 
+    user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
+
     def _config(self) -> Path:
-        return __user_config_path / "config"
+        return self.user_config_path / "config"
 
     def _config_json(self) -> Path:
         return self._config() / "config.json"
@@ -58,7 +59,7 @@ class Paths:
         return self._config() / "process_downloads.log"
 
     def test_dir(self) -> Path:
-        return __user_config_path / "_test"
+        return self.user_config_path / "_test"
 
     def downloads(self) -> Path:
         p: Path = _settings.general.paths.downloads
@@ -94,9 +95,9 @@ class Paths:
 _paths = Paths()
 
 
-class Config:
+class _Config:
     paths: Paths = _paths
     settings: AppSettings = _settings
 
 
-config = Config()
+config = _Config()

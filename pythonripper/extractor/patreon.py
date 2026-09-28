@@ -14,12 +14,12 @@ import bs4
 import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.paths import _Config
 
 
-async def verify_patreon_artist_list(config: cfg.Config, artist_list: list[str]) -> list[str]:
+async def verify_patreon_artist_list(config: _Config, artist_list: list[str]) -> list[str]:
     """Verifies the full artist list (containing ALL artists) with the json of memberships
     provided in patreon_memberships.json
 
@@ -65,7 +65,7 @@ class PatreonAPI(scraper.TaggableScraper):
 
     async def init(self) -> bool:
         self.campaign_ids_path = self.config.paths.downloadhistory() / "patreon_campaignIDs.json"
-        self.jar_path = cfg.c._credentials_path() / "patreon_cookies.txt"
+        self.jar_path = self.config.paths._credentials() / "patreon_cookies.txt"
         self.headers = {"User-Agent": "Patreon/126.9.0.15 (Android; Android 14; Scale/2.10)"}
         self.download_headers = {}
         self.session = httpx.AsyncClient(headers=self.headers)
@@ -231,7 +231,7 @@ class PatreonAPI(scraper.TaggableScraper):
                                 if "marks" in paragraph_content:
                                     for mark in paragraph_content["marks"]:
                                         if mark["type"] == "link":
-                                            if self.config.data["extractor"]["patreon"]["collect_links"]:
+                                            if self.config.settings.extractor.patreon.save_links:
                                                 yield scraper.PostElementSavelink(savelink=str(mark["attrs"]["href"]))
                                         elif mark["type"] in ("italic", "bold", "underline"):
                                             pass
@@ -269,7 +269,7 @@ class PatreonAPI(scraper.TaggableScraper):
                         yield scraper.PostElementLinks(download_url=url, extension=extension)
 
                     elif content["type"] == "cta":
-                        if self.config.data["extractor"]["patreon"]["collect_links"]:
+                        if self.config.settings.extractor.patreon.save_links:
                             yield scraper.PostElementSavelink(savelink=str(content["attrs"]["button_link"]))
 
                     elif content["type"] == "orderedList":

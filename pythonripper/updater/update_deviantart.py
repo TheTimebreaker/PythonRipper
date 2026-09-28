@@ -7,22 +7,22 @@ import httpx
 
 import pythonripper.extractor.deviantart as deviantart
 import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.paths import _Config
 
 
-async def update_deviantart_artists(config: cfg.Config) -> bool:
+async def update_deviantart_artists(config: _Config) -> bool:
     return await scraper.update_stuff(config, deviantart.DeviantartAPI, "artists")
 
 
-async def update_deviantart_favorites(config: cfg.Config) -> bool | tuple[bool, str]:
+async def update_deviantart_favorites(config: _Config) -> bool | tuple[bool, str]:
     print("Updating local copy of deviantart favorites.")
     print("=" * 50)
     print("=" * 50)
 
     favorites = []
-    async with aiofiles.open(config.deviantart_favs_path(), newline="") as file:
+    async with aiofiles.open(config.paths.deviantart_favs_path(), newline="") as file:
         contents = await file.read()
         for i, fav in enumerate(contents.split("\n")):
             if i <= 1:
@@ -36,7 +36,7 @@ async def update_deviantart_favorites(config: cfg.Config) -> bool | tuple[bool, 
     full_success = True
     for i, fav in enumerate(favorites):
         print(f"{i+1}/{len(favorites)} - {fav} - deviantart-favorites")
-        download_folder = config.dpath() / "deviantart-favorites" / f.verify_filename(fav)
+        download_folder = config.paths.downloads() / "deviantart-favorites" / f.verify_filename(fav)
         download_folder.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -77,12 +77,12 @@ async def update_deviantart_favorites(config: cfg.Config) -> bool | tuple[bool, 
     return full_success
 
 
-async def main(config: cfg.Config) -> None:
+async def main(config: _Config) -> None:
     await update_deviantart_artists(config)
     await update_deviantart_favorites(config)
 
 
 if __name__ == "__main__":
-    config = cfg.Config()
+    config = _Config()  # TODO(TheTimebreaker): remove these
     cf.init_logger(config, "error", True)
     asyncio.run(main(config))

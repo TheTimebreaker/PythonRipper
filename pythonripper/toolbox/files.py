@@ -19,7 +19,7 @@ import aioshutil
 import curl_cffi
 
 import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.config as cfg
+from pythonripper.toolbox.config.paths import _Config
 
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:
@@ -188,7 +188,7 @@ async def atomic_write(
 
 
 async def download_file(
-    config: cfg.Config | None = None,
+    config: _Config | None = None,
     url: str | None = None,
     headers: dict[str, str] | None = None,
     path: Path | None = None,
@@ -203,7 +203,7 @@ async def download_file(
     if headers is None:
         headers = {}
     if path is None:
-        path = config.test_dir()
+        path = config.paths.test_dir()
     path.mkdir(exist_ok=True, parents=True)
     if filename.endswith("None"):
         raise TypeError("Filename parameter in download was None, this is almost certainly a bug and not intended.")
@@ -212,11 +212,11 @@ async def download_file(
     filename = verify_filename(filename)
     path_to_filename = path / filename
 
-    if path_to_filename.suffix in config.data["general"]["unwanted_filetypes"]:
+    if path_to_filename.suffix in config.settings.general.unwanted_file_extensions:
         logging.info("[DOWNLOAD FILE] - File skipped, because it is an unwanted file type according to config.")
         return True
 
-    config_allows_overwrites = config and config.data["general"]["overwriteExistingFiles"]
+    config_allows_overwrites = config and config.settings.general.overwrite_existing_files
     file_exists = await aiopath.isfile(path_to_filename)
     if force_overwrite or config_allows_overwrites or not file_exists:
         logging.debug(url)
@@ -270,18 +270,18 @@ async def download_file(
     return True
 
 
-async def download_text(config: cfg.Config, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:
+async def download_text(config: _Config, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:
     filename = verify_filename(filename)
     path_to_filename = directory / filename
-    if not config.data["general"]["overwriteExistingFiles"] and await aiopath.isfile(path_to_filename):  # Skips, if file already exists
+    if not config.settings.general.overwrite_existing_files and await aiopath.isfile(path_to_filename):  # Skips, if file already exists
         return True
     await atomic_write(path_to_filename, content, encoding=encoding)
     return True
 
 
-async def download_link(config: cfg.Config, url: str, link_path: Path | None = None) -> Literal[True]:
+async def download_link(config: _Config, url: str, link_path: Path | None = None) -> Literal[True]:
     if link_path is None:
-        link_path = config.linkspath()
+        link_path = config.paths.linkspath()
     await atomic_write(filepath=link_path, data=url, encoding="utf-8", append=True)
     return True
 
@@ -362,9 +362,9 @@ async def read_update_file(dpath: Path, bottom_line: bool = False) -> list[str] 
 
 
 class SqlDownloadHistory:
-    def __init__(self, name: str, config: cfg.Config) -> None:
+    def __init__(self, name: str, config: _Config) -> None:
         self.name = name
-        self.path = config._downloadhistory_path() / f"{self.name.lower()}_downloadhistory.db"
+        self.path = config.paths.downloadhistory() / f"{self.name.lower()}_downloadhistory.db"
         self.conn = sqlite3.connect(self.path)
         self.conn.execute("CREATE TABLE IF NOT EXISTS downloads (id INTEGER PRIMARY KEY)")
         self.conn.commit()

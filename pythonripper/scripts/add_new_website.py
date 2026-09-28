@@ -1,11 +1,11 @@
 import asyncio
 
 import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.subscription_management as sm
+from pythonripper.toolbox.config.paths import _Config
 
 
-def main(config: cfg.Config) -> None:
+def main(config: _Config) -> None:
     inp = input("Do you want to search the new websites' entries to <artist> or <tag>? Please enter either EXACTLY to choose: ")
     obj: sm.CombinedFile
     if inp in ("artist", "<artist>", "artists", "<artists>"):
@@ -51,6 +51,6 @@ async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool) -> None:
 
 
 if __name__ == "__main__":
-    config = cfg.Config()
+    config = _Config()
     cf.init_logger(config, "error", False)
     main(config)

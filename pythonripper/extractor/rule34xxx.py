@@ -33,7 +33,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
     session: httpx.AsyncClient
 
     async def init(self) -> bool:
-        self.credentials_path = self.config._credentials_path() / "rule34xxx_credentials.json"
+        self.credentials_path = self.config.paths._credentials() / "rule34xxx_credentials.json"
         self.api_key: str
         self.user_id: str
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)

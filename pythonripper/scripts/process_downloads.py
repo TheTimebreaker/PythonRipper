@@ -13,9 +13,9 @@ from PIL import Image, UnidentifiedImageError
 from psd_tools import PSDImage
 
 import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.subscription_management as sm
+from pythonripper.toolbox.config.paths import _Config
 
 
 class ExitError(Exception):
@@ -23,8 +23,8 @@ class ExitError(Exception):
 
 
 class Log:
-    def __init__(self, config: cfg.Config) -> None:
-        self.filepath = config.process_downloads_log()
+    def __init__(self, config: _Config) -> None:
+        self.filepath = config.paths.process_downloads_log()
         self.encoding = "utf-8"
         self.read()
 
@@ -48,14 +48,14 @@ class Log:
 
 
 class Worker:
-    def __init__(self, config: cfg.Config) -> None:
+    def __init__(self, config: _Config) -> None:
         logging.info("Start main.")
         self.config = config
-        self.unwanted_formats = self.config.data["general"]["unwanted_filetypes"]
-        self.path_download = self.config.dpath()
-        self.path_tempdownload = self.config.dpath_tmp()
-        self.path_store = self.config.notdone_path()
-        self.path_done = self.config.done_path()
+        self.unwanted_formats = self.config.settings.general.unwanted_file_extensions
+        self.path_download = self.config.paths.downloads()
+        self.path_tempdownload = self.config.paths.downloads_temp()
+        self.path_storage = self.config.paths.storage()
+        self.path_done = self.config.paths.done_path()
         self.log = Log(self.config)
 
         self.boorus = [
@@ -96,21 +96,21 @@ class Worker:
                 {"exclude_files": [".pythonripper"], "move_with_id_files": ["!hashes"]},
             ),
             (self.remove_unwanted_file_formats, (self.path_tempdownload, self.unwanted_formats), {}),
-            (self.remove_unwanted_file_formats, (self.path_store, self.unwanted_formats), {}),
+            (self.remove_unwanted_file_formats, (self.path_storage, self.unwanted_formats), {}),
             (self.remove_unwanted_file_formats, (self.path_done, self.unwanted_formats), {}),
             (self.convert_files, (self.path_tempdownload,), {}),
             (self.merge_folders, (self.path_tempdownload,), {}),
             (self.check_file_name_length, (self.path_tempdownload, 100), {}),
             (self.check_duplicates, (self.path_tempdownload,), {}),
-            (self.check_duplicates, (self.path_tempdownload, self.path_store, self.path_done), {}),
-            (self.move_files, (self.path_tempdownload, self.path_store), {"move_with_id_files": ["!hashes"]}),
+            (self.check_duplicates, (self.path_tempdownload, self.path_storage, self.path_done), {}),
+            (self.move_files, (self.path_tempdownload, self.path_storage), {"move_with_id_files": ["!hashes"]}),
             (shutil.rmtree, (self.path_tempdownload, True), {}),
-            (self.merge_folders, (self.path_store,), {}),
+            (self.merge_folders, (self.path_storage,), {}),
             (self.merge_folders, (self.path_done,), {}),
-            (self.convert_files, (self.path_store,), {}),
+            (self.convert_files, (self.path_storage,), {}),
             (self.convert_files, (self.path_done,), {}),
             (self.check_file_name_length, (self.path_done, 100), {}),
-            (self.check_file_name_length, (self.path_store, 100), {}),
+            (self.check_file_name_length, (self.path_storage, 100), {}),
         )
         for i, elements in enumerate(tasks):
             if i < self.log.status:
@@ -173,14 +173,13 @@ class Worker:
                     file.unlink()
         print("=" * 25)
 
-    def convert_files(self, path: Path) -> None:
-        print(f"Converting files to jpg in {path}.")
-        if self.config.data["general"]["convert_processed_files_to"] is False:
-            print("No file conversion conducted due to settings.")
+    def convert_files(self, path: Path) -> None:  # TODO(TheTimebreaker): do that lol
+        print(f"Converting image files in {path}.")
+        settings = self.config.settings.general.image_conversion_settings
+        if settings.enabled is False:
+            print("No image file conversion conducted due to settings.")
         else:
-            if self.config.data["general"]["convert_processed_files_to"] != ".jpg":
-                print(f"Selected target file format not supported: {self.config.data["general"]["convert_processed_files_to"]}")
-            else:
+            if settings.target_format == ".jpg":
                 list_files = f.list_files(path)
                 len_list_files = len(list_files)
                 lasttime = time.time()
@@ -188,7 +187,10 @@ class Worker:
                 for i, file in enumerate(list_files):
                     if cf.progress_bar_timed(lasttime, timing_seconds, i + 1, len_list_files, "Converting files"):
                         lasttime = time.time()
-                    image_converter(file, goal_format=".jpg", delete_source=True, quality_setting=self.config.data["general"]["connvert_quality"])
+                    image_converter(file, goal_format=settings.target_format, delete_source=True, quality_setting=settings.target_quality)
+
+            else:
+                print(f"Selected target file format not supported: {settings.target_format}")
         print("=" * 25)
 
     def merge_folders(self, path: Path) -> None:
@@ -384,7 +386,7 @@ def image_converter(file: Path, goal_format: str, delete_source: bool, quality_s
 
 
 if __name__ == "__main__":
-    config = cfg.Config()
+    config = _Config()
     cf.init_logger(config, "error", True)
     worker = Worker(config)
     asyncio.run(worker.run())

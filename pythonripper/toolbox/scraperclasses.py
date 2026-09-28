@@ -13,8 +13,8 @@ import curl_cffi
 import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
-import pythonripper.toolbox.config as cfg
 import pythonripper.toolbox.files as f
+from pythonripper.toolbox.config.paths import _Config
 
 
 class TagsData(TypedDict):
@@ -61,7 +61,7 @@ class Scraper(ABC):
     IS_GOOGLE_SEARCHABLE: bool = True
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
-    def __init__(self, config: cfg.Config) -> None:
+    def __init__(self, config: _Config) -> None:
         self.config = config
         self.headers: dict[str, str] = {}
         self.download_headers: dict[str, str] = {}
@@ -208,7 +208,7 @@ class Scraper(ABC):
                 data = await self._get_post_data(post_id)
         post_id = str(data["identifier"])
         if dpath is None:
-            dpath = self.config.dpath()
+            dpath = self.config.paths.downloads()
 
         if not ignore_download_history and self.history is not None and self.history.contains(post_id):
             logging.info("[%s] - Skipped download of %s: in download history.", self.ME.upper(), post_id)
@@ -265,7 +265,7 @@ class TaggableScraper(Scraper):
     URL_TAG: str | tuple[str, ...]
     TAG_PATTERN: str
 
-    def __init__(self, config: cfg.Config) -> None:
+    def __init__(self, config: _Config) -> None:
         super().__init__(config)
         self.init_blacklist()
 
@@ -356,7 +356,7 @@ class TaggableScraper(Scraper):
             return False
 
         if dpath is None:
-            dpath = self.config.dpath()
+            dpath = self.config.paths.downloads()
         if update_ids is None:
             update_ids = []
         if update:
@@ -417,7 +417,7 @@ class TaggableScraper(Scraper):
 
 
 class DownloadhistoryScraper(TaggableScraper):
-    def __init__(self, config: cfg.Config) -> None:
+    def __init__(self, config: _Config) -> None:
         super().__init__(config)
         self.history = f.SqlDownloadHistory(self.ME, self.config)
 
@@ -431,7 +431,7 @@ class ArtistWebsiteScraper(Scraper):
     @final
     async def download_all_posts(self, dpath: Path | None = None, update: bool = False) -> bool:
         if dpath is None:
-            dpath = self.config.dpath()
+            dpath = self.config.paths.downloads()
 
         update_ids: list[str] = []
         if update:
@@ -457,14 +457,14 @@ class ArtistWebsiteScraper(Scraper):
         return downloaded_counter == len(posts)
 
 
-async def artist_website_updater(config: cfg.Config, obj_ref: type[ArtistWebsiteScraper]) -> bool:
+async def artist_website_updater(config: _Config, obj_ref: type[ArtistWebsiteScraper]) -> bool:
     obj = obj_ref(config)
     if not await obj.init():
         return False
 
     print(f"Updating local copy of artist website {obj.ME}.")
 
-    dpath = config.dpath() / "artist-websites" / obj.ME
+    dpath = config.paths.downloads() / "artist-websites" / obj.ME
     success = await obj.download_all_posts(dpath=dpath, update=True)
     if not success:
         logging.error("[%s-UPDATER] - Some issue occurred that prevented some images from being correctly downloaded", obj.ME.upper())
@@ -473,7 +473,7 @@ async def artist_website_updater(config: cfg.Config, obj_ref: type[ArtistWebsite
 
 
 async def update_stuff(
-    config: cfg.Config, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_list: list[str] | None = None
+    config: _Config, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_list: list[str] | None = None
 ) -> bool:
     obj = obj_ref(config)
     if not await obj.init():
@@ -509,7 +509,7 @@ async def update_stuff(
             tag = tag[2:-2]
             ignore_blacklist = True
 
-        this_path = config.dpath() / obj.ME / f.verify_filename(tag)
+        this_path = config.paths.downloads() / obj.ME / f.verify_filename(tag)
         print(f"{i+1}/{len(tag_list)} - {tag} - {obj.ME}")
         this_path.mkdir(parents=True, exist_ok=True)
         try:

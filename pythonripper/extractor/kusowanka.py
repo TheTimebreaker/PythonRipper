@@ -11,14 +11,14 @@ import bs4
 import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
-from pythonripper.toolbox.config import Config as cfg
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config import config
 
 
 class SqlTagIDs:
     def __init__(self) -> None:
-        self.path = cfg.paths.downloadhistory() / "kusowanka_tagids.db"
+        self.path = config.paths.downloadhistory() / "kusowanka_tagids.db"
         self.conn = sqlite3.connect(self.path)
         self.conn.execute("""CREATE TABLE IF NOT EXISTS tags (tagid INTEGER PRIMARY KEY, tagname TEXT NOT NULL)""")
         self.conn.commit()
