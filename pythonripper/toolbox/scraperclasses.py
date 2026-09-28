@@ -83,7 +83,7 @@ class Scraper(ABC):
             tags.get("artists", []) + tags.get("characters", []) + tags.get("parodies", []) + tags.get("metatags", []) + tags.get("tags", [])
         )
         combined_tags = [x.lower() for x in combined_tags]
-        if any(blacklist_tag in combined_tags for blacklist_tag in self.blacklist_tags):
+        if any(blacklist_tag.lower() in combined_tags for blacklist_tag in self.blacklist_tags):
             return True
 
         return False
@@ -274,6 +274,13 @@ class TaggableScraper(Scraper):
 
     def init_blacklist(self) -> None:
         self.blacklist_tags = self.config.settings.general.exclusions.blacklisted_tags
+        if self.config.settings.general.exclusions.disallow_ai is True:
+            match self.ME:
+                case "artstation":
+                    bonus_tags = {"ai", "aigenerated", "midjourney", "createdwithaI"}
+                case _:
+                    bonus_tags = set()
+            self.blacklist_tags.update(bonus_tags)
 
     @overload
     async def download_tag(
@@ -506,7 +513,7 @@ async def update_stuff(
     blacklist_bypass_str = config.settings.general.allow_blacklist_bypass
     for i, tag in enumerate(tag_list):
         ignore_blacklist = False
-        if tag.startswith(blacklist_bypass_str) and tag.endswith(blacklist_bypass_str):
+        if blacklist_bypass_str and tag.startswith(blacklist_bypass_str) and tag.endswith(blacklist_bypass_str):
             leng = len(blacklist_bypass_str)
             tag = tag[leng:-leng]
             ignore_blacklist = True

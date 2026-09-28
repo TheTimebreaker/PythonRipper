@@ -93,7 +93,14 @@ def verify_filename(filename: str, replace_by: str = "_") -> str:
         filename = filename.replace("..", "_.")
 
     # Some double filename extensions
-    extension_map = {"jpeg": "jpg", "jpe": "jpg", "jfif": "jpg", "jif": "jpg", "jfi": "jpg", "tif": "tiff"}
+    extension_map = {
+        "jpeg": "jpg",
+        "jpe": "jpg",
+        "jfif": "jpg",
+        "jif": "jpg",
+        "jfi": "jpg",
+        "tif": "tiff",
+    }  # TODO(TheTimebreaker): make this use the model
     for extension, mapped in extension_map.items():
         if filename.endswith(f".{extension}"):
             filename = filename.replace(f".{extension}", f".{mapped}")

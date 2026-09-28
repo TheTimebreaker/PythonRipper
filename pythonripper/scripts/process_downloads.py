@@ -255,7 +255,9 @@ class Worker:
 
                         for element in username:
                             element = str(element)
-                            if element.startswith(blacklist_bypass_str) and element.endswith(blacklist_bypass_str):  # Blacklist bypass
+                            if (
+                                blacklist_bypass_str and element.startswith(blacklist_bypass_str) and element.endswith(blacklist_bypass_str)
+                            ):  # Blacklist bypass
                                 leng = len(blacklist_bypass_str)
                                 element = element[leng:-leng]
                             if website == "reddit" and element.startswith("u/"):
