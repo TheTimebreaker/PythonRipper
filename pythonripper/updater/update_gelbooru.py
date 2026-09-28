@@ -3,7 +3,7 @@ import asyncio
 import pythonripper.extractor.gelbooru as gelbooru
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def update_gelbooru_artists(config: ConfigObject) -> bool:

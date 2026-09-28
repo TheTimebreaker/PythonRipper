@@ -3,7 +3,7 @@ import asyncio
 import pythonripper.extractor.animepictures as animepictures
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def update_animepictures_artists(config: ConfigObject) -> bool:

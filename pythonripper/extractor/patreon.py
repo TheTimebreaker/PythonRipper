@@ -16,7 +16,7 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def verify_patreon_artist_list(config: ConfigObject, artist_list: list[str]) -> list[str]:

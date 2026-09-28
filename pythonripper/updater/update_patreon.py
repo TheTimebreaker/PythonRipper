@@ -4,7 +4,7 @@ import pythonripper.extractor.patreon as patreon
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
 import pythonripper.toolbox.subscription_management as sm
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def update_patreon_artists(config: ConfigObject) -> bool:

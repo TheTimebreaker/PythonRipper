@@ -2,7 +2,7 @@ import asyncio
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.subscription_management as sm
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def main(config: ConfigObject) -> None:

@@ -25,7 +25,7 @@ import pythonripper.updater.update_rule34us
 import pythonripper.updater.update_rule34xxx
 import pythonripper.updater.update_tumblr
 import pythonripper.updater.update_yandere
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 def read_update_scheduler(config: ConfigObject) -> dict[Any, Any]:

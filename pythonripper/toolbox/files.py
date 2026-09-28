@@ -19,7 +19,7 @@ import aioshutil
 import curl_cffi
 
 import pythonripper.toolbox.centralfunctions as cf
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:

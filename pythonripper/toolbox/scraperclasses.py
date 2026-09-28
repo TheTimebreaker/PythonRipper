@@ -14,7 +14,7 @@ import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 class TagsData(TypedDict):

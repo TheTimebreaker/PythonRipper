@@ -3,7 +3,7 @@ import asyncio
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.extractor import akairiot, shellvi, supersatanson, tangsgallery
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def update_akairiot(config: ConfigObject) -> bool | tuple[bool, str]:

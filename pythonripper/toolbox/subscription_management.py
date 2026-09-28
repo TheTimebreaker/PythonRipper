@@ -31,7 +31,7 @@ from pythonripper.extractor import (
     tumblr,
     yandere,
 )
-from pythonripper.toolbox.config.paths import ConfigObject  # TODO(TheTimebreaker): swap this import around again
+from pythonripper.toolbox.config import ConfigObject  # TODO(TheTimebreaker): swap this import around again
 
 STOP = object()
 

@@ -9,7 +9,7 @@ import pythonripper.extractor.newgrounds as newgrounds
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def update_newgrounds_artists(config: ConfigObject) -> bool:

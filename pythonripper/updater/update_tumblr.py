@@ -3,7 +3,7 @@ import asyncio
 import pythonripper.extractor.tumblr as tumblr
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config.paths import ConfigObject
+from pythonripper.toolbox.config import ConfigObject
 
 
 async def update_tumblr_artists(config: ConfigObject) -> bool | tuple[bool, str]:
