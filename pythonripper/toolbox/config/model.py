@@ -607,5 +607,3 @@ if __name__ == "__main__":
     manager.edit_gui()
 
     print(manager.model.extractor.hentaifoundry.nudity.value, type(manager.model.extractor.hentaifoundry.nudity.value))
-
-# TODO(TheTimebreaker): make AI toggle do anything
