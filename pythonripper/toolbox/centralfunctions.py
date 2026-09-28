@@ -19,7 +19,7 @@ import wget
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from pythonripper.toolbox.config import config
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
 def timeout(max_timeout_seconds: int) -> Callable[[Any], Any]:
@@ -96,7 +96,7 @@ def get_digits(integer: int) -> int:
     return len(str(integer))
 
 
-def init_logger(config: _Config, level: str, log2file: bool) -> None:
+def init_logger(config: ConfigObject, level: str, log2file: bool) -> None:
     level = level.lower()
     match level:  # Matches the level argument to the words logging actually understands :)
         case "debug":

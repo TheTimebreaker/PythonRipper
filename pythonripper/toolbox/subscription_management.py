@@ -31,7 +31,7 @@ from pythonripper.extractor import (
     tumblr,
     yandere,
 )
-from pythonripper.toolbox.config.paths import _Config  # TODO(TheTimebreaker): swap this import around again
+from pythonripper.toolbox.config.paths import ConfigObject  # TODO(TheTimebreaker): swap this import around again
 
 STOP = object()
 
@@ -71,7 +71,7 @@ class CombinedFile:
     google_url = "https://www.google.com/search?q={query}"
     google_space_replace = "+"
 
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         self.data = self.read()
         self.config = config
         self.check_keys()
@@ -112,7 +112,7 @@ class CombinedFile:
         self.sort()
         await f.atomic_write(filepath=self.path, data=self.data, encoding=self.encoding)
 
-    async def _add_activate_dict(self, config: _Config, choice: str | None = None) -> None:
+    async def _add_activate_dict(self, config: ConfigObject, choice: str | None = None) -> None:
         async def task(key: str, obj_type: type[scraper.TaggableScraper]) -> None:
             obj = obj_type(config)
             if not await obj.init():
@@ -509,7 +509,7 @@ class CombinedArtistFile(CombinedFile):
     ]
     tag_type = "artist"
 
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         self.path = config.paths.artists_tags_path()
         super().__init__(config)
 
@@ -530,6 +530,6 @@ class CombinedBooruFile(CombinedFile):
     ]
     tag_type = "booru tag"
 
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         self.path = config.paths.booru_tags_path()
         super().__init__(config)

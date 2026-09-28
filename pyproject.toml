@@ -13,7 +13,7 @@ dependencies = [
   "bs4>=0.0.2",
   "curl-cffi>=0.16.3",
   "duplicate_image_finder @ https://github.com/TheTimebreaker/duplicate_image_finder/releases/download/v2.0.3/duplicate_image_finder-2.0.3-py3-none-any.whl",
-  "pydantic_gui_settings_editor @ https://github.com/TheTimebreaker/pydantic-gui-settings-editor/releases/download/v0.3.0/pydantic_gui_settings_editor-0.3.0-py3-none-any.whl",
+  "pydantic_gui_settings_editor @ https://github.com/TheTimebreaker/pydantic-gui-settings-editor/releases/download/v0.3.1/pydantic_gui_settings_editor-0.3.1-py3-none-any.whl",
   "httpx>=0.28.1",
   "plyer>=2.1.0",
   "psd-tools>=1.19.0",

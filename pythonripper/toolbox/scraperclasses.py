@@ -14,7 +14,7 @@ import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
 class TagsData(TypedDict):
@@ -61,7 +61,7 @@ class Scraper(ABC):
     IS_GOOGLE_SEARCHABLE: bool = True
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         self.config = config
         self.headers: dict[str, str] = {}
         self.download_headers: dict[str, str] = {}
@@ -265,7 +265,7 @@ class TaggableScraper(Scraper):
     URL_TAG: str | tuple[str, ...]
     TAG_PATTERN: str
 
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         super().__init__(config)
         self.init_blacklist()
 
@@ -417,7 +417,7 @@ class TaggableScraper(Scraper):
 
 
 class DownloadhistoryScraper(TaggableScraper):
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         super().__init__(config)
         self.history = f.SqlDownloadHistory(self.ME, self.config)
 
@@ -457,7 +457,7 @@ class ArtistWebsiteScraper(Scraper):
         return downloaded_counter == len(posts)
 
 
-async def artist_website_updater(config: _Config, obj_ref: type[ArtistWebsiteScraper]) -> bool:
+async def artist_website_updater(config: ConfigObject, obj_ref: type[ArtistWebsiteScraper]) -> bool:
     obj = obj_ref(config)
     if not await obj.init():
         return False
@@ -473,7 +473,7 @@ async def artist_website_updater(config: _Config, obj_ref: type[ArtistWebsiteScr
 
 
 async def update_stuff(
-    config: _Config, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_list: list[str] | None = None
+    config: ConfigObject, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_list: list[str] | None = None
 ) -> bool:
     obj = obj_ref(config)
     if not await obj.init():

@@ -19,7 +19,7 @@ import aioshutil
 import curl_cffi
 
 import pythonripper.toolbox.centralfunctions as cf
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:
@@ -188,7 +188,7 @@ async def atomic_write(
 
 
 async def download_file(
-    config: _Config | None = None,
+    config: ConfigObject | None = None,
     url: str | None = None,
     headers: dict[str, str] | None = None,
     path: Path | None = None,
@@ -270,7 +270,7 @@ async def download_file(
     return True
 
 
-async def download_text(config: _Config, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:
+async def download_text(config: ConfigObject, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:
     filename = verify_filename(filename)
     path_to_filename = directory / filename
     if not config.settings.general.overwrite_existing_files and await aiopath.isfile(path_to_filename):  # Skips, if file already exists
@@ -279,7 +279,7 @@ async def download_text(config: _Config, directory: Path, filename: str, content
     return True
 
 
-async def download_link(config: _Config, url: str, link_path: Path | None = None) -> Literal[True]:
+async def download_link(config: ConfigObject, url: str, link_path: Path | None = None) -> Literal[True]:
     if link_path is None:
         link_path = config.paths.linkspath()
     await atomic_write(filepath=link_path, data=url, encoding="utf-8", append=True)
@@ -362,7 +362,7 @@ async def read_update_file(dpath: Path, bottom_line: bool = False) -> list[str] 
 
 
 class SqlDownloadHistory:
-    def __init__(self, name: str, config: _Config) -> None:
+    def __init__(self, name: str, config: ConfigObject) -> None:
         self.name = name
         self.path = config.paths.downloadhistory() / f"{self.name.lower()}_downloadhistory.db"
         self.conn = sqlite3.connect(self.path)

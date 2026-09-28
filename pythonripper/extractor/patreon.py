@@ -16,10 +16,10 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
-async def verify_patreon_artist_list(config: _Config, artist_list: list[str]) -> list[str]:
+async def verify_patreon_artist_list(config: ConfigObject, artist_list: list[str]) -> list[str]:
     """Verifies the full artist list (containing ALL artists) with the json of memberships
     provided in patreon_memberships.json
 

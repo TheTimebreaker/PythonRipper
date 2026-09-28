@@ -25,10 +25,10 @@ import pythonripper.updater.update_rule34us
 import pythonripper.updater.update_rule34xxx
 import pythonripper.updater.update_tumblr
 import pythonripper.updater.update_yandere
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
-def read_update_scheduler(config: _Config) -> dict[Any, Any]:
+def read_update_scheduler(config: ConfigObject) -> dict[Any, Any]:
     try:
         with open(config.paths.update_scheduler_json_path(), encoding="utf-8") as file:
             last_run: dict[Any, Any] = json.load(file)
@@ -37,18 +37,18 @@ def read_update_scheduler(config: _Config) -> dict[Any, Any]:
         return {}
 
 
-async def write_update_scheduler(config: _Config, data: dict[Any, Any]) -> None:
+async def write_update_scheduler(config: ConfigObject, data: dict[Any, Any]) -> None:
     await f.atomic_write(config.paths.update_scheduler_json_path(), json.dumps(data, indent=True))
 
 
-async def save_success(config: _Config, last_run: dict[Any, Any], func_name: str, completed_at: float, write_lock: asyncio.Lock) -> None:
+async def save_success(config: ConfigObject, last_run: dict[Any, Any], func_name: str, completed_at: float, write_lock: asyncio.Lock) -> None:
     async with write_lock:
         last_run[func_name] = completed_at
         await write_update_scheduler(config, last_run)
 
 
 async def run_group(
-    group: dict[str, Callable[[_Config], Coroutine[None, None, bool]]], config: _Config, last_run: dict[Any, Any], write_lock: asyncio.Lock
+    group: dict[str, Callable[[ConfigObject], Coroutine[None, None, bool]]], config: ConfigObject, last_run: dict[Any, Any], write_lock: asyncio.Lock
 ) -> dict[str, bool]:
     results = {}
 
@@ -69,7 +69,7 @@ async def run_group(
 
 
 async def run_all_groups(
-    groups: dict[str, dict[str, Callable[[_Config], Coroutine[None, None, bool]]]], config: _Config, last_run: dict[Any, Any]
+    groups: dict[str, dict[str, Callable[[ConfigObject], Coroutine[None, None, bool]]]], config: ConfigObject, last_run: dict[Any, Any]
 ) -> dict[str, bool]:
 
     write_lock = asyncio.Lock()
@@ -85,7 +85,7 @@ def windows_notification(title: str = "", message: str = "", app_name: str = "",
         raise ValueError from error
 
 
-async def update_all(config: _Config) -> dict[str, bool]:
+async def update_all(config: ConfigObject) -> dict[str, bool]:
     scheduler: list[tuple[Callable[[Any], Any], int]] = [
         (pythonripper.updater.update_artstation.update_artstation_artists, 28),
         (pythonripper.updater.update_artist_websites.update_supersatanson, 60),
@@ -134,7 +134,7 @@ async def update_all(config: _Config) -> dict[str, bool]:
 
 
 if __name__ == "__main__":
-    config = _Config()
+    config = ConfigObject()
     cf.init_logger(config, "error", True)
     logging.critical("Update scheduler started!")
 

@@ -15,7 +15,7 @@ from psd_tools import PSDImage
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.subscription_management as sm
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
 class ExitError(Exception):
@@ -23,7 +23,7 @@ class ExitError(Exception):
 
 
 class Log:
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         self.filepath = config.paths.process_downloads_log()
         self.encoding = "utf-8"
         self.read()
@@ -48,7 +48,7 @@ class Log:
 
 
 class Worker:
-    def __init__(self, config: _Config) -> None:
+    def __init__(self, config: ConfigObject) -> None:
         logging.info("Start main.")
         self.config = config
         self.unwanted_formats = self.config.settings.general.unwanted_file_extensions
@@ -386,7 +386,7 @@ def image_converter(file: Path, goal_format: str, delete_source: bool, quality_s
 
 
 if __name__ == "__main__":
-    config = _Config()
+    config = ConfigObject()
     cf.init_logger(config, "error", True)
     worker = Worker(config)
     asyncio.run(worker.run())

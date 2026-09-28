@@ -2,10 +2,10 @@ import asyncio
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.subscription_management as sm
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
-async def main(config: _Config) -> None:
+async def main(config: ConfigObject) -> None:
     print("=" * 20)
     print("Artist file")
 
@@ -20,6 +20,6 @@ async def main(config: _Config) -> None:
 
 
 if __name__ == "__main__":
-    config = _Config()
+    config = ConfigObject()
     cf.init_logger(config, "warning", False)
     asyncio.run(main(config))

@@ -9,14 +9,14 @@ import pythonripper.extractor.newgrounds as newgrounds
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config.paths import _Config
+from pythonripper.toolbox.config.paths import ConfigObject
 
 
-async def update_newgrounds_artists(config: _Config) -> bool:
+async def update_newgrounds_artists(config: ConfigObject) -> bool:
     return await scraper.update_stuff(config, newgrounds.NewgroundsAPI, "artists")
 
 
-async def update_newgrounds_favorites(config: _Config) -> bool | tuple[bool, str]:
+async def update_newgrounds_favorites(config: ConfigObject) -> bool | tuple[bool, str]:
     print("Updating local copy of newgrounds favorites.")
     update_type = "favorites"
 
@@ -80,12 +80,12 @@ async def update_newgrounds_favorites(config: _Config) -> bool | tuple[bool, str
     return full_success
 
 
-async def main(config: _Config) -> None:
+async def main(config: ConfigObject) -> None:
     await update_newgrounds_artists(config)
     await update_newgrounds_favorites(config)
 
 
 if __name__ == "__main__":
-    config = _Config()
+    config = ConfigObject()
     cf.init_logger(config, "error", True)
     asyncio.run(main(config))

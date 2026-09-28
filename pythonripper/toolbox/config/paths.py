@@ -95,9 +95,9 @@ class Paths:
 _paths = Paths()
 
 
-class _Config:
+class ConfigObject:
     paths: Paths = _paths
     settings: AppSettings = _settings
 
 
-config = _Config()
+config = ConfigObject()
