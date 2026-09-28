@@ -59,7 +59,7 @@ class KemonoBase(scraper.TaggableScraper):
             "Connection": "keep-alive",
         }
         self.download_headers = self.headers.copy()
-        # self.download_headers["Referer"] = "https://kemono.cr/"
+        # self.download_headers["Referer"] = "https://kemono.cr/"  # noqa: ERA001
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
         return True
 
