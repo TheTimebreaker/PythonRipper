@@ -3,7 +3,7 @@ import asyncio
 import pythonripper.extractor.rule34xxx as rule34xxx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_rule34xxx_artists(config: ConfigObject) -> bool:
@@ -20,6 +20,5 @@ async def main(config: ConfigObject) -> None:
 
 
 if __name__ == "__main__":
-    config = ConfigObject()
     cf.init_logger(config, "warning", False)
     asyncio.run(main(config))

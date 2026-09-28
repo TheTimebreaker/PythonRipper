@@ -25,7 +25,7 @@ import pythonripper.updater.update_rule34us
 import pythonripper.updater.update_rule34xxx
 import pythonripper.updater.update_tumblr
 import pythonripper.updater.update_yandere
-from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config import ConfigObject, config
 
 
 def read_update_scheduler(config: ConfigObject) -> dict[Any, Any]:
@@ -134,7 +134,6 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
 
 
 if __name__ == "__main__":
-    config = ConfigObject()
     cf.init_logger(config, "error", True)
     logging.critical("Update scheduler started!")
 

@@ -15,7 +15,7 @@ from psd_tools import PSDImage
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.subscription_management as sm
-from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config import ConfigObject, config
 
 
 class ExitError(Exception):
@@ -386,7 +386,6 @@ def image_converter(file: Path, goal_format: str, delete_source: bool, quality_s
 
 
 if __name__ == "__main__":
-    config = ConfigObject()
     cf.init_logger(config, "error", True)
     worker = Worker(config)
     asyncio.run(worker.run())

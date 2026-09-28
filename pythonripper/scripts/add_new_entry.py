@@ -2,7 +2,7 @@ import asyncio
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.subscription_management as sm
-from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config import ConfigObject, config
 
 
 def main(config: ConfigObject) -> None:
@@ -26,6 +26,5 @@ async def add_tag(config: ConfigObject) -> None:
 
 
 if __name__ == "__main__":
-    config = ConfigObject()
     cf.init_logger(config, "error", False)
     main(config)
