@@ -276,11 +276,20 @@ class NewgroundsAPI(scraper.TaggableScraper):
                 raise cf.ExtractorSkipError(msg) from AttributeError
             elements.append(scraper.PostElementLinks(download_url=download_url, extension=extension))
 
+        # get tags
+        tags_parent = soup.find("dd", {"class": "tags"})
+        tags: list[str] = []
+        if tags_parent:
+            tags_elems = tags_parent.find_all("a")
+            for tag_elem in tags_elems:
+                tags.append(str(tag_elem.contents[0]))
+
         return scraper.PostData(
             source=artist,
             identifier=post_id,
             title=post_title,
             elements=elements,
+            tags=scraper.TagsData(tags=tags),
         )
 
     async def _get_post_data(
