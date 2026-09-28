@@ -62,36 +62,25 @@ class Animepictures(scraper.DownloadhistoryScraper):
             return True
 
         async def _set_explicit_images() -> bool:
-            try:
-                allow = (
-                    self.config.settings.extractor.animepictures.allow_erotic_images
-                )  # TODO(TheTimebreaker): cleanup / dont think that this setting is used
-                if not (allow is True or allow is False):
-                    raise KeyError
-            except KeyError:
-                logging.error(
-                    "[%s] - No setting found regarding allowance of erotic imagery. Please set it in settings at"
-                    '["extractor"]/["animepictures"]/["allow_erotic_images"] by setting it to either true or false. ',
-                    self.ME.upper(),
-                )
-                return False
+            allow = self.config.settings.extractor.animepictures.allow_erotic_images
 
             await self.LIMIT.wait()
             res = await self.session.get("https://api.anime-pictures.net/api/v3/profile?lang=en")
             if res.status_code != 200:
                 logging.error("[%s] - Profile settings checkup failed, status code %s", self.ME.upper(), res.status_code)
                 raise ConnectionRefusedError
-            if not res.json()["user"]["jvwall_block_erotic"]:  # type: ignore
-                logging.info("[%s] - Explicit images are enabled in user settings.", self.ME.upper())
+            if res.json()["user"]["jvwall_block_erotic"] == (not allow):  # type: ignore
+                logging.info("[%s] - Explicit images are set as wanted.", self.ME.upper())
                 return True
-            logging.warning("[%s] - Explicit images are not enabled in user settings. Attempting to fix...", self.ME.upper())
-            json = {"jvwall_block_erotic": False}
+
+            logging.warning("[%s] - Explicit images are not set as wanted. Attempting to fix...", self.ME.upper())
+            json = {"jvwall_block_erotic": (not allow)}
             await self.LIMIT.wait()
             res = await self.session.put("https://api.anime-pictures.net/api/v3/profile?lang=en", json=json)
             if res.status_code != 200:
                 logging.error("[%s] - Profile settings checkup failed, status code %s", self.ME.upper(), res.status_code)
                 raise ConnectionRefusedError
-            logging.info("[%s] - Changing user settings to allow explicit images was successfull.", self.ME.upper())
+            logging.info("[%s] - Changing user settings to set explicit images as wanted was successful.", self.ME.upper())
             return True
 
         if not await _login():
