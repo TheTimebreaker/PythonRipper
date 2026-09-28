@@ -18,8 +18,7 @@ import requests
 import wget
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from pythonripper.toolbox.config import config
-from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config import ConfigObject, config
 
 
 def timeout(max_timeout_seconds: int) -> Callable[[Any], Any]:
