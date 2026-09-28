@@ -237,6 +237,7 @@ class Worker:
             # Artist merge
             combined_artists = sm.CombinedBooruFile(config)
             artists = combined_artists.data
+            blacklist_bypass_str = self.config.settings.general.allow_blacklist_bypass
 
             for artist, artist_dict in artists.items():
                 for website, username in artist_dict.items():
@@ -254,8 +255,9 @@ class Worker:
 
                         for element in username:
                             element = str(element)
-                            if element[:2] == r"~~" and element[-2:] == r"~~":  # Blacklist exclusion
-                                element = element[2:-2]
+                            if element.startswith(blacklist_bypass_str) and element.endswith(blacklist_bypass_str):  # Blacklist bypass
+                                leng = len(blacklist_bypass_str)
+                                element = element[leng:-leng]
                             if website == "reddit" and element.startswith("u/"):
                                 element = f"u_{element[2:]}"
                             elif website == "reddit" and element.startswith("r/"):

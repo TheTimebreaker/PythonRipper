@@ -503,10 +503,12 @@ async def update_stuff(
 
     # Download
     full_success = True
+    blacklist_bypass_str = config.settings.general.allow_blacklist_bypass
     for i, tag in enumerate(tag_list):
         ignore_blacklist = False
-        if tag.startswith("~~") and tag.endswith("~~"):
-            tag = tag[2:-2]
+        if tag.startswith(blacklist_bypass_str) and tag.endswith(blacklist_bypass_str):
+            leng = len(blacklist_bypass_str)
+            tag = tag[leng:-leng]
             ignore_blacklist = True
 
         this_path = config.paths.downloads() / obj.ME / f.verify_filename(tag)

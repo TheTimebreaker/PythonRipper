@@ -291,6 +291,18 @@ class GeneralSettings(BaseModel):
         description="Choose whether existing files can be overwritten by the downloader (or not).",
     )
 
+    allow_blacklist_bypass: str = Field(
+        default="",
+        title="Allow blacklist bypass",
+        description=(
+            "If empty: disallow bypassing your set blacklists by this mechanism.\n"
+            "If set: allows the app to ignore your set blacklist for the tags whichs extractor-specific tag names start and end exactly with "
+            "the provided string.\n"
+            "Example: setting this value to '~~' and danbooru tag to '~~<name of tag>~~' will make the danbooru extractor ignore your blacklist\n"
+            "for only  <name of tag>."
+        ),
+    )
+
     exclusions: Exclusions = Field(
         default_factory=Exclusions, title="Exclusions", description="Settings to prevent downloads of certain things based on the rules defined here."
     )
