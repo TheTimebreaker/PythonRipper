@@ -3,7 +3,7 @@ from .extractor_artstation import ExtractorArtstationSettings
 from .extractor_animepicture import ExtractorAnimepicturesSettings
 from .extractor_danbooru import ExtractorDanbooruSettings, DanbooruRatings
 from .extractor_deviantart import ExtractorDeviantartSettings
-from .extractor_gelbooru import ExtractorGelbooruSettings
+from .extractor_gelbooru import ExtractorGelbooruSettings, GelbooruRatings
 from .extractor_hypnohub import ExtractorHypnohubSettings
 from .extractor_kemono import ExtractorKemonoSettings
 from .extractor_hentaifoundry import ExtractorHentaifoundrySettings

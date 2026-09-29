@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .shared_model_data import enabled_description
 
@@ -42,7 +42,8 @@ class ExtractorGelbooruSettings(BaseModel):
         default=set(GelbooruRatings),
         title="Allowed content ratings",
         description=(
-            "Danbooru marks every post by how much sexual content it contains. Choose the ratings you wish to allow.\n"
+            "Gelbooru marks every post by how much sexual content it contains. Choose the ratings you wish to allow.\n"
+            "Unfortunately (for technical reasons), you cannot select exactly 0 or 2 allowed ratings. All other amounts are allowed.\n"
             f"{GelbooruRatings.GENERAL.title} - {gelbooru_ratings_descriptions[GelbooruRatings.GENERAL]}\n"
             f"{GelbooruRatings.SENSITIVE.title} - {gelbooru_ratings_descriptions[GelbooruRatings.SENSITIVE]}\n"
             f"{GelbooruRatings.QUESTIONABLE.title} - {gelbooru_ratings_descriptions[GelbooruRatings.QUESTIONABLE]}\n"
@@ -50,3 +51,11 @@ class ExtractorGelbooruSettings(BaseModel):
             "Check out https://danbooru.donmai.us/wiki_pages/howto:rate for more detailed descriptions."
         ),
     )
+
+    @field_validator("allowed_ratings")
+    @classmethod
+    def validate_values(cls, v: set[str]) -> set[str]:
+        allowed_length = {1, 3, 4}
+        if len(v) not in allowed_length:
+            raise ValueError(f"Must contain exactly {allowed_length} values")
+        return v

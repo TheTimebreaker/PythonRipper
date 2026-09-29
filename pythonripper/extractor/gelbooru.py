@@ -12,6 +12,7 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.model import GelbooruRatings
 
 
 @final
@@ -93,6 +94,33 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
         res = await self.session.get(self.API_URL, params=params)
         return "post" in res.json() and bool(res.json()["post"])
 
+    def create_ratings_searchtag(self, formatted_tagname: str) -> str:
+        cfg = self.config.settings.extractor.gelbooru.allowed_ratings
+        len_cfg = len(cfg)
+        if len(set(GelbooruRatings)) != 4:
+            raise NotImplementedError("GELBOORU - Ratings set length is not 4!")
+
+        if len_cfg == 0:
+            msg = f"[{self.ME.upper()}] - Can't fetch posts, when none of the content ratings are enabled. Configure this in your settings!"
+            logging.error(msg)
+            raise cf.ExtractorStopError(msg)
+
+        elif len_cfg == 1:
+            return f"{formatted_tagname} rating:{next(iter(cfg))}"
+
+        elif len_cfg == 2:
+            raise NotImplementedError("For technical reasons, choosing exactly 2 allowed ratings does not work.")
+
+        elif len_cfg == 3:  # We invert the set at 3 because less words in the search tag == lower risk of being timed out
+            inverted_cfg = set(GelbooruRatings) - cfg
+            return f"{formatted_tagname} -rating:{next(iter(inverted_cfg))}"
+
+        elif len_cfg == 4:
+            return formatted_tagname
+
+        else:
+            raise NotImplementedError
+
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         if json_data is None:
             if post_id is None:
@@ -129,8 +157,9 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
         truepage = 0
         data: list[dict[str, str | int]] = []
         tagname = self.format_tagname(tagname)
+        ratings_tagname = self.create_ratings_searchtag(tagname)
 
-        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": tagname}
+        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": ratings_tagname}
         assert isinstance(params["pid"], int)
         while more_files:
             await self.LIMIT.wait()
@@ -139,13 +168,13 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
             # API limit reached. Recalculation of tagNameFormatted
             if res.text == "Too deep! Pull it back some. Holy fuck.":
                 params["pid"] = 0
-                params["tags"] = f"{tagname}+id:<{data[-1]["id"]}"
+                params["tags"] = f"{ratings_tagname} id:<{data[-1]["id"]}"
                 continue
 
             # no posts found?
             if res.status_code == 401:
-                logging.error("[%s] - Tag %s returned 401 html response. Removed?", self.ME.upper(), tagname)
-                raise cf.ExtractorExitError("Tag %s returned 401 html response. Removed?", tagname)
+                logging.error("[%s] - Tag %s returned 401 html response. Removed?", self.ME.upper(), ratings_tagname)
+                raise cf.ExtractorExitError("Tag %s returned 401 html response. Removed?", ratings_tagname)
 
             # Paginated past last post(s)
             if res.status_code == 200 and "post" not in res.json().keys():
