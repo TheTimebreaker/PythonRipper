@@ -4,8 +4,19 @@ from enum import StrEnum
 from pathlib import Path
 
 from pydantic_gui_settings_editor import Theme
-from PySide6.QtGui import QIcon, Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices, QIcon, Qt
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from pythonripper import __version__
 from pythonripper.scripts import update_scheduler
@@ -22,8 +33,9 @@ class MainWindow(QMainWindow):
     def __init__(self, app: QApplication, icon: Path | None = None) -> None:
         super().__init__()
         self.setWindowTitle(f"PythonRipper {__version__}")
-        if icon and icon.is_file():
-            self.setWindowIcon(QIcon(str(icon)))
+        self.icon = icon
+        if self.icon and self.icon.is_file():
+            self.setWindowIcon(QIcon(str(self.icon)))
 
         theme = config.settings.general.theme
         if theme is Theme.LIGHT:
@@ -33,6 +45,53 @@ class MainWindow(QMainWindow):
 
         self.choice: Choices | None = None
         self._build_ui()
+        self.menuBar().addAction("About", self.show_about)
+
+    def show_about(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("About PythonRipper")
+        layout = QVBoxLayout(dialog)
+
+        label1 = QLabel(f"PythonRipper {__version__}")
+        font = label1.font()
+        font.setPointSize(24)
+        label1.setFont(font)
+        title_widget = QWidget(dialog)
+        title_layout = QHBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 10, 0, 10)
+        title_layout.setSpacing(8)
+        if self.icon and self.icon.is_file():
+            icon_label = QLabel(
+                pixmap=QIcon(str(self.icon)).pixmap(label1.sizeHint().height(), label1.sizeHint().height()),
+            )
+            icon_label.setFixedSize(label1.sizeHint().height(), label1.sizeHint().height())
+            title_layout.addWidget(icon_label)
+        title_layout.addWidget(label1)
+        layout.addWidget(title_widget)
+
+        layout.addWidget(QFrame(frameShadow=QFrame.Shadow.Sunken, frameShape=QFrame.Shape.HLine))
+
+        layout.addWidget(QLabel("A tool for downloading and updating local copies of subscribed artists and tags across many differen websites."))
+        profile_url = "https://github.com/TheTimebreaker"
+        link_profile = QLabel(f'Written mostly in Python / Qt by <a href="{profile_url}">TheTimebreaker</a>.')
+        link_profile.setOpenExternalLinks(False)
+        link_profile.linkActivated.connect(lambda profile_url: QDesktopServices.openUrl(QUrl(profile_url)))
+        layout.addWidget(link_profile)
+
+        layout.addWidget(QFrame(frameShadow=QFrame.Shadow.Sunken, frameShape=QFrame.Shape.HLine))
+
+        repository_url = "https://github.com/TheTimebreaker/PythonRipper"
+        repository_link_label = QLabel(f'<a href="{repository_url}">GitHub repository</a>')
+        repository_link_label.setOpenExternalLinks(False)
+        repository_link_label.linkActivated.connect(lambda repository_url: QDesktopServices.openUrl(QUrl(repository_url)))
+        layout.addWidget(repository_link_label)
+
+        issues_url = "https://github.com/TheTimebreaker/PythonRipper"
+        issues_link_label = QLabel(f'<a href="{issues_url}">Submit an issue or a feature request</a>')
+        issues_link_label.setOpenExternalLinks(False)
+        issues_link_label.linkActivated.connect(lambda issues_url: QDesktopServices.openUrl(QUrl(issues_url)))
+        layout.addWidget(issues_link_label)
+        dialog.exec()
 
     def _build_ui(self) -> None:
         buttons = QWidget(self)
