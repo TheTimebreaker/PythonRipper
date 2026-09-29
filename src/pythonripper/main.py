@@ -5,8 +5,9 @@ from pathlib import Path
 
 from pydantic_gui_settings_editor import Theme
 from PySide6.QtGui import QIcon, Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
+from pythonripper import __version__
 from pythonripper.scripts import update_scheduler
 from pythonripper.toolbox.config import config, get_settingsmanager_object
 
@@ -20,7 +21,7 @@ class Choices(StrEnum):
 class MainWindow(QMainWindow):
     def __init__(self, app: QApplication, icon: Path | None = None) -> None:
         super().__init__()
-        self.setWindowTitle("PythonRipper")
+        self.setWindowTitle(f"PythonRipper {__version__}")
         if icon and icon.is_file():
             self.setWindowIcon(QIcon(str(icon)))
 
@@ -49,9 +50,6 @@ class MainWindow(QMainWindow):
     def apply_choice(self, choice: Choices) -> None:
         self.choice = choice
         self.close()
-
-    def show_misc(self) -> None:
-        QMessageBox.information(self, "Misc", "This isn't implemented yet.")
 
 
 def main() -> None:
