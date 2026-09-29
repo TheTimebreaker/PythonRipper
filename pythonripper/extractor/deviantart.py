@@ -460,6 +460,9 @@ class DeviantartAPI(scraper.TaggableScraper):
         # Downloads image posts. Example (SFW) https://www.deviantart.com/sketchesbydani/art/Zombie-plants-963259561
         if "content" in deviation_data.keys():  # images
             logging.info("[%s] - Image post detected.", self.ME.upper())
+            if not self.config.settings.extractor.deviantart.save_image_posts:
+                logging.info("[%s] - Image post %s skipped due to config flag.", self.ME.upper(), post_url)
+                return True
 
             file_url = deviation_data["content"]["src"]
             extension = f.match_extension(file_url)

@@ -9,11 +9,15 @@ class ExtractorDeviantartSettings(BaseModel):
         title="Enabled",
         description=enabled_description,
     )
+    save_image_posts: bool = Field(
+        default=True,
+        title="Save image posts",
+        description="Allow downloading image posts on DeviantArt.",
+    )
     save_text_posts: bool = Field(
         default=True,
         title="Save text posts",
         description="Allow downloading text posts on DeviantArt.",
-        examples=["https://www.deviantart.com/thequiethours/art/False-Confidence-1367267965"],
     )
     save_video_posts: bool = Field(
         default=True,
