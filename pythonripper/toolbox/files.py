@@ -20,6 +20,7 @@ import curl_cffi
 
 import pythonripper.toolbox.centralfunctions as cf
 from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config.model.shared_model_data import alternative_extensions
 
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:
@@ -93,17 +94,9 @@ def verify_filename(filename: str, replace_by: str = "_") -> str:
         filename = filename.replace("..", "_.")
 
     # Some double filename extensions
-    extension_map = {
-        "jpeg": "jpg",
-        "jpe": "jpg",
-        "jfif": "jpg",
-        "jif": "jpg",
-        "jfi": "jpg",
-        "tif": "tiff",
-    }  # TODO(TheTimebreaker): make this use the model
-    for extension, mapped in extension_map.items():
-        if filename.endswith(f".{extension}"):
-            filename = filename.replace(f".{extension}", f".{mapped}")
+    for extension, mapped in alternative_extensions.items():
+        if filename.endswith(extension):
+            filename = filename.replace(extension, mapped)
 
     other_map = {"%2C": ","}
     for what, by in other_map.items():
