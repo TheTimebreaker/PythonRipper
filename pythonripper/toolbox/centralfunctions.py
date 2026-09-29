@@ -126,55 +126,49 @@ def init_logger(config: ConfigObject, level: str, log2file: bool) -> None:
     logging.critical(datetime.datetime.strftime(datetime.datetime.now(), format="%Y-%m-%d %H:%M:%S"))
 
 
-def init_selenium(headless: bool = False) -> WebDriver:
+def _download_chromedriver(root_path: Path) -> tuple[Path, Path]:
+    latest_chrome_version = requests.get("https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE", timeout=60).text
+
+    latest_chrome_download_url = f"https://storage.googleapis.com/chrome-for-testing-public/{latest_chrome_version}/win64/chrome-win64.zip"
+    latest_chrome_path = root_path / f"{latest_chrome_version} chrome-win64"
+    latest_chrome_path_tmp = latest_chrome_path.with_name(latest_chrome_path.name + "-temp")
+    latest_chrome_path_zip = latest_chrome_path.with_name(latest_chrome_path.name + ".zip")
+
+    latest_chromedriver_download_url = (
+        f"https://storage.googleapis.com/chrome-for-testing-public/{latest_chrome_version}/win64/chromedriver-win64.zip"
+    )
+    latest_chromedriver_path = root_path / f"{latest_chrome_version} chromedriver-win64"
+    latest_chromedriver_path_tmp = latest_chromedriver_path.with_name(latest_chromedriver_path.name + "-temp")
+    latest_chromedriver_path_zip = latest_chromedriver_path.with_name(latest_chromedriver_path.name + ".zip")
+
+    if not latest_chrome_path.is_dir():
+        wget.download(url=latest_chrome_download_url, out=str(latest_chrome_path_zip))
+
+        with zipfile.ZipFile(latest_chrome_path_zip, "r") as zip_ref:
+            zip_ref.extractall(path=latest_chrome_path_tmp)  # you can specify the destination folder path here
+        latest_chrome_path_zip.unlink()
+        shutil.move(latest_chrome_path_tmp / "chrome-win64", latest_chrome_path)
+        latest_chrome_path_tmp.rmdir()
+
+    if not latest_chromedriver_path.is_dir():
+        wget.download(url=latest_chromedriver_download_url, out=str(latest_chromedriver_path_zip))
+
+        with zipfile.ZipFile(latest_chromedriver_path_zip, "r") as zip_ref:
+            zip_ref.extractall(path=latest_chromedriver_path_tmp)  # you can specify the destination folder path here
+        latest_chromedriver_path_zip.unlink()
+        shutil.move(latest_chromedriver_path_tmp / "chromedriver-win64", latest_chromedriver_path)
+        latest_chromedriver_path_tmp.rmdir()
+
+    return latest_chrome_path / "chrome.exe", latest_chromedriver_path / "chromedriver.exe"
+
+
+def _init_chromedriver(headless: bool) -> WebDriver:
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
 
     chromedriver_main = config.paths.chromedriver_path()
-
-    def chromeversion_download() -> tuple[Path, Path]:
-        """Checks latest Chrome-for-testing and Chromedriver version, downloads them (if needed)
-        and returns the paths to chrome.exe and chromedriver.exe
-
-                Returns:
-                    tuple(path/to/latest/chrome.exe, path/to/latest/chromedriver.exe)
-        """
-        latest_chrome_version = requests.get("https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE", timeout=60).text
-
-        latest_chrome_download_url = f"https://storage.googleapis.com/chrome-for-testing-public/{latest_chrome_version}/win64/chrome-win64.zip"
-        latest_chrome_path = chromedriver_main / f"{latest_chrome_version} chrome-win64"
-        latest_chrome_path_tmp = latest_chrome_path.with_name(latest_chrome_path.name + "-temp")
-        latest_chrome_path_zip = latest_chrome_path.with_name(latest_chrome_path.name + ".zip")
-
-        latest_chromedriver_download_url = (
-            f"https://storage.googleapis.com/chrome-for-testing-public/{latest_chrome_version}/win64/chromedriver-win64.zip"
-        )
-        latest_chromedriver_path = chromedriver_main / f"{latest_chrome_version} chromedriver-win64"
-        latest_chromedriver_path_tmp = latest_chromedriver_path.with_name(latest_chromedriver_path.name + "-temp")
-        latest_chromedriver_path_zip = latest_chromedriver_path.with_name(latest_chromedriver_path.name + ".zip")
-
-        if not latest_chrome_path.is_dir():
-            wget.download(url=latest_chrome_download_url, out=str(latest_chrome_path_zip))
-
-            with zipfile.ZipFile(latest_chrome_path_zip, "r") as zip_ref:
-                zip_ref.extractall(path=latest_chrome_path_tmp)  # you can specify the destination folder path here
-            latest_chrome_path_zip.unlink()
-            shutil.move(latest_chrome_path_tmp / "chrome-win64", latest_chrome_path)
-            latest_chrome_path_tmp.rmdir()
-
-        if not latest_chromedriver_path.is_dir():
-            wget.download(url=latest_chromedriver_download_url, out=str(latest_chromedriver_path_zip))
-
-            with zipfile.ZipFile(latest_chromedriver_path_zip, "r") as zip_ref:
-                zip_ref.extractall(path=latest_chromedriver_path_tmp)  # you can specify the destination folder path here
-            latest_chromedriver_path_zip.unlink()
-            shutil.move(latest_chromedriver_path_tmp / "chromedriver-win64", latest_chromedriver_path)
-            latest_chromedriver_path_tmp.rmdir()
-
-        return latest_chrome_path / "chrome.exe", latest_chromedriver_path / "chromedriver.exe"
-
-    chrome_path, chromedriver_path = chromeversion_download()
+    chrome_path, chromedriver_path = _download_chromedriver(chromedriver_main)
     options = Options()
     options.binary_location = str(chrome_path.resolve())
     if headless:
@@ -182,7 +176,12 @@ def init_selenium(headless: bool = False) -> WebDriver:
     options.add_experimental_option("excludeSwitches", ["enable-logging"])
     service = Service(executable_path=str(chromedriver_path))
 
-    driver: WebDriver = webdriver.Chrome(service=service, options=options)
+    return webdriver.Chrome(service=service, options=options)
+
+
+def init_selenium(headless: bool = False) -> WebDriver:
+    driver = _init_chromedriver(headless)
+
     print("ublock lite: https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh")
     print("Tampermonkey: https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo")
     print("Cookie Editor: https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm")

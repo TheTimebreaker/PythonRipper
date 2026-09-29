@@ -82,9 +82,10 @@ class Paths:
         p: Path = _settings.general.paths.selenium_driver_root
         return p
 
-    def chromedriver_path(self) -> Path:  # TODO(TheTimebreaker): add geckodriver support AND setting for it
+    def chromedriver_path(self) -> Path:
         return self.__selenium_driver() / "chromedriver_binaries"
 
+    # Not Implemented, because Mozilla is stupid and doesnt expose Firefox-Dev binaries that dont require installations
     def geckodriver_path(self) -> Path:
         return self.__selenium_driver() / "geckodriver_binaries"
 
