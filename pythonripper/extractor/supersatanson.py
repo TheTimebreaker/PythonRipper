@@ -29,6 +29,15 @@ class SuperSatanSonAPI(scraper.ArtistWebsiteScraper):
         return True
 
     async def _get_post_data(self, post_id: str | None = None, _json_data: dict[str, Any] | None = None) -> scraper.PostData:
+        def _extract_tags(soup: bs4.BeautifulSoup) -> list[str]:
+            taglist: set[str] = set()
+            taglist_tag = soup.find("div", {"id": "tag_list"})
+            if not taglist_tag:
+                return list(taglist)
+            for tag in taglist_tag.find_all("a"):
+                taglist.update([str(tag.contents[0])])
+            return list(taglist)
+
         if post_id is None:
             raise ValueError("Post ID must be given.")
 
@@ -48,7 +57,13 @@ class SuperSatanSonAPI(scraper.ArtistWebsiteScraper):
             logging.error(msg)
             raise cf.ExtractorSkipError(msg) from AttributeError
 
-        return scraper.PostData(identifier=post_id, elements=scraper.PostElementLinks(download_url=download_url, extension=extension))
+        _tags = _extract_tags(soup)
+
+        return scraper.PostData(
+            identifier=post_id,
+            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+            tags=scraper.TagsData(tags=_tags),
+        )
 
     async def _fetch_posts(self, _tagname: Any = None, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
         async def _latest_post_id() -> int:
