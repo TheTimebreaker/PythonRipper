@@ -2,10 +2,10 @@ from pathlib import Path
 
 import platformdirs
 
-from pythonripper.toolbox.config import get_settings_object
+from pythonripper.toolbox.config import get_settingsmanager_object
 from pythonripper.toolbox.config.model import AppSettings
 
-_settings: AppSettings = get_settings_object()
+_settings: AppSettings = get_settingsmanager_object().model
 
 
 class Paths:

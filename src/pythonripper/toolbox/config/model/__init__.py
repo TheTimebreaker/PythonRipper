@@ -21,4 +21,4 @@ from .pathsettings import PathSettings
 from .imageconversionsettings import ImageConversionSettings
 from .exclusionsettings import ExclusionSettings
 
-from .main import GeneralSettings, ExtractorSettings, AppSettings, get_settings_object
+from .main import GeneralSettings, ExtractorSettings, AppSettings, get_settingsmanager_object

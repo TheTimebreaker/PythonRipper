@@ -28,6 +28,8 @@ from . import (
 
 
 class GeneralSettings(BaseModel):
+    theme: Theme = Field(default=Theme.SYSTEM, title="Color theme", description="Choose the theme for the application.")
+
     overwrite_existing_files: bool = Field(
         default=False,
         title="Overwrite existing files",
@@ -118,33 +120,29 @@ class AppSettings(BaseModel):
     extractor: ExtractorSettings = Field(default_factory=ExtractorSettings, title="Extractors", description="Settings for supported extractors.")
 
 
-def get_settings_object() -> AppSettings:
+def get_settingsmanager_object() -> SettingsManager[AppSettings]:
     user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
     config_json_path = user_config_path / "config" / "config.json"
+    chosen_theme = Theme.SYSTEM
 
     manager_settings = SettingsManagerConfig(
         title="PythonRipper settings",
-        theme=Theme.DARK,
+        theme=chosen_theme,
         collapsed_nested_settings=ConfigCollapeNestedSettings.ENABLED_EXPANDED,
     )
 
     manager = SettingsManager(AppSettings, settings_path=config_json_path, additional_config=manager_settings)
     manager.load()
-    settings: AppSettings = manager.model
-    return settings
+
+    if manager.model.general.theme != chosen_theme:
+        manager_settings.theme = manager.model.general.theme
+        manager.additional_config = manager_settings
+        manager._init_qt()
+
+    return manager
 
 
 if __name__ == "__main__":
-    user_config_dir = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
-    config_json_path = user_config_dir / "config" / "config.json"
+    manager = get_settingsmanager_object()
 
-    settings = AppSettings()
-    manager_settings = SettingsManagerConfig(
-        title="PythonRipper settings",
-        theme=Theme.DARK,
-        collapsed_nested_settings=ConfigCollapeNestedSettings.ENABLED_EXPANDED,
-    )
-
-    manager = SettingsManager(AppSettings, settings_path=config_json_path, additional_config=manager_settings)
-    manager.load()
     manager.edit_gui()
