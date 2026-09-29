@@ -13,7 +13,7 @@ from .extractor_patreon import ExtractorPatreonSettings
 from .extractor_pixiv import ExtractorPixivSettings
 from .extractor_rule34paheal import ExtractorRule34PahealSettings
 from .extractor_rule34us import ExtractorRule34usSettings
-from .extractor_rule34xxx import ExtractorRule34xxxSettings
+from .extractor_rule34xxx import ExtractorRule34xxxSettings, Rule34xxxRatings
 from .extractor_tumblr import ExtractorTumblrSettings
 from .extractor_yandere import ExtractorYandereSettings
 
