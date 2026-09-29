@@ -15,7 +15,7 @@ from .extractor_rule34paheal import ExtractorRule34PahealSettings
 from .extractor_rule34us import ExtractorRule34usSettings
 from .extractor_rule34xxx import ExtractorRule34xxxSettings, Rule34xxxRatings
 from .extractor_tumblr import ExtractorTumblrSettings
-from .extractor_yandere import ExtractorYandereSettings
+from .extractor_yandere import ExtractorYandereSettings, YandereRatings
 
 from .pathsettings import PathSettings
 from .imageconversionsettings import ImageConversionSettings

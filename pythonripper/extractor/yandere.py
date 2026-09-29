@@ -10,6 +10,7 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.model import YandereRatings
 
 
 @final
@@ -40,6 +41,30 @@ class YandereAPI(scraper.DownloadhistoryScraper):
         await self.LIMIT.wait()
         res = await self.session.get(self.API_URL, params=params)
         return bool(res.json())
+
+    def create_ratings_searchtag(self, formatted_tagname: str) -> str:
+        cfg = self.config.settings.extractor.yandere.allowed_ratings
+        len_cfg = len(cfg)
+        if len(set(YandereRatings)) != 3:
+            raise NotImplementedError("YANDERE - Ratings set length is not 3!")
+
+        if len_cfg == 0:
+            msg = f"[{self.ME.upper()}] - Can't fetch posts, when none of the content ratings are enabled. Configure this in your settings!"
+            logging.error(msg)
+            raise cf.ExtractorStopError(msg)
+
+        elif len_cfg == 1:
+            return f"{formatted_tagname} rating:{next(iter(cfg))}"
+
+        elif len_cfg == 2:  # We invert the set at 3 because less words in the search tag == lower risk of being timed out
+            inverted_cfg = set(YandereRatings) - cfg
+            return f"{formatted_tagname} -rating:{next(iter(inverted_cfg))}"
+
+        elif len_cfg == 3:
+            return formatted_tagname
+
+        else:
+            raise NotImplementedError
 
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         if json_data is None:
@@ -72,14 +97,16 @@ class YandereAPI(scraper.DownloadhistoryScraper):
 
         more_files = True
         tagname = self.format_tagname(tagname)
-        params: dict[str, int | str] = {"limit": 50, "page": 1, "tags": tagname}
+        rating_tagname = self.create_ratings_searchtag(tagname)
+
+        params: dict[str, int | str] = {"limit": 50, "page": 1, "tags": rating_tagname}
         assert isinstance(params["page"], int)
         data: list[dict[Any, Any]] = []
         while more_files:
             if params["page"] > 100:
                 last100id = data[-1]["id"]
                 params["page"] = 1
-                params["tags"] = f"{tagname}+id:<{last100id}"
+                params["tags"] = f"{rating_tagname} id:<{last100id}"
                 continue
 
             await self.LIMIT.wait()
