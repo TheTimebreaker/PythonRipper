@@ -40,6 +40,7 @@ class ExtractorDanbooruSettings(BaseModel):
     )
     allowed_ratings: set[DanbooruRatings] = Field(
         default=set(DanbooruRatings),
+        min_length=1,
         title="Allowed content ratings",
         description=(
             "Danbooru marks every post by how much sexual content it contains. Choose the ratings you wish to allow.\n"

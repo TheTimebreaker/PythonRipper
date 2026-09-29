@@ -10,6 +10,7 @@ import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.model import DanbooruRatings
 
 
 @final
@@ -39,6 +40,34 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
         params: dict[str, str | int] = {"tags": self.format_tagname(tag_name)}
         res = await self.request(self.API_TAG_URL, params=params)
         return bool(res.json())
+
+    def create_ratings_searchtag(self, formatted_tagname: str) -> str:
+        cfg = self.config.settings.extractor.danbooru.allowed_ratings
+        len_cfg = len(cfg)
+        if len(set(DanbooruRatings)) != 4:
+            raise NotImplementedError("Danbooru - Ratings set length is not 4!")
+
+        if len_cfg == 0:
+            msg = f"[{self.ME.upper()}] - Can't fetch posts, when none of the content ratings are enabled. Configure this in your settings!"
+            logging.error(msg)
+            raise cf.ExtractorStopError(msg)
+
+        elif len_cfg == 1:
+            return f"{formatted_tagname} rating:{next(iter(cfg))}"
+
+        elif len_cfg == 2:
+            cfg_elements = f"rating:{" or  rating:".join(cfg)}"
+            return f"{formatted_tagname} ( {cfg_elements} )"
+
+        elif len_cfg == 3:  # We invert the set at 3 because less words in the search tag == lower risk of being timed out
+            inverted_cfg = set(DanbooruRatings) - cfg
+            return f"{formatted_tagname} -rating:{next(iter(inverted_cfg))}"
+
+        elif len_cfg == 4:
+            return formatted_tagname
+
+        else:
+            raise NotImplementedError
 
     async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
         for i in (1, 3, 5, 7, 10, 30, 30, 30):
