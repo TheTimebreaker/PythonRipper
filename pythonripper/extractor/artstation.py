@@ -50,9 +50,10 @@ class ArtstationAPI(scraper.TaggableScraper):
     async def _get_post_data(self, post_id: str | None = None, _json_data: dict[Any, Any] | None = None) -> scraper.PostData:
         def _get_tags(data: dict[str, Any]) -> list[str]:
             def __process_element(element: dict[str, str | int]) -> None:
-                _tag = element.get("name", None)
-                if _tag and isinstance(_tag, str):
-                    tags.update([_tag])
+                if element:
+                    _tag = element.get("name", None)
+                    if _tag and isinstance(_tag, str):
+                        tags.update([_tag])
 
             tags: set[str] = set(data.get("tags", []))
             __process_element(data.get("medium", {}))
