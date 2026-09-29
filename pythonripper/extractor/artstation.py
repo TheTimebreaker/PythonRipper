@@ -48,6 +48,23 @@ class ArtstationAPI(scraper.TaggableScraper):
         return res.status_code == 200
 
     async def _get_post_data(self, post_id: str | None = None, _json_data: dict[Any, Any] | None = None) -> scraper.PostData:
+        def _get_tags(data: dict[str, Any]) -> list[str]:
+            def __process_element(element: dict[str, str | int]) -> None:
+                _tag = element.get("name", None)
+                if _tag and isinstance(_tag, str):
+                    tags.update([_tag])
+
+            tags: set[str] = set(data.get("tags", []))
+            __process_element(data.get("medium", {}))
+            mediums: list[dict[str, str | int]] = data.get("mediums", [])
+            for entry in mediums:
+                __process_element(entry)
+            categories: list[dict[str, str | int]] = data.get("categories", [])
+            for entry in categories:
+                __process_element(entry)
+
+            return list(tags)
+
         if post_id is None:
             raise ValueError("No post id given. Other fetching methods are impossible.")
 
@@ -62,7 +79,7 @@ class ArtstationAPI(scraper.TaggableScraper):
 
         data: dict[str, Any] = res.json()  # type: ignore
         artist = data["user"]["username"]
-        _tags: list[str] = data.get("tags", [])
+        _tags: list[str] = _get_tags(data)
         elements: list[scraper.PostElement] = []
         for url in [asset["image_url"] for asset in data["assets"]]:
             assert isinstance(url, str)
