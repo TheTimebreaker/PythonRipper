@@ -605,5 +605,3 @@ if __name__ == "__main__":
     manager = SettingsManager(AppSettings, settings_path=config_json_path, additional_config=manager_settings)
     manager.load()
     manager.edit_gui()
-
-    print(manager.model.extractor.hentaifoundry.nudity.value, type(manager.model.extractor.hentaifoundry.nudity.value))

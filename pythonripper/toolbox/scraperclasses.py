@@ -76,6 +76,12 @@ class Scraper(ABC):
     def format_tagname(self, tagname: str) -> str:
         return tagname.replace(" ", self.SPACE_REPLACE)
 
+    def invert_formatting(self, formatted_tagname: str) -> str:
+        map = {"&#039;": "'", self.SPACE_REPLACE: " "}
+        for what, by in map.items():
+            formatted_tagname = formatted_tagname.replace(what, by)
+        return formatted_tagname
+
     def init_blacklist(self) -> None:
         self.blacklist_tags = self.config.settings.general.exclusions.blacklisted_tags
         if self.config.settings.general.exclusions.disallow_ai is True:

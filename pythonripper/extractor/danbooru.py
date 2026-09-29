@@ -78,11 +78,11 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
             post_id = str(json_data["id"])
 
         tags = scraper.TagsData(
-            artists=[tag.replace(self.SPACE_REPLACE, " ") for tag in str(json_data["tag_string_artist"]).split(" ")],
-            parodies=[tag.replace(self.SPACE_REPLACE, " ") for tag in str(json_data["tag_string_copyright"]).split(" ")],
-            characters=[tag.replace(self.SPACE_REPLACE, " ") for tag in str(json_data["tag_string_character"]).split(" ")],
-            tags=[tag.replace(self.SPACE_REPLACE, " ") for tag in str(json_data["tag_string_general"]).split(" ")],
-            metatags=[tag.replace(self.SPACE_REPLACE, " ") for tag in str(json_data["tag_string_meta"]).split(" ")],
+            artists=[self.invert_formatting(tag) for tag in str(json_data["tag_string_artist"]).split(" ")],
+            parodies=[self.invert_formatting(tag) for tag in str(json_data["tag_string_copyright"]).split(" ")],
+            characters=[self.invert_formatting(tag) for tag in str(json_data["tag_string_character"]).split(" ")],
+            tags=[self.invert_formatting(tag) for tag in str(json_data["tag_string_general"]).split(" ")],
+            metatags=[self.invert_formatting(tag) for tag in str(json_data["tag_string_meta"]).split(" ")],
         )
 
         return scraper.PostData(
