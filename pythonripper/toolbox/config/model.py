@@ -8,6 +8,8 @@ from pydantic_gui_settings_editor.types import DirectoryPath
 
 _user_config_path_djkd = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
 
+enabled_description = "If enabled, will allow any automated process within this application to download files via this extractor."
+
 
 class Format(StrEnum):
     JPEG = ".jpg"  # IMG
@@ -320,7 +322,43 @@ class GeneralSettings(BaseModel):
     )
 
 
+class ExtractorArtistwebsitesSettings(BaseModel):
+    enable_akairiot: bool = Field(
+        default=True,
+        title="Enable Akairiot",
+        description=f"{enabled_description}\nhttps://www.akairiot.com/",
+    )
+    enable_shellvi: bool = Field(
+        default=True,
+        title="Enable ShellVi",
+        description=f"{enabled_description}\nhttps://shellvi.carrd.co/",
+    )
+    enable_sss: bool = Field(
+        default=True,
+        title="Enable SuperSatanSon",
+        description=f"{enabled_description}\nhttps://sss.booru.org/index.php/",
+    )
+    enable_tangsgallery: bool = Field(
+        default=True,
+        title="Enable Tangs Gallery",
+        description=f"{enabled_description}\nhttps://tangs.gallery/",
+    )
+
+
+class ExtractorArtstationSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+
+
 class ExtractorAnimepicturesSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
     allow_erotic_images: bool = Field(
         default=True,
         title="Allow erotic images",
@@ -328,7 +366,59 @@ class ExtractorAnimepicturesSettings(BaseModel):
     )
 
 
+class DanbooruRatings(StrEnum):
+    GENERAL = "general"
+    """Completely safe-for-work content. Nothing sexual or inappropriate to view. Trivial or cartoon violence."""
+    SENSITIVE = "sensitive"
+    """Ecci, suggestive, or mildly erotic. Mild violence."""
+    QUESTIONABLE = "questionable"
+    """Simple nudity or near-nudity, but no explicit sex or exposed genitals. Graphic violence."""
+    EXPLICIT = "explicit"
+    """Explicit sex acts, exposed genitals, and bodily fluids. Extremely graphic violence."""
+
+    @property
+    def title(self) -> str:  # type: ignore
+        return self.capitalize()
+
+    @property
+    def sort_key(self) -> int:
+        return {self.GENERAL: 0, self.SENSITIVE: 1, self.QUESTIONABLE: 2, self.EXPLICIT: 3}[self]
+
+
+danbooru_ratings_descriptions: dict[str, str] = {
+    DanbooruRatings.GENERAL: "Completely safe-for-work content. Nothing sexual or inappropriate to view. Trivial or cartoon violence.",
+    DanbooruRatings.SENSITIVE: "Ecci, suggestive, or mildly erotic. Mild violence.",
+    DanbooruRatings.QUESTIONABLE: "Simple nudity or near-nudity, but no explicit sex or exposed genitals. Graphic violence.",
+    DanbooruRatings.EXPLICIT: "Explicit sex acts, exposed genitals, and bodily fluids. Extremely graphic violence.",
+}
+
+
+class ExtractorDanbooruSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+    allowed_ratings: set[DanbooruRatings] = Field(
+        default=set(DanbooruRatings),
+        title="Allowed content ratings",
+        description=(
+            "Danbooru marks every post by how much sexual content it contains. Choose the ratings you wish to allow.\n"
+            f"{DanbooruRatings.GENERAL.title} - {danbooru_ratings_descriptions[DanbooruRatings.GENERAL]}\n"
+            f"{DanbooruRatings.SENSITIVE.title} - {danbooru_ratings_descriptions[DanbooruRatings.SENSITIVE]}\n"
+            f"{DanbooruRatings.QUESTIONABLE.title} - {danbooru_ratings_descriptions[DanbooruRatings.QUESTIONABLE]}\n"
+            f"{DanbooruRatings.EXPLICIT.title} - {danbooru_ratings_descriptions[DanbooruRatings.EXPLICIT]}\n"
+            "Check out https://danbooru.donmai.us/wiki_pages/howto:rate for more detailed descriptions."
+        ),
+    )
+
+
 class ExtractorDeviantartSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
     save_text_posts: bool = Field(
         default=True,
         title="Save text posts",
@@ -344,6 +434,104 @@ class ExtractorDeviantartSettings(BaseModel):
         default=True,
         title="Allow mature content",
         description="Allow posts marked as 'mature' on DeviantArt.",
+    )
+
+
+class GelbooruRatings(StrEnum):
+    GENERAL = "general"
+    """Completely safe-for-work content. Nothing sexual or inappropriate to view. Trivial or cartoon violence."""
+    SENSITIVE = "sensitive"
+    """Ecci, suggestive, or mildly erotic. Mild violence."""
+    QUESTIONABLE = "questionable"
+    """Simple nudity or near-nudity, but no explicit sex or exposed genitals. Graphic violence."""
+    EXPLICIT = "explicit"
+    """Explicit sex acts, exposed genitals, and bodily fluids. Extremely graphic violence."""
+
+    @property
+    def title(self) -> str:  # type: ignore
+        return self.capitalize()
+
+    @property
+    def sort_key(self) -> int:
+        return {self.GENERAL: 0, self.SENSITIVE: 1, self.QUESTIONABLE: 2, self.EXPLICIT: 3}[self]
+
+
+gelbooru_ratings_descriptions: dict[str, str] = {
+    GelbooruRatings.GENERAL: "Completely safe-for-work content. Nothing sexual or inappropriate to view. Trivial or cartoon violence.",
+    GelbooruRatings.SENSITIVE: "Ecci, suggestive, or mildly erotic. Mild violence.",
+    GelbooruRatings.QUESTIONABLE: "Simple nudity or near-nudity, but no explicit sex or exposed genitals. Graphic violence.",
+    GelbooruRatings.EXPLICIT: "Explicit sex acts, exposed genitals, and bodily fluids. Extremely graphic violence.",
+}
+
+
+class ExtractorGelbooruSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+    allowed_ratings: set[GelbooruRatings] = Field(
+        default=set(GelbooruRatings),
+        title="Allowed content ratings",
+        description=(
+            "Danbooru marks every post by how much sexual content it contains. Choose the ratings you wish to allow.\n"
+            f"{GelbooruRatings.GENERAL.title} - {gelbooru_ratings_descriptions[GelbooruRatings.GENERAL]}\n"
+            f"{GelbooruRatings.SENSITIVE.title} - {gelbooru_ratings_descriptions[GelbooruRatings.SENSITIVE]}\n"
+            f"{GelbooruRatings.QUESTIONABLE.title} - {gelbooru_ratings_descriptions[GelbooruRatings.QUESTIONABLE]}\n"
+            f"{GelbooruRatings.EXPLICIT.title} - {gelbooru_ratings_descriptions[GelbooruRatings.EXPLICIT]}\n"
+            "Check out https://danbooru.donmai.us/wiki_pages/howto:rate for more detailed descriptions."
+        ),
+    )
+
+
+class HypnohubRatings(StrEnum):
+    SAFE = "safe"
+    """Completely safe-for-work content. Nothing sexual or inappropriate to view."""
+    QUESTIONABLE = "questionable"
+    """The middle-child for anything that is neither SAFE nor EXPLICIT."""
+    EXPLICIT = "explicit"
+    """Explicit sex acts, exposed genitals, and bodily fluids."""
+
+    @property
+    def title(self) -> str:  # type: ignore
+        return self.capitalize()
+
+    @property
+    def sort_key(self) -> int:
+        return {self.SAFE: 0, self.QUESTIONABLE: 2, self.EXPLICIT: 3}[self]
+
+
+hypnohub_ratings_descriptions: dict[str, str] = {
+    HypnohubRatings.SAFE: "Completely safe-for-work content. Nothing sexual or inappropriate to view.",
+    HypnohubRatings.QUESTIONABLE: "The middle-child for anything that is neither SAFE nor EXPLICIT.",
+    HypnohubRatings.EXPLICIT: "Explicit sex acts, exposed genitals, and bodily fluids.",
+}
+
+
+class ExtractorHypnohubSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+    allowed_ratings: set[HypnohubRatings] = Field(
+        default=set(HypnohubRatings),
+        title="Allowed content ratings",
+        description=(
+            "Hypnohub marks every post by how much sexual content it contains. Choose the ratings you wish to allow.\n"
+            f"{HypnohubRatings.SAFE.title} - {hypnohub_ratings_descriptions[HypnohubRatings.SAFE]}\n"
+            f"{HypnohubRatings.QUESTIONABLE.title} - {hypnohub_ratings_descriptions[HypnohubRatings.QUESTIONABLE]}\n"
+            f"{HypnohubRatings.EXPLICIT.title} - {hypnohub_ratings_descriptions[HypnohubRatings.EXPLICIT]}\n"
+            "Check out https://hypnohub.net/index.php?page=help&topic=rating for more detailed descriptions."
+        ),
+    )
+
+
+class ExtractorKemonoSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
     )
 
 
@@ -473,6 +661,11 @@ HF_TIEREDFILTER_DESC = "Choose which level of {what} is allowed. Any value above
 
 
 class ExtractorHentaifoundrySettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
     nudity: HentaifoundryNudity = Field(
         default=HentaifoundryNudity.EXPLICIT,
         title="Nudity filter",
@@ -510,6 +703,14 @@ class ExtractorHentaifoundrySettings(BaseModel):
     )
 
 
+class ExtractorKusowankaSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+
+
 class NewgroundsRating(StrEnum):
     EVERYONE = "e"
     TEEN = "t"
@@ -536,6 +737,11 @@ class NewgroundsRating(StrEnum):
 
 
 class ExtractorNewgroundsSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
     content_ratings: set[NewgroundsRating] = Field(
         default=set(NewgroundsRating),
         title="Allowed content ratings",
@@ -544,6 +750,11 @@ class ExtractorNewgroundsSettings(BaseModel):
 
 
 class ExtractorPatreonSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
     save_links: bool = Field(
         default=True,
         title="Save links",
@@ -551,7 +762,44 @@ class ExtractorPatreonSettings(BaseModel):
     )
 
 
+class ExtractorPixivSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+
+
+class ExtractorRule34PahealSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+
+
+class ExtractorRule34usSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+
+
+class ExtractorRule34xxxSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+
+
 class ExtractorTumblrSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
     save_text_posts: bool = Field(
         default=True,
         title="Save text posts",
@@ -559,13 +807,33 @@ class ExtractorTumblrSettings(BaseModel):
     )
 
 
+class ExtractorYandereSettings(BaseModel):
+    enabled: bool = Field(
+        default=True,
+        title="Enabled",
+        description=enabled_description,
+    )
+
+
 class ExtractorSettings(BaseModel):
-    animepictures: ExtractorAnimepicturesSettings = Field(default_factory=ExtractorAnimepicturesSettings)
+    artistwebsites: ExtractorArtistwebsitesSettings = Field(default_factory=ExtractorArtistwebsitesSettings)
+    animepictures: ExtractorAnimepicturesSettings = Field(default_factory=ExtractorAnimepicturesSettings)  # NotImplementedYet
+    artstation: ExtractorArtstationSettings = Field(default_factory=ExtractorArtstationSettings)
+    danbooru: ExtractorDanbooruSettings = Field(default_factory=ExtractorDanbooruSettings)
     deviantart: ExtractorDeviantartSettings = Field(default_factory=ExtractorDeviantartSettings)
+    gelbooru: ExtractorGelbooruSettings = Field(default_factory=ExtractorGelbooruSettings)
     hentaifoundry: ExtractorHentaifoundrySettings = Field(default_factory=ExtractorHentaifoundrySettings)
+    hypnohub: ExtractorHypnohubSettings = Field(default_factory=ExtractorHypnohubSettings)
+    kemono: ExtractorKemonoSettings = Field(default_factory=ExtractorKemonoSettings)
+    kusowanka: ExtractorKusowankaSettings = Field(default_factory=ExtractorKusowankaSettings)
     newgrounds: ExtractorNewgroundsSettings = Field(default_factory=ExtractorNewgroundsSettings)
     patreon: ExtractorPatreonSettings = Field(default_factory=ExtractorPatreonSettings)
+    pixiv: ExtractorPixivSettings = Field(default_factory=ExtractorPixivSettings)
+    rule34paheal: ExtractorRule34PahealSettings = Field(default_factory=ExtractorRule34PahealSettings)
+    rule34us: ExtractorRule34usSettings = Field(default_factory=ExtractorRule34usSettings)
+    rule34xxx: ExtractorRule34xxxSettings = Field(default_factory=ExtractorRule34xxxSettings)
     tumblr: ExtractorTumblrSettings = Field(default_factory=ExtractorTumblrSettings)
+    yandere: ExtractorYandereSettings = Field(default_factory=ExtractorYandereSettings)
 
 
 class AppSettings(BaseModel):

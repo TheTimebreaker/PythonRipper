@@ -9,6 +9,8 @@ from plyer import notification
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
+import pythonripper.updater.dead_update_animepictures
+import pythonripper.updater.unused_update_kemono
 import pythonripper.updater.update_artist_websites
 import pythonripper.updater.update_artstation
 import pythonripper.updater.update_danbooru
@@ -86,37 +88,68 @@ def windows_notification(title: str = "", message: str = "", app_name: str = "",
 
 
 async def update_all(config: ConfigObject) -> dict[str, bool]:
-    scheduler: list[tuple[Callable[[Any], Any], int]] = [
-        (pythonripper.updater.update_artstation.update_artstation_artists, 28),
-        (pythonripper.updater.update_artist_websites.update_supersatanson, 60),
-        (pythonripper.updater.update_artist_websites.update_akairiot, 60),
-        (pythonripper.updater.update_artist_websites.update_shellvi, 60),
-        (pythonripper.updater.update_artist_websites.update_tangsgallery, 60),
-        (pythonripper.updater.update_danbooru.update_danbooru_artists, 28),
-        (pythonripper.updater.update_danbooru.update_danbooru_tags, 4),
-        (pythonripper.updater.update_deviantart.update_deviantart_artists, 28),
-        (pythonripper.updater.update_deviantart.update_deviantart_favorites, 8),
-        (pythonripper.updater.update_gelbooru.update_gelbooru_artists, 28),
-        (pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4),
-        (pythonripper.updater.update_hentaifoundry.update_hentaifoundry_artists, 28),
-        (pythonripper.updater.update_hypnohub.update_hypnohub_artists, 28),
-        (pythonripper.updater.update_hypnohub.update_hypnohub_tags, 14),
-        (pythonripper.updater.update_kusowanka.update_kusowanka_artists, 28),
-        (pythonripper.updater.update_kusowanka.update_kusowanka_tags, 7),
-        (pythonripper.updater.update_newgrounds.update_newgrounds_artists, 28),
-        (pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 7),
-        (pythonripper.updater.update_patreon.update_patreon_artists, 28),
-        (pythonripper.updater.update_pixiv.update_pixiv_artists, 28),
-        (pythonripper.updater.update_rule34paheal.update_rule34paheal_artists, 28),
-        (pythonripper.updater.update_rule34paheal.update_rule34paheal_tags, 7),
-        (pythonripper.updater.update_rule34us.update_rule34us_artists, 28),
-        (pythonripper.updater.update_rule34us.update_rule34us_tags, 7),
-        (pythonripper.updater.update_rule34xxx.update_rule34xxx_artists, 28),
-        (pythonripper.updater.update_rule34xxx.update_rule34xxx_tags, 4),
-        (pythonripper.updater.update_tumblr.update_tumblr_artists, 28),
-        (pythonripper.updater.update_yandere.update_yandere_artists, 28),
-        (pythonripper.updater.update_yandere.update_yandere_tags, 3),
-    ]
+    scheduler: list[tuple[Callable[[Any], Any], int]] = []
+    if config.settings.extractor.artistwebsites.enable_sss:
+        scheduler.append((pythonripper.updater.update_artist_websites.update_supersatanson, 60))
+    if config.settings.extractor.artistwebsites.enable_akairiot:
+        scheduler.append((pythonripper.updater.update_artist_websites.update_akairiot, 60))
+    if config.settings.extractor.artistwebsites.enable_shellvi:
+        scheduler.append((pythonripper.updater.update_artist_websites.update_shellvi, 60))
+    if config.settings.extractor.artistwebsites.enable_tangsgallery:
+        scheduler.append((pythonripper.updater.update_artist_websites.update_tangsgallery, 60))
+    if False and config.settings.extractor.animepictures.enabled:  # Not Implemented
+        scheduler.append((pythonripper.updater.dead_update_animepictures.update_animepictures_artists, 28))
+        scheduler.append((pythonripper.updater.dead_update_animepictures.update_animepictures_tags, 28))
+    if config.settings.extractor.artstation.enabled:
+        scheduler.append((pythonripper.updater.update_artstation.update_artstation_artists, 28))
+    if config.settings.extractor.danbooru.enabled:
+        scheduler.append((pythonripper.updater.update_danbooru.update_danbooru_artists, 28))
+        scheduler.append((pythonripper.updater.update_danbooru.update_danbooru_tags, 4))
+    if config.settings.extractor.deviantart.enabled:
+        scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_artists, 28))
+        scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_favorites, 8))
+    if config.settings.extractor.gelbooru.enabled:
+        scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_artists, 28))
+        scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4))
+    if config.settings.extractor.hentaifoundry.enabled:
+        scheduler.append((pythonripper.updater.update_hentaifoundry.update_hentaifoundry_artists, 28))
+    if config.settings.extractor.hypnohub.enabled:
+        scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_artists, 28))
+        scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_tags, 14))
+    if False and config.settings.extractor.kemono.enabled:  # Not Implemented
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_afdian, 28))
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_boosty, 28))
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_dlsite, 28))
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_fantia, 28))
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_gumroad, 28))
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_patreon, 28))
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_pixiv, 28))
+        scheduler.append((pythonripper.updater.unused_update_kemono.update_kemono_subscribestar, 28))
+    if config.settings.extractor.kusowanka.enabled:
+        scheduler.append((pythonripper.updater.update_kusowanka.update_kusowanka_artists, 28))
+        scheduler.append((pythonripper.updater.update_kusowanka.update_kusowanka_tags, 7))
+    if config.settings.extractor.newgrounds.enabled:
+        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_artists, 28))
+        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 7))
+    if config.settings.extractor.patreon.enabled:
+        scheduler.append((pythonripper.updater.update_patreon.update_patreon_artists, 28))
+    if config.settings.extractor.pixiv.enabled:
+        scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_artists, 28))
+        scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_tags, 28))
+    if config.settings.extractor.rule34paheal.enabled:
+        scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_artists, 28))
+        scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_tags, 7))
+    if config.settings.extractor.rule34us.enabled:
+        scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_artists, 28))
+        scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_tags, 7))
+    if config.settings.extractor.rule34xxx.enabled:
+        scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_artists, 28))
+        scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_tags, 4))
+    if config.settings.extractor.tumblr.enabled:
+        scheduler.append((pythonripper.updater.update_tumblr.update_tumblr_artists, 28))
+    if config.settings.extractor.yandere.enabled:
+        scheduler.append((pythonripper.updater.update_yandere.update_yandere_artists, 28))
+        scheduler.append((pythonripper.updater.update_yandere.update_yandere_tags, 3))
 
     last_run = read_update_scheduler(config)
     tasks: dict[str, dict[str, Callable[[Any], Any]]] = {}
