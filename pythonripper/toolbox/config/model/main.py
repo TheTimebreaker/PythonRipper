@@ -1,5 +1,5 @@
 import platformdirs
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_gui_settings_editor import ConfigCollapeNestedSettings, SettingsManager, SettingsManagerConfig, Theme
 
 from . import (
@@ -42,9 +42,34 @@ class GeneralSettings(BaseModel):
             "If set: allows the app to ignore your set blacklist for the tags whichs extractor-specific tag names start and end exactly with "
             "the provided string.\n"
             "Example: setting this value to '~~' and danbooru tag to '~~<name of tag>~~' will make the danbooru extractor ignore your blacklist\n"
-            "for only  <name of tag>."
+            "for only  <name of tag>.\n"
+            "Value must be completely different compared to the other bypasses."
         ),
     )
+    allow_contentfilter_bypass: str = Field(
+        default="",
+        title="Allow booru ratings bypass",
+        description=(
+            "If empty: disallow bypassing your set content ratings by this mechanism.\n"
+            "If set: allows the app to ignore your set content ratings for the tags whichs extractor-specific tag names start and end exactly with "
+            "the provided string.\n"
+            "Example: setting this value to '~~' and danbooru tag to '~~<name of tag>~~' will make the danbooru extractor ignore your blacklist\n"
+            "for only  <name of tag>.\n"
+            "Value must be completely different compared to the other bypasses."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def check_filter_bypasses(self) -> GeneralSettings:
+        if not self.allow_blacklist_bypass or not self.allow_contentfilter_bypass:
+            return self
+        if self.allow_blacklist_bypass == self.allow_contentfilter_bypass:
+            raise ValueError("allow_blacklist_bypass and allow_contentfilter_bypass can't have the same value!")
+        subset_a = any(char in self.allow_contentfilter_bypass for char in self.allow_blacklist_bypass)
+        subset_b = any(char in self.allow_contentfilter_bypass for char in self.allow_blacklist_bypass)
+        if subset_a or subset_b:
+            raise ValueError("allow_blacklist_bypass and allow_contentfilter_bypass can't share any characters and must be completely different!")
+        return self
 
     exclusions: ExclusionSettings = Field(
         default_factory=ExclusionSettings,

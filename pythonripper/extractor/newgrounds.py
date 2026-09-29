@@ -317,7 +317,12 @@ class NewgroundsAPI(scraper.TaggableScraper):
         raise NotImplementedError
 
     async def _fetch_posts(
-        self, tagname: str, update_ids: list[str] | None = None, endpoint: Literal["art", "audio"] | None = None, fetch_favorites: bool = False
+        self,
+        tagname: str,
+        update_ids: list[str] | None = None,
+        ignore_contentfilters: bool = False,  # noqa: ARG002
+        endpoint: Literal["art", "audio"] | None = None,
+        fetch_favorites: bool = False,
     ) -> AsyncGenerator[scraper.PostData]:
         def custom_selector(tag: bs4.element.Tag) -> bool:
             def art_selector(tag: bs4.element.Tag) -> bool:

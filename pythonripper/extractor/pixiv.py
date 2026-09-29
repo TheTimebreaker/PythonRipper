@@ -278,7 +278,9 @@ class PixivArtistAPI(PixivRoot):
         res = await self.request(f"{self.base_api_url}/v1/user/illusts", params={"user_id": tagname})
         return bool("user" in res.json()) and bool(str(res.json()["user"]["id"]) == tagname) and bool(res.json()["illusts"])
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         params: dict[str, str | int] = {"user_id": self.format_tagname(tagname)}
         async for entry in self._endpoint_fetch_posts("user/illusts", params, update_ids=update_ids):
             yield entry
@@ -297,7 +299,9 @@ class PixivTagAPI(PixivRoot):
         )
         return bool(res.json().get("illusts"))
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         params: dict[str, str | int] = {"word": self.format_tagname(tagname), "search_target": "partial_match_for_tags"}
         async for entry in self._endpoint_fetch_posts("search/illust", params, update_ids=update_ids):
             yield entry

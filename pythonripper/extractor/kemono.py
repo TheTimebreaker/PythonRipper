@@ -134,7 +134,9 @@ class KemonoBase(scraper.TaggableScraper):
             result["tags"] = scraper.TagsData(tags=json_data["tags"])
         return result
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 

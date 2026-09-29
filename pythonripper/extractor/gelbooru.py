@@ -149,7 +149,9 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
             tags=tags,
         )
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 
@@ -157,9 +159,10 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
         truepage = 0
         data: list[dict[str, str | int]] = []
         tagname = self.format_tagname(tagname)
-        ratings_tagname = self.create_ratings_searchtag(tagname)
+        if ignore_contentfilters is False:
+            tagname = self.create_ratings_searchtag(tagname)
 
-        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": ratings_tagname}
+        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": tagname}
         assert isinstance(params["pid"], int)
         while more_files:
             await self.LIMIT.wait()
@@ -168,13 +171,13 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
             # API limit reached. Recalculation of tagNameFormatted
             if res.text == "Too deep! Pull it back some. Holy fuck.":
                 params["pid"] = 0
-                params["tags"] = f"{ratings_tagname} id:<{data[-1]["id"]}"
+                params["tags"] = f"{tagname} id:<{data[-1]["id"]}"
                 continue
 
             # no posts found?
             if res.status_code == 401:
-                logging.error("[%s] - Tag %s returned 401 html response. Removed?", self.ME.upper(), ratings_tagname)
-                raise cf.ExtractorExitError("Tag %s returned 401 html response. Removed?", ratings_tagname)
+                logging.error("[%s] - Tag %s returned 401 html response. Removed?", self.ME.upper(), tagname)
+                raise cf.ExtractorExitError("Tag %s returned 401 html response. Removed?", tagname)
 
             # Paginated past last post(s)
             if res.status_code == 200 and "post" not in res.json().keys():

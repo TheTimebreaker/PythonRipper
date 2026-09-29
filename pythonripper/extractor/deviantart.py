@@ -392,6 +392,7 @@ class DeviantartAPI(scraper.TaggableScraper):
         self,
         tagname: str,
         update_ids: list[str] | None = None,
+        ignore_contentfilters: bool = False,  # noqa: ARG002
         folder_id: str | None = None,
         collection: str | None = None,
         fetch_favorites: bool = False,

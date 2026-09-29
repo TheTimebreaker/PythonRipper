@@ -100,7 +100,9 @@ class ArtstationAPI(scraper.TaggableScraper):
             tags=scraper.TagsData(tags=_tags),
         )
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 

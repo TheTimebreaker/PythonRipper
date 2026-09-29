@@ -331,7 +331,7 @@ class Scraper(ABC):
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> PostData: ...
 
     @abstractmethod
-    def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[PostData]:
+    def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False) -> AsyncGenerator[PostData]:
         """Fetches posts from tagname, taking update_ids into account.
 
         Newest posts will be yielded first."""
@@ -438,6 +438,7 @@ class TaggableScraper(Scraper):
         update_ids: list[str] | None = None,
         ignore_download_history: bool = False,
         ignore_blacklist: bool = False,
+        ignore_contentfilters: bool = False,
         *,
         custom_mode: Literal["deviantart"] | None = None,
         fetch_favorites: bool = False,
@@ -451,6 +452,7 @@ class TaggableScraper(Scraper):
         update_ids: list[str] | None = None,
         ignore_download_history: bool = False,
         ignore_blacklist: bool = False,
+        ignore_contentfilters: bool = False,
         *,
         custom_mode: Literal["newgrounds"] | None = None,
         fetch_favorites: bool = False,
@@ -466,6 +468,7 @@ class TaggableScraper(Scraper):
         update_ids: list[str] | None = None,
         ignore_download_history: bool = False,
         ignore_blacklist: bool = False,
+        ignore_contentfilters: bool = False,
         *,
         custom_mode: Literal["reddit"] | None = None,
         endpoint: (
@@ -498,6 +501,7 @@ class TaggableScraper(Scraper):
         update_ids: list[str] | None = None,
         ignore_download_history: bool = False,
         ignore_blacklist: bool = False,
+        ignore_contentfilters: bool = False,
         *,
         custom_mode: Literal["deviantart", "newgrounds", "reddit"] | None = None,
         fetch_favorites: bool = False,
@@ -523,13 +527,19 @@ class TaggableScraper(Scraper):
         downloaded_counter = 0
         posts: list[str] = []
         if not custom_mode:
-            generator = self._fetch_posts(tagname, update_ids)
+            generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters)
         elif custom_mode == "deviantart":
-            generator = self._fetch_posts(tagname, update_ids, fetch_favorites=fetch_favorites)  # type: ignore
+            generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters, fetch_favorites=fetch_favorites)  # type: ignore
         elif custom_mode == "reddit":
-            generator = self._fetch_posts(tagname, update_ids, endpoint=endpoint)  # type: ignore
+            generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters, endpoint=endpoint)  # type: ignore
         elif custom_mode == "newgrounds":
-            generator = self._fetch_posts(tagname, update_ids, endpoint=endpoint, fetch_favorites=fetch_favorites)  # type: ignore
+            generator = self._fetch_posts(
+                tagname,
+                update_ids,
+                ignore_contentfilters=ignore_contentfilters,
+                endpoint=endpoint,
+                fetch_favorites=fetch_favorites,
+            )  # type: ignore
 
         try:
             async for i, post in asyncstdlib.enumerate(generator):
@@ -537,7 +547,10 @@ class TaggableScraper(Scraper):
 
                 try:
                     result = await self.download_post(
-                        data=post, dpath=dpath, ignore_blacklist=ignore_blacklist, ignore_download_history=ignore_download_history
+                        data=post,
+                        dpath=dpath,
+                        ignore_blacklist=ignore_blacklist,
+                        ignore_download_history=ignore_download_history,
                     )
                 except cf.ExtractorExitError:
                     logging.error("[%s] - Download of %s lead to the extractor being forced to exit.", self.ME.upper(), post["identifier"])
@@ -658,10 +671,22 @@ async def update_stuff(
     # Download
     full_success = True
     blacklist_bypass_str = config.settings.general.allow_blacklist_bypass
+    contenfilter_bypass_str = config.settings.general.allow_contentfilter_bypass
     for i, tag in enumerate(tag_list):
         ignore_blacklist = False
+        ignore_contentfilters = True
+
+        # hacky workaround to allow both bypasses. should eventually be a better solution
         if blacklist_bypass_str and tag.startswith(blacklist_bypass_str) and tag.endswith(blacklist_bypass_str):
             leng = len(blacklist_bypass_str)
+            tag = tag[leng:-leng]
+            ignore_blacklist = True
+        if contenfilter_bypass_str and tag.startswith(contenfilter_bypass_str) and tag.endswith(contenfilter_bypass_str):
+            leng = len(contenfilter_bypass_str)
+            tag = tag[leng:-leng]
+            ignore_contentfilters = True
+        if contenfilter_bypass_str and tag.startswith(contenfilter_bypass_str) and tag.endswith(contenfilter_bypass_str):
+            leng = len(contenfilter_bypass_str)
             tag = tag[leng:-leng]
             ignore_blacklist = True
 
@@ -669,7 +694,13 @@ async def update_stuff(
         print(f"{i+1}/{len(tag_list)} - {tag} - {obj.ME}")
         this_path.mkdir(parents=True, exist_ok=True)
         try:
-            success = await obj.download_tag(tagname=tag, dpath=this_path, update=True, ignore_blacklist=ignore_blacklist)
+            success = await obj.download_tag(
+                tagname=tag,
+                dpath=this_path,
+                update=True,
+                ignore_blacklist=ignore_blacklist,
+                ignore_contentfilters=ignore_contentfilters,
+            )
         except cf.ExtractorExitError as error:
             tb = traceback.TracebackException.from_exception(error)
             logging.error(

@@ -232,7 +232,9 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
             soup = await _get_post_soup(post_id)
             return await _get_post_data_from_postpage(soup)
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 

@@ -109,7 +109,9 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
             tags=tags,
         )
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 
@@ -117,9 +119,10 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
         truepage = 0
         data: list[dict[str, str | int]] = []
         tagname = self.format_tagname(tagname)
-        ratings_tagname = self.create_ratings_searchtag(tagname)
+        if ignore_contentfilters is False:
+            tagname = self.create_ratings_searchtag(tagname)
 
-        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": ratings_tagname}
+        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": tagname}
         assert isinstance(params["pid"], int)
         while more_files:
             await self.LIMIT.wait()
@@ -129,7 +132,7 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
             if params["pid"] > 2000:
                 last2000id = data[-1]["id"]
                 params["pid"] = 0
-                params["tags"] = f"{ratings_tagname} id:<{last2000id}"
+                params["tags"] = f"{tagname} id:<{last2000id}"
                 continue
 
             # Empty json <=> no more files there

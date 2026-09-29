@@ -121,16 +121,19 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
             tags=tags,
         )
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 
         tagname = self.format_tagname(tagname)
-        ratings_tagname = self.create_ratings_searchtag(tagname)
+        if ignore_contentfilters is False:
+            tagname = self.create_ratings_searchtag(tagname)
 
         truepage: int = 1
         more_files = True
-        params: dict[str, str | int] = {"tags": ratings_tagname, "limit": 25, "page": 1}
+        params: dict[str, str | int] = {"tags": tagname, "limit": 25, "page": 1}
         assert isinstance(params["page"], int)
 
         data: dict[Any, Any] = {}
@@ -148,7 +151,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
             # API limit reached. Recalculation of tagNameFormatted
             if res.status_code == 410 and res.json()["error"] == "PaginationExtension::PaginationError":
                 last1000id = data[-1]["id"]
-                params["tags"] = f"{ratings_tagname} id:<{last1000id}"
+                params["tags"] = f"{tagname} id:<{last1000id}"
                 params["page"] = 1
                 continue
 

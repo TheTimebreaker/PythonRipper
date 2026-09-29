@@ -157,7 +157,9 @@ class Animepictures(scraper.DownloadhistoryScraper):
             tags=tagdata,
         )
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         async def get_tag_html(tag_name: str, page: int) -> str:
             params: dict[str, str | int] = {"page": page, "search_tag": tag_name, "lang": "en"}
             logging.info("[%s] - %s  %s", self.ME.upper(), self.API_URL, params)

@@ -147,7 +147,9 @@ class HentaiFoundry(scraper.TaggableScraper):
         logging.error("[%s] - No download link for post id %s could be found.", self.ME.upper(), post_id)
         raise cf.ExtractorExitError("No download link for post id %s could be found.", post_id)
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         async def max_pages(tagname: str) -> int:
             """Takes in soup and returns, how many pages there are"""
             tmp_url = self.URL_ARTIST_PICTURES.format(artist=tagname, page=1)

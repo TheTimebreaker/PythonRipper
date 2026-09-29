@@ -65,7 +65,9 @@ class SuperSatanSonAPI(scraper.ArtistWebsiteScraper):
             tags=scraper.TagsData(tags=_tags),
         )
 
-    async def _fetch_posts(self, _tagname: Any = None, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, _tagname: Any = None, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         async def _latest_post_id() -> int:
             params_latest_post_id = {"s": "list", "tags": "all"}
             await self.LIMIT.wait()

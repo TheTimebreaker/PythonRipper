@@ -136,15 +136,18 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             ),
         )
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 
         tagname = self.format_tagname(tagname)
-        ratings_tagname = self.create_ratings_searchtag(tagname)
+        if ignore_contentfilters is False:
+            tagname = self.create_ratings_searchtag(tagname)
 
         more_files = True
-        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": ratings_tagname}
+        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": tagname}
         assert isinstance(params["pid"], int)
         data: dict[Any, Any] = {}
 
@@ -155,7 +158,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             if params["pid"] > 2000:
                 last2000id = ...  # data[-1]["id"]
                 params["pid"] = 0
-                params["tags"] = f"{ratings_tagname} id:<{last2000id}"
+                params["tags"] = f"{tagname} id:<{last2000id}"
                 continue
 
             try:
@@ -163,9 +166,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
                 if res.status_code == 200 and not res.json():
                     return
             except requests.exceptions.JSONDecodeError, json.decoder.JSONDecodeError:
-                logging.error(
-                    "[%s] Could not fully download tag %s due to empty response. Maybe the tag has been removed?", self.ME.upper(), ratings_tagname
-                )
+                logging.error("[%s] Could not fully download tag %s due to empty response. Maybe the tag has been removed?", self.ME.upper(), tagname)
                 return
 
             data = res.json()

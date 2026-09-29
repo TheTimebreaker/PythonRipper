@@ -91,22 +91,25 @@ class YandereAPI(scraper.DownloadhistoryScraper):
             ),
         )
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
 
         more_files = True
         tagname = self.format_tagname(tagname)
-        rating_tagname = self.create_ratings_searchtag(tagname)
+        if ignore_contentfilters is False:
+            tagname = self.create_ratings_searchtag(tagname)
 
-        params: dict[str, int | str] = {"limit": 50, "page": 1, "tags": rating_tagname}
+        params: dict[str, int | str] = {"limit": 50, "page": 1, "tags": tagname}
         assert isinstance(params["page"], int)
         data: list[dict[Any, Any]] = []
         while more_files:
             if params["page"] > 100:
                 last100id = data[-1]["id"]
                 params["page"] = 1
-                params["tags"] = f"{rating_tagname} id:<{last100id}"
+                params["tags"] = f"{tagname} id:<{last100id}"
                 continue
 
             await self.LIMIT.wait()
