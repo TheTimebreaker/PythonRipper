@@ -67,7 +67,7 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
             post_id = str(json_data["id"])
 
         tags = scraper.TagsData(
-            tags=[tag.replace(self.SPACE_REPLACE, " ") for tag in str(json_data["tags"]).split(" ")],
+            tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
         )
 
         download_url = json_data["file_url"]
