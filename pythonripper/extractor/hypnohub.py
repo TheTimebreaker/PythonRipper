@@ -10,6 +10,7 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.model import HypnohubRatings
 
 
 class NetworkError(Exception):
@@ -55,6 +56,30 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
         res = await self.session.get(self.API_URL, params=params)
         return bool(res.text)
 
+    def create_ratings_searchtag(self, formatted_tagname: str) -> str:
+        cfg = self.config.settings.extractor.hypnohub.allowed_ratings
+        len_cfg = len(cfg)
+        if len(set(HypnohubRatings)) != 3:
+            raise NotImplementedError("HYPNOHUB - Ratings set length is not 3!")
+
+        if len_cfg == 0:
+            msg = f"[{self.ME.upper()}] - Can't fetch posts, when none of the content ratings are enabled. Configure this in your settings!"
+            logging.error(msg)
+            raise cf.ExtractorStopError(msg)
+
+        elif len_cfg == 1:
+            return f"{formatted_tagname} rating:{next(iter(cfg))}"
+
+        elif len_cfg == 2:  # We invert the set at 3 because less words in the search tag == lower risk of being timed out
+            inverted_cfg = set(HypnohubRatings) - cfg
+            return f"{formatted_tagname} -rating:{next(iter(inverted_cfg))}"
+
+        elif len_cfg == 3:
+            return formatted_tagname
+
+        else:
+            raise NotImplementedError
+
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         if json_data is None:
             if post_id is None:
@@ -92,8 +117,9 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
         truepage = 0
         data: list[dict[str, str | int]] = []
         tagname = self.format_tagname(tagname)
+        ratings_tagname = self.create_ratings_searchtag(tagname)
 
-        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": tagname}
+        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": ratings_tagname}
         assert isinstance(params["pid"], int)
         while more_files:
             await self.LIMIT.wait()
@@ -103,7 +129,7 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
             if params["pid"] > 2000:
                 last2000id = data[-1]["id"]
                 params["pid"] = 0
-                params["tags"] = f"{tagname}+id:<{last2000id}"
+                params["tags"] = f"{ratings_tagname} id:<{last2000id}"
                 continue
 
             # Empty json <=> no more files there
