@@ -120,7 +120,7 @@ class AppSettings(BaseModel):
 
 def get_settings_object() -> AppSettings:
     user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
-    config_json_path = user_config_path / "config" / "config-new.json"
+    config_json_path = user_config_path / "config" / "config.json"
 
     manager_settings = SettingsManagerConfig(
         title="PythonRipper settings",
@@ -136,7 +136,7 @@ def get_settings_object() -> AppSettings:
 
 if __name__ == "__main__":
     user_config_dir = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
-    config_json_path = user_config_dir / "config" / "config-new.json"
+    config_json_path = user_config_dir / "config" / "config.json"
 
     settings = AppSettings()
     manager_settings = SettingsManagerConfig(
