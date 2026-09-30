@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, ClassVar, NotRequired, TypedDict, cast
 
+from PySide6.QtWidgets import QApplication, QMessageBox
 from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -195,18 +196,16 @@ class CombinedFile:
 
     def _add_userconfirm_popup(self, name: str) -> None:
         """
-        Optional Tkinter popup confirmation.
+        Optional PySide6 popup confirmation.
         """
-        import tkinter as tk
-        from tkinter import messagebox
+        app = QApplication.instance() or QApplication([])
+        message_box = QMessageBox()
+        message_box.setWindowTitle("Review URLs")
+        message_box.setText(f"Review tabs for {name!r}.\n\nClose the bad tabs manually, keep the good ones open,\nthen click OK.")
+        message_box.exec()
 
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showinfo(
-            title="Review URLs",
-            message=(f"Review tabs for {name!r}.\n\n Close the bad tabs manually, keep the good ones open,\n then click OK."),
-        )
-        root.destroy()
+        if QApplication.instance() is app and not app.parent():
+            app.quit()
 
     async def _add_get_tag_urls(self, tagname: str, website: str | None = None, dont_add_homepage: bool = False) -> list[str]:
         async def task(obj: scraper.TaggableScraper) -> None:
