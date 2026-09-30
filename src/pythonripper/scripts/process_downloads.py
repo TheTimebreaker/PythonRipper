@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Self
 
 import duplicate_image_finder as dif
+import imagesize
 import send2trash
 from PIL import Image, UnidentifiedImageError
 from psd_tools import PSDImage
@@ -16,6 +17,8 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.subscription_management as sm
 from pythonripper.toolbox.config import ConfigObject, config
+from pythonripper.toolbox.config.model import DimensionLimit
+from pythonripper.toolbox.config.model.shared_model_data import alternative_extensions
 
 
 class ExitError(Exception):
@@ -184,7 +187,14 @@ class Worker:
                 for i, file in enumerate(list_files):
                     if cf.progress_bar_timed(lasttime, timing_seconds, i + 1, len_list_files, "Converting files"):
                         lasttime = time.time()
-                    image_converter(file, goal_format=settings.target_format, delete_source=True, quality_setting=settings.target_quality)
+                    image_converter(
+                        file,
+                        goal_format=settings.target_format,
+                        delete_source=True,
+                        quality_setting=settings.target_quality,
+                        dimension_limiter=settings.limit_dimensions,
+                        dimension_limiter_value=settings.limit_dimensions_value,
+                    )
 
             else:
                 print(f"Selected target file format not supported: {settings.target_format}")
@@ -332,44 +342,105 @@ class Worker:
         print("=" * 25)
 
 
-def image_converter(file: Path, goal_format: str, delete_source: bool, quality_setting: int) -> None:
+def image_converter(
+    file: Path,
+    goal_format: str,
+    delete_source: bool,
+    quality_setting: int,
+    dimension_limiter: DimensionLimit,
+    dimension_limiter_value: int,
+) -> None:
     Image.MAX_IMAGE_PIXELS = None
 
-    # Takes in feed from fileopener-dialogue and converts and saves it.
+    def resize_if_needed(img: Image.Image) -> Image.Image:
+        width, height = img.size
+        shortest_side = min(width, height)
+        longest_side = max(width, height)
+
+        if dimension_limiter == DimensionLimit.LIMIT_HEIGHT:
+            scale = height / dimension_limiter_value
+        elif dimension_limiter == DimensionLimit.LIMIT_WIDTH:
+            scale = width / dimension_limiter_value
+        elif dimension_limiter == DimensionLimit.LIMIT_LONGER_SIDE:
+            scale = longest_side / dimension_limiter_value
+        elif dimension_limiter == DimensionLimit.LIMIT_SHORTER_SIDE:
+            scale = shortest_side / dimension_limiter_value
+
+        if scale > 1:  # Only downscaling allowed!
+            return img
+
+        new_width = round(width * scale)
+        new_height = round(height * scale)
+
+        logging.info("Downscaling '%s': %sx%s -> %sx%s", file, width, height, new_width, new_height)
+
+        return img.resize(
+            (new_width, new_height),
+            Image.Resampling.LANCZOS,
+        )
+
     def funnel(
-        pipe: Image.Image,
-        file: Path,
-        goal_format: str,
-        quality_setting: int,
+        img: Image.Image,
     ) -> None:
-        img = pipe.convert("RGB")
         file_converted = file.with_name(f"{file.stem}{goal_format}")
         if file_converted.is_file():
             file_converted = file_converted.with_name(f"{file.stem}-{cf.id_generator()}.{goal_format}")
+
+        img = resize_if_needed(img)
+
         if goal_format == ".png":
             img.save(file_converted)
         elif goal_format == ".jpg":
+            img = img.convert("RGB")
             img.save(file_converted, quality=quality_setting)
+        else:
+            raise NotImplementedError("This code branch should be impossible to reach!")
+
+    def swap_alt_extensions(original_extension: str) -> str:
+        for extension, mapped in alternative_extensions.items():
+            if original_extension == extension:
+                return mapped
+        return original_extension
+
+    def is_conversion_needed() -> bool:
+        if not file_is_goalformat:
+            return True
+        if dimension_limiter == DimensionLimit.UNLIMITED:
+            return False
+
+        width, height = imagesize.get(file)
+        if dimension_limiter == DimensionLimit.LIMIT_HEIGHT:
+            return bool(height > dimension_limiter_value)
+        elif dimension_limiter == DimensionLimit.LIMIT_WIDTH:
+            return bool(width > dimension_limiter_value)
+        elif dimension_limiter == DimensionLimit.LIMIT_LONGER_SIDE:
+            return bool(max(width, height) > dimension_limiter_value)
+        elif dimension_limiter == DimensionLimit.LIMIT_SHORTER_SIDE:
+            return bool(min(width, height) > dimension_limiter_value)
+        else:
+            return False
+
+    supported_formats = {".png", ".jpg", ".bmp", ".webp", ".tiff", ".gif", ".psd"}
+    file_suffix = swap_alt_extensions(file.suffix.lower())
+    goal_format = swap_alt_extensions(goal_format)
+    file_is_goalformat = file_suffix == goal_format
+
+    if file_suffix not in supported_formats:
+        logging.error("No image conversion supported for %s files. Skipping file %s", file_suffix, file)
+        return
 
     try:
-        if (not file.suffix.lower() == goal_format) and file.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff", ".gif"):
-            with Image.open(file) as img:
-                funnel(
-                    pipe=img,
-                    file=file,
-                    goal_format=goal_format,
-                    quality_setting=quality_setting,
-                )
-        elif (not file.suffix.lower() == goal_format) and file.suffix.lower() in (".psd"):
-            psd = PSDImage.open(file)
-            funnel(
-                pipe=psd.composite(),
-                file=file,
-                goal_format=goal_format,
-                quality_setting=quality_setting,
-            )
-        else:  # Skips delete, if file extension not supported
+        if not is_conversion_needed():
             return
+
+        if file_suffix == ".psd":
+            psd = PSDImage.open(file)
+            funnel(psd.composite())
+        elif file_suffix in supported_formats:
+            with Image.open(file) as img:
+                funnel(img)
+        else:
+            raise NotImplementedError("This code branch should be impossible to reach!")
 
         if str(delete_source) == "bin":
             send2trash.send2trash(file)

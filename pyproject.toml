@@ -23,6 +23,7 @@ dependencies = [
   "selenium>=4.48.0",
   "wget>=3.2",
   "xmltodict>=1.0.4",
+  "imagesize>=2.0.1",
 ]
 
 [dependency-groups]
@@ -103,5 +104,6 @@ module = [
   "wget",
   "plyer",
   "easygui",
+  "imagesize",
 ]
 ignore_missing_imports = true
