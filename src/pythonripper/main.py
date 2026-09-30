@@ -18,8 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pythonripper import __version__
-from pythonripper.scripts import update_scheduler
+from pythonripper import __icon__, __version__
+from pythonripper.scripts import add_new_entry, add_new_website, update_scheduler
 from pythonripper.toolbox.config import config, get_settingsmanager_object
 
 
@@ -27,6 +27,45 @@ class Choices(StrEnum):
     UPDATE_SCHEDULER = "update-scheduler"
     SETTINGS = "settings"
     MISC = "misc"
+
+
+class MiscScripts(StrEnum):
+    ADD_ENTRY = "add_entry"
+    ADD_WEBSITE = "add_website"
+
+
+class MiscWindow(QMainWindow):
+    def __init__(self, app: QApplication, icon: Path | None = None) -> None:
+        super().__init__()
+        self.setWindowTitle(f"PythonRipper {__version__} / Misc")
+        self.icon = icon
+        if self.icon and self.icon.is_file():
+            self.setWindowIcon(QIcon(str(self.icon)))
+
+        theme = config.settings.general.theme
+        if theme is Theme.LIGHT:
+            app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+        elif theme is Theme.DARK:
+            app.styleHints().setColorScheme(Qt.ColorScheme.Dark)
+
+        self.choice: MiscScripts | None = None
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        buttons = QWidget(self)
+        layout = QVBoxLayout(buttons)
+        for label, callback in (
+            ("Add new entry", lambda: self.apply_choice(MiscScripts.ADD_ENTRY)),
+            ("Add new website", lambda: self.apply_choice(MiscScripts.ADD_WEBSITE)),
+        ):
+            button = QPushButton(label)
+            button.clicked.connect(callback)
+            layout.addWidget(button)
+        self.setCentralWidget(buttons)
+
+    def apply_choice(self, choice: MiscScripts) -> None:
+        self.choice = choice
+        self.close()
 
 
 class MainWindow(QMainWindow):
@@ -45,6 +84,19 @@ class MainWindow(QMainWindow):
 
         self.choice: Choices | None = None
         self._build_ui()
+
+    def _build_ui(self) -> None:
+        buttons = QWidget(self)
+        layout = QVBoxLayout(buttons)
+        for label, callback in (
+            ("Run update", lambda: self.apply_choice(Choices.UPDATE_SCHEDULER)),
+            ("Open config", lambda: self.apply_choice(Choices.SETTINGS)),
+            ("Misc", lambda: self.apply_choice(Choices.MISC)),
+        ):
+            button = QPushButton(label)
+            button.clicked.connect(callback)
+            layout.addWidget(button)
+        self.setCentralWidget(buttons)
         self.menuBar().addAction("About", self.show_about)
 
     def show_about(self) -> None:
@@ -93,31 +145,18 @@ class MainWindow(QMainWindow):
         layout.addWidget(issues_link_label)
         dialog.exec()
 
-    def _build_ui(self) -> None:
-        buttons = QWidget(self)
-        layout = QVBoxLayout(buttons)
-        for label, callback in (
-            ("Run update", lambda: self.apply_choice(Choices.UPDATE_SCHEDULER)),
-            ("Open config", lambda: self.apply_choice(Choices.SETTINGS)),
-            ("Misc", lambda: self.apply_choice(Choices.MISC)),
-        ):
-            button = QPushButton(label)
-            button.clicked.connect(callback)
-            layout.addWidget(button)
-        self.setCentralWidget(buttons)
-
     def apply_choice(self, choice: Choices) -> None:
         self.choice = choice
         self.close()
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[2]
-    icon = root / "img" / "icon.jpg"
-
+    icon = __icon__
+    # Main window
     app = QApplication.instance() or QApplication(sys.argv)
     if not isinstance(app, QApplication):
         raise
+
     if icon.is_file():
         app.setWindowIcon(QIcon(str(icon)))
     window = MainWindow(app, icon=icon)
@@ -131,13 +170,31 @@ def main() -> None:
     match window.choice:
         case Choices.UPDATE_SCHEDULER:
             asyncio.run(update_scheduler.update_all(config))
+            return
         case Choices.SETTINGS:
             manager = get_settingsmanager_object()
             manager.edit_gui()
+            return
         case Choices.MISC:
-            print("not implemented")
+            pass
         case _:
             print("No valid choice made. Exiting...")
+            return
+
+    # MISC
+    window2 = MiscWindow(app, icon=icon)
+    window2.show()
+    app.exec()
+
+    print("Chosen misc script:")
+    print(window2.choice)
+    print("=" * 20)
+
+    match window2.choice:
+        case MiscScripts.ADD_ENTRY:
+            add_new_entry.main(config)
+        case MiscScripts.ADD_WEBSITE:
+            add_new_website.main(config)
 
 
 if __name__ == "__main__":

@@ -389,8 +389,8 @@ wheels = [
 
 [[package]]
 name = "duplicate-image-finder"
-version = "2.0.3"
-source = { url = "https://github.com/TheTimebreaker/duplicate_image_finder/releases/download/v2.0.3/duplicate_image_finder-2.0.3-py3-none-any.whl" }
+version = "2.0.7"
+source = { url = "https://github.com/TheTimebreaker/duplicate-image-finder/releases/download/v2.0.7/duplicate_image_finder-2.0.7-py3-none-any.whl" }
 dependencies = [
     { name = "imagehash" },
     { name = "imagesize" },
@@ -398,15 +398,15 @@ dependencies = [
     { name = "send2trash" },
 ]
 wheels = [
-    { url = "https://github.com/TheTimebreaker/duplicate_image_finder/releases/download/v2.0.3/duplicate_image_finder-2.0.3-py3-none-any.whl", hash = "sha256:eb14fd94ccda852dcaf0d87f2fce9078b64d12cf4f7ba3b29ac36b0514973593" },
+    { url = "https://github.com/TheTimebreaker/duplicate-image-finder/releases/download/v2.0.7/duplicate_image_finder-2.0.7-py3-none-any.whl", hash = "sha256:deb0b5222fd6333ae0814bdbfa1e901171e22083362fff3a014ef6ff0e76390f" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "imagehash", specifier = "~=4.3.2" },
-    { name = "imagesize", specifier = "~=2.0.0" },
-    { name = "pillow", specifier = "~=12.1.1" },
-    { name = "send2trash", specifier = "~=2.1.0" },
+    { name = "imagehash", specifier = ">=4.3.2" },
+    { name = "imagesize", specifier = ">=2.0.0" },
+    { name = "pillow", specifier = ">=12.1.1" },
+    { name = "send2trash", specifier = ">=2.1.0" },
 ]
 
 [[package]]
@@ -942,7 +942,7 @@ requires-dist = [
     { name = "asyncstdlib", specifier = ">=3.14.0" },
     { name = "bs4", specifier = ">=0.0.2" },
     { name = "curl-cffi", specifier = ">=0.16.3" },
-    { name = "duplicate-image-finder", url = "https://github.com/TheTimebreaker/duplicate_image_finder/releases/download/v2.0.3/duplicate_image_finder-2.0.3-py3-none-any.whl" },
+    { name = "duplicate-image-finder", url = "https://github.com/TheTimebreaker/duplicate-image-finder/releases/download/v2.0.7/duplicate_image_finder-2.0.7-py3-none-any.whl" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "plyer", specifier = ">=2.1.0" },
     { name = "psd-tools", specifier = ">=1.19.0" },
