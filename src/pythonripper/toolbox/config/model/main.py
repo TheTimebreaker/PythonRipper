@@ -73,6 +73,21 @@ class GeneralSettings(BaseModel):
             raise ValueError("allow_blacklist_bypass and allow_contentfilter_bypass can't share any characters and must be completely different!")
         return self
 
+    file_name_length: int = Field(
+        default=100,
+        le=500,
+        gt=0,
+        title="File name length",
+        description=(
+            "Set the maximum number of characters in a filename during file processing.\n"
+            "Longer filenames will be truncated and if that new filename already exists, "
+            "will truncate further to replace the end of the filename with a randomized id.\n"
+            "Helpful if moving files to other operating systems with stricter path length.\n"
+            "Settings this too low may affect this apps' ability too function.\n"
+            "Only decrease this from the default, if you know what you're doing."
+        ),
+    )
+
     exclusions: ExclusionSettings = Field(
         default_factory=ExclusionSettings,
         title="Exclusions",

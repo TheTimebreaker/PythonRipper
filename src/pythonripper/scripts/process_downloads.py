@@ -99,7 +99,7 @@ class Worker:
             (self.remove_unwanted_file_formats, (self.path_done, self.unwanted_formats), {}),
             (self.convert_files, (self.path_tempdownload,), {}),
             (self.merge_folders, (self.path_tempdownload,), {}),
-            (self.check_file_name_length, (self.path_tempdownload, 100), {}),
+            (self.check_file_name_length, (self.path_tempdownload, config.settings.general.file_name_length), {}),
             (self.check_duplicates, (self.path_tempdownload,), {}),
             (self.check_duplicates, (self.path_tempdownload, self.path_storage, self.path_done), {}),
             (self.move_files, (self.path_tempdownload, self.path_storage), {"move_with_id_files": ["!hashes"]}),
@@ -108,8 +108,8 @@ class Worker:
             (self.merge_folders, (self.path_done,), {}),
             (self.convert_files, (self.path_storage,), {}),
             (self.convert_files, (self.path_done,), {}),
-            (self.check_file_name_length, (self.path_done, 100), {}),
-            (self.check_file_name_length, (self.path_storage, 100), {}),
+            (self.check_file_name_length, (self.path_done, config.settings.general.file_name_length), {}),
+            (self.check_file_name_length, (self.path_storage, config.settings.general.file_name_length), {}),
         )
         for i, elements in enumerate(tasks):
             if i < self.log.status:

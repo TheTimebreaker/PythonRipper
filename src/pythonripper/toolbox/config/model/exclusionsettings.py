@@ -8,8 +8,9 @@ class ExclusionSettings(BaseModel):
         default=True,
         title="Disallow AI",
         description=(
-            "Choose, whether or not to allow or forbid AI generated things to be downloaded.\n"
-            "Note, that not all websites have good options to detect AI, so you may still download AI things."
+            "Choose, whether to allow or forbid AI generated things to be downloaded.\n"
+            "Note, that not all websites have good options to detect AI programatically and some is also human-flagged, "
+            "so you may still download AI things."
         ),
     )
     unwanted_file_extensions: set[Format] = Field(
