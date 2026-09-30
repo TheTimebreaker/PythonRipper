@@ -348,7 +348,7 @@ def image_converter(
     delete_source: bool,
     quality_setting: int,
     dimension_limiter: DimensionLimit,
-    dimension_limiter_value: int,
+    dimension_limiter_value: int = 99999,
 ) -> None:
     Image.MAX_IMAGE_PIXELS = None
 
@@ -358,15 +358,16 @@ def image_converter(
         longest_side = max(width, height)
 
         if dimension_limiter == DimensionLimit.LIMIT_HEIGHT:
-            scale = height / dimension_limiter_value
+            scale = dimension_limiter_value / height
         elif dimension_limiter == DimensionLimit.LIMIT_WIDTH:
-            scale = width / dimension_limiter_value
+            scale = dimension_limiter_value / width
         elif dimension_limiter == DimensionLimit.LIMIT_LONGER_SIDE:
-            scale = longest_side / dimension_limiter_value
+            scale = dimension_limiter_value / longest_side
         elif dimension_limiter == DimensionLimit.LIMIT_SHORTER_SIDE:
-            scale = shortest_side / dimension_limiter_value
+            scale = dimension_limiter_value / shortest_side
 
         if scale > 1:  # Only downscaling allowed!
+            logging.info("Not downscaling %s , because its dimensions are too small.", file)
             return img
 
         new_width = round(width * scale)
@@ -381,10 +382,13 @@ def image_converter(
 
     def funnel(
         img: Image.Image,
-    ) -> None:
+    ) -> Path:
         file_converted = file.with_name(f"{file.stem}{goal_format}")
         if file_converted.is_file():
-            file_converted = file_converted.with_name(f"{file.stem}-{cf.id_generator()}.{goal_format}")
+            if file == file_converted and delete_source:
+                pass
+            else:
+                file_converted = file_converted.with_name(f"{file.stem}-{cf.id_generator()}.{goal_format}")
 
         img = resize_if_needed(img)
 
@@ -395,6 +399,7 @@ def image_converter(
             img.save(file_converted, quality=quality_setting)
         else:
             raise NotImplementedError("This code branch should be impossible to reach!")
+        return file_converted
 
     def swap_alt_extensions(original_extension: str) -> str:
         for extension, mapped in alternative_extensions.items():
@@ -426,23 +431,28 @@ def image_converter(
     file_is_goalformat = file_suffix == goal_format
 
     if file_suffix not in supported_formats:
-        logging.error("No image conversion supported for %s files. Skipping file %s", file_suffix, file)
+        logging.warning("No image conversion supported for %s files. Skipping file %s", file_suffix, file)
         return
 
     try:
-        if not is_conversion_needed():
+        conversion = is_conversion_needed()
+        logging.info(conversion)
+        if not conversion:
             return
 
+        new_file: Path
         if file_suffix == ".psd":
             psd = PSDImage.open(file)
-            funnel(psd.composite())
+            new_file = funnel(psd.composite())
         elif file_suffix in supported_formats:
             with Image.open(file) as img:
-                funnel(img)
+                new_file = funnel(img)
         else:
             raise NotImplementedError("This code branch should be impossible to reach!")
 
-        if str(delete_source) == "bin":
+        if file == new_file:
+            return
+        elif str(delete_source) == "bin":
             send2trash.send2trash(file)
         elif delete_source:
             file.unlink(missing_ok=True)
