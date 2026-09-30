@@ -1,0 +1,24 @@
+from .extractor_artists import ExtractorArtistwebsitesSettings
+from .extractor_artstation import ExtractorArtstationSettings
+from .extractor_animepicture import ExtractorAnimepicturesSettings
+from .extractor_danbooru import ExtractorDanbooruSettings, DanbooruRatings
+from .extractor_deviantart import ExtractorDeviantartSettings
+from .extractor_gelbooru import ExtractorGelbooruSettings, GelbooruRatings
+from .extractor_hypnohub import ExtractorHypnohubSettings, HypnohubRatings
+from .extractor_kemono import ExtractorKemonoSettings
+from .extractor_hentaifoundry import ExtractorHentaifoundrySettings
+from .extractor_kusowanka import ExtractorKusowankaSettings
+from .extractor_newgrounds import ExtractorNewgroundsSettings, NewgroundsRating
+from .extractor_patreon import ExtractorPatreonSettings
+from .extractor_pixiv import ExtractorPixivSettings
+from .extractor_rule34paheal import ExtractorRule34PahealSettings
+from .extractor_rule34us import ExtractorRule34usSettings
+from .extractor_rule34xxx import ExtractorRule34xxxSettings, Rule34xxxRatings
+from .extractor_tumblr import ExtractorTumblrSettings
+from .extractor_yandere import ExtractorYandereSettings, YandereRatings
+
+from .pathsettings import PathSettings
+from .imageconversionsettings import ImageConversionSettings, DimensionLimit
+from .exclusionsettings import ExclusionSettings
+
+from .main import GeneralSettings, ExtractorSettings, AppSettings, get_settingsmanager_object

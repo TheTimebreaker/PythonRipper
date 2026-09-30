@@ -1,0 +1,178 @@
+"""Main module for interacting with https://danbooru.donmai.us/ ."""
+
+import asyncio
+import logging
+from collections.abc import AsyncGenerator, Mapping
+from typing import Any, final
+
+import asynciolimiter
+import httpx
+
+import pythonripper.toolbox.centralfunctions as cf
+import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.model import DanbooruRatings
+
+
+@final
+class DanbooruAPI(scraper.DownloadhistoryScraper):
+    HOMEPAGE = "https://danbooru.donmai.us/"
+    API_TAG_URL = "https://danbooru.donmai.us/posts.json"
+    API_POST_URL = "https://danbooru.donmai.us/posts/{post_id}.json"
+    URL_TAG = "https://danbooru.donmai.us/posts?tags={tagname}"
+
+    POST_PATTERN = r"(?:https?://)?(?:www\.)?danbooru\.donmai\.us/posts/(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?danbooru\.donmai\.us/posts\?(?:.+)?tags=([^/&\?]+)"
+
+    ME = "danbooru"
+    LIMIT = asynciolimiter.LeakyBucketLimiter(rate=1, capacity=10)
+    SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
+
+    session: httpx.AsyncClient
+
+    async def init(self) -> bool:
+        self.random_tag_name = "random:1000"
+        self.headers = self.download_headers = {"User-Agent": "PythonRipper/v1"}
+        self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
+        return True
+
+    async def does_this_exist(self, tag_name: str) -> bool:
+        params: dict[str, str | int] = {"tags": self.format_tagname(tag_name)}
+        res = await self.request(self.API_TAG_URL, params=params)
+        return bool(res.json())
+
+    def create_ratings_searchtag(self, formatted_tagname: str) -> str:
+        cfg = self.config.settings.extractor.danbooru.allowed_ratings
+        len_cfg = len(cfg)
+        if len(set(DanbooruRatings)) != 4:
+            raise NotImplementedError("Danbooru - Ratings set length is not 4!")
+
+        if len_cfg == 0:
+            msg = f"[{self.ME.upper()}] - Can't fetch posts, when none of the content ratings are enabled. Configure this in your settings!"
+            logging.error(msg)
+            raise cf.ExtractorStopError(msg)
+
+        elif len_cfg == 1:
+            return f"{formatted_tagname} rating:{next(iter(cfg))}"
+
+        elif len_cfg == 2:
+            cfg_elements = f"rating:{" or  rating:".join(cfg)}"
+            return f"{formatted_tagname} ( {cfg_elements} )"
+
+        elif len_cfg == 3:  # We invert the set at 3 because less words in the search tag == lower risk of being timed out
+            inverted_cfg = set(DanbooruRatings) - cfg
+            return f"{formatted_tagname} -rating:{next(iter(inverted_cfg))}"
+
+        elif len_cfg == 4:
+            return formatted_tagname
+
+        else:
+            raise NotImplementedError
+
+    async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
+        for i in (1, 3, 5, 7, 10, 30, 30, 30):
+            await self.LIMIT.wait()
+            res = await self.session.get(url, params=params)
+            if res.status_code == 429:  # Too Many Requests
+                logging.warning(
+                    "[%s] - Request to %s encountered %s status code. sleeping and retrying, to make it go away.",
+                    self.ME.upper(),
+                    url,
+                    res.status_code,
+                )
+                await asyncio.sleep(i)
+                continue
+            if res.status_code == 503:  # Internal Server Error
+                sleep = 10 if i < 10 else i
+                logging.warning(
+                    "[%s] - Request to %s encountered %s status code. sleeping and retrying, to make it go away.",
+                    self.ME.upper(),
+                    url,
+                    res.status_code,
+                )
+                await asyncio.sleep(sleep)
+                continue
+            return res
+        raise cf.ExtractorStopError(
+            "A request failed to return a valid status code. Indicates a deeper issue with either rate limit or the destination server."
+        )
+
+    async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
+        if json_data is None:
+            if post_id is None:
+                raise ValueError("Neither post id nor json_data given (one is necessary).")
+            res = await self.request(self.API_POST_URL.format(post_id=post_id))
+            json_data = res.json()
+        if post_id is None:
+            post_id = str(json_data["id"])
+
+        tags = scraper.TagsData(
+            artists=[self.invert_formatting(tag) for tag in str(json_data["tag_string_artist"]).split(" ")],
+            parodies=[self.invert_formatting(tag) for tag in str(json_data["tag_string_copyright"]).split(" ")],
+            characters=[self.invert_formatting(tag) for tag in str(json_data["tag_string_character"]).split(" ")],
+            tags=[self.invert_formatting(tag) for tag in str(json_data["tag_string_general"]).split(" ")],
+            metatags=[self.invert_formatting(tag) for tag in str(json_data["tag_string_meta"]).split(" ")],
+        )
+
+        return scraper.PostData(
+            identifier=post_id,
+            filehash=str(json_data["md5"]),
+            elements=scraper.PostElementLinks(download_url=json_data["file_url"], extension=json_data["file_ext"]),
+            tags=tags,
+        )
+
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False
+    ) -> AsyncGenerator[scraper.PostData]:
+        if update_ids is None:
+            update_ids = []
+
+        tagname = self.format_tagname(tagname)
+        if ignore_contentfilters is False:
+            tagname = self.create_ratings_searchtag(tagname)
+
+        truepage: int = 1
+        more_files = True
+        params: dict[str, str | int] = {"tags": tagname, "limit": 25, "page": 1}
+        assert isinstance(params["page"], int)
+
+        data: dict[Any, Any] = {}
+        while more_files:
+            res = await self.request(self.API_TAG_URL, params=params)
+
+            try:
+                if res.json()["success"] is False and res.json()["message"] == "The database timed out running your query.":
+                    logging.warning("[%s] - Timeouted... trying again: %s %s .", self.ME.upper(), self.API_TAG_URL, params)
+                    await asyncio.sleep(10)
+                    continue
+            except KeyError, TypeError:
+                pass
+
+            # API limit reached. Recalculation of tagNameFormatted
+            if res.status_code == 410 and res.json()["error"] == "PaginationExtension::PaginationError":
+                last1000id = data[-1]["id"]
+                params["tags"] = f"{tagname} id:<{last1000id}"
+                params["page"] = 1
+                continue
+
+            # Stops, if API responds with illegal shit
+            if res.status_code != 200:
+                logging.error("[%s] - Fetching gave illegal status code: %s . response: %s", self.ME.upper(), res.status_code, res.text)
+                raise cf.ExtractorExitError("Fetching gave illegal status code: %s . response: %s", res.status_code, res.text)
+
+            data = res.json()
+            for post in data:
+                try:
+                    post_data = await self._get_post_data(json_data=post)
+                except KeyError:
+                    logging.warning(
+                        "[%s] - Keyerror encountered on post %s . Often indicates gold-account-locked or deleted posts.", self.ME.upper(), post["id"]
+                    )
+                    continue
+                if post_data["identifier"] in update_ids:
+                    return
+                yield post_data
+
+            more_files = bool(data)
+            truepage += 1
+            params["page"] += 1

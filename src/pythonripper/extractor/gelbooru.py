@@ -1,0 +1,195 @@
+"""Main module for interacting with https://gelbooru.com/ ."""
+
+import json
+import logging
+from collections.abc import AsyncGenerator
+from typing import Any, final
+
+import aiofiles
+import asynciolimiter
+import httpx
+
+import pythonripper.toolbox.centralfunctions as cf
+import pythonripper.toolbox.files as f
+import pythonripper.toolbox.scraperclasses as scraper
+from pythonripper.toolbox.config.model import GelbooruRatings
+
+
+@final
+class GelbooruAPI(scraper.DownloadhistoryScraper):
+    HOMEPAGE = "https://gelbooru.com/index.php"
+    API_URL = HOMEPAGE
+    URL_POST = "https://gelbooru.com/index.php?page=post&s=view&id={post_id}"
+    URL_TAG = "https://gelbooru.com/index.php?page=post&s=list&tags={tagname}"
+
+    POST_PATTERN = r"(?:https?://)?(?:www\.)?gelbooru\.com.*id=(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?gelbooru\.com/index\.php\?(?:.+)?tags=([^/&\?]+)"
+
+    ME = "gelbooru"
+    LIMIT = asynciolimiter.Limiter(100)
+    SPACE_REPLACE = "_"
+    IS_GOOGLE_SEARCHABLE = False
+
+    session: httpx.AsyncClient
+
+    async def init(self) -> bool:
+        self.random_tag_name = "sort:random"
+        self.credentials_path = self.config.paths._credentials() / "gelbooru_credentials.json"
+        self.download_headers = {"Referer": self.API_URL}
+        self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds())
+
+        async def read_credentials() -> bool:
+            try:
+                async with aiofiles.open(self.credentials_path) as file:
+                    data = json.loads(await file.read())
+                self.api_key = data["api_key"]
+                self.user_id = data["user_id"]
+                return True
+            except FileExistsError, KeyError:
+                logging.error(
+                    "[%s] - The credentials file at %s either does not exist or is invalid. "
+                    "API access requires a api_key and user_id in this file. "
+                    "Please create an account for Gelbooru, navigate to the options, find the API credentials, "
+                    "and enter the required values in the file.",
+                    self.ME.upper(),
+                    self.credentials_path,
+                )
+                return False
+
+        def setup_session() -> bool:
+            params = {
+                "q": "index",
+                "page": "dapi",
+                "json": "1",
+                "api_key": self.api_key,
+                "user_id": self.user_id,
+            }
+            self.session.params = params
+            self.session.headers = self.headers
+            return True
+
+        async def test_session() -> bool:
+            params: dict[str, str | int] = {"s": "post", "limit": 1}
+            await self.LIMIT.wait()
+            res = await self.session.get(self.API_URL, params=params)
+            validity = res.status_code == 200
+            if not validity:
+                logging.error("[%s] - Created session could not be verified to work. Maybe your API credentials aren't valid?", self.ME.upper())
+            return validity
+
+        if not await read_credentials():
+            return False
+
+        if not setup_session():
+            return False
+
+        if not await test_session():
+            return False
+
+        return True
+
+    async def does_this_exist(self, tagname: str) -> bool:
+        params: dict[str, str | int] = {"s": "post", "tags": self.format_tagname(tagname)}
+        await self.LIMIT.wait()
+        res = await self.session.get(self.API_URL, params=params)
+        return "post" in res.json() and bool(res.json()["post"])
+
+    def create_ratings_searchtag(self, formatted_tagname: str) -> str:
+        cfg = self.config.settings.extractor.gelbooru.allowed_ratings
+        len_cfg = len(cfg)
+        if len(set(GelbooruRatings)) != 4:
+            raise NotImplementedError("GELBOORU - Ratings set length is not 4!")
+
+        if len_cfg == 0:
+            msg = f"[{self.ME.upper()}] - Can't fetch posts, when none of the content ratings are enabled. Configure this in your settings!"
+            logging.error(msg)
+            raise cf.ExtractorStopError(msg)
+
+        elif len_cfg == 1:
+            return f"{formatted_tagname} rating:{next(iter(cfg))}"
+
+        elif len_cfg == 2:
+            raise NotImplementedError("For technical reasons, choosing exactly 2 allowed ratings does not work.")
+
+        elif len_cfg == 3:  # We invert the set at 3 because less words in the search tag == lower risk of being timed out
+            inverted_cfg = set(GelbooruRatings) - cfg
+            return f"{formatted_tagname} -rating:{next(iter(inverted_cfg))}"
+
+        elif len_cfg == 4:
+            return formatted_tagname
+
+        else:
+            raise NotImplementedError
+
+    async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
+        if json_data is None:
+            if post_id is None:
+                raise ValueError("Neither post id nor json_data given (one is necessary).")
+            params = {"s": "post", "id": post_id}
+            await self.LIMIT.wait()
+            res = await self.session.get(self.API_URL, params=params)
+            json_data = res.json()["post"][0]
+        if post_id is None:
+            post_id = str(json_data["id"])
+
+        tags = scraper.TagsData(
+            tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
+        )
+
+        download_url = json_data["file_url"]
+        extension = f.match_extension(download_url)
+        if not extension:
+            msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
+            logging.error(msg)
+            raise cf.ExtractorSkipError(msg) from AttributeError
+        return scraper.PostData(
+            identifier=post_id,
+            filehash=str(json_data["md5"]),
+            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+            tags=tags,
+        )
+
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False
+    ) -> AsyncGenerator[scraper.PostData]:
+        if update_ids is None:
+            update_ids = []
+
+        more_files = True
+        truepage = 0
+        data: list[dict[str, str | int]] = []
+        tagname = self.format_tagname(tagname)
+        if ignore_contentfilters is False:
+            tagname = self.create_ratings_searchtag(tagname)
+
+        params: dict[str, str | int] = {"s": "post", "limit": 100, "pid": 0, "tags": tagname}
+        assert isinstance(params["pid"], int)
+        while more_files:
+            await self.LIMIT.wait()
+            res = await self.session.get(self.API_URL, params=params)
+
+            # API limit reached. Recalculation of tagNameFormatted
+            if res.text == "Too deep! Pull it back some. Holy fuck.":
+                params["pid"] = 0
+                params["tags"] = f"{tagname} id:<{data[-1]["id"]}"
+                continue
+
+            # no posts found?
+            if res.status_code == 401:
+                logging.error("[%s] - Tag %s returned 401 html response. Removed?", self.ME.upper(), tagname)
+                raise cf.ExtractorExitError("Tag %s returned 401 html response. Removed?", tagname)
+
+            # Paginated past last post(s)
+            if res.status_code == 200 and "post" not in res.json().keys():
+                return
+
+            # The part that actually yields you data
+            data = res.json()["post"]
+            for post in data:
+                if str(post["id"]) in update_ids:
+                    return
+                yield await self._get_post_data(json_data=post)
+
+            more_files = bool(data)
+            params["pid"] += 1
+            truepage += 1
