@@ -15,6 +15,8 @@ import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.toolbox.config import config
 
+# Note: while the website seems to block certain tags (e.g. loli), to the best of our knowledge, this module can still download that
+
 
 class SqlTagIDs:
     def __init__(self) -> None:
