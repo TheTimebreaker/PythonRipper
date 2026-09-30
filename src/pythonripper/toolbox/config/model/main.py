@@ -1,5 +1,5 @@
 import platformdirs
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 from pydantic_gui_settings_editor import ConfigCollapeNestedSettings, SettingsManager, SettingsManagerConfig, Theme
 
 from . import (
@@ -25,9 +25,10 @@ from . import (
     ImageConversionSettings,
     PathSettings,
 )
+from .shared_model_data import StrictBaseModel
 
 
-class GeneralSettings(BaseModel):
+class GeneralSettings(StrictBaseModel):
     theme: Theme = Field(default=Theme.SYSTEM, title="Color theme", description="Choose the theme for the application.")
 
     overwrite_existing_files: bool = Field(
@@ -107,7 +108,7 @@ class GeneralSettings(BaseModel):
     )
 
 
-class ExtractorSettings(BaseModel):
+class ExtractorSettings(StrictBaseModel):
     artistwebsites: ExtractorArtistwebsitesSettings = Field(default_factory=ExtractorArtistwebsitesSettings)
     animepictures: ExtractorAnimepicturesSettings = Field(default_factory=ExtractorAnimepicturesSettings)  # NotImplementedYet
     artstation: ExtractorArtstationSettings = Field(default_factory=ExtractorArtstationSettings)
@@ -128,7 +129,7 @@ class ExtractorSettings(BaseModel):
     yandere: ExtractorYandereSettings = Field(default_factory=ExtractorYandereSettings)
 
 
-class AppSettings(BaseModel):
+class AppSettings(StrictBaseModel):
     model_config = ConfigDict(extra="forbid")
 
     general: GeneralSettings = Field(default_factory=GeneralSettings, title="General")

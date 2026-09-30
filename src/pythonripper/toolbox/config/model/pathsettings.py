@@ -1,9 +1,11 @@
 import platformdirs
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic_gui_settings_editor.types import DirectoryPath
 
+from .shared_model_data import StrictBaseModel
 
-class PathSettings(BaseModel):
+
+class PathSettings(StrictBaseModel):
     _user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
     downloads: DirectoryPath = Field(
         default=_user_config_path / "downloads",

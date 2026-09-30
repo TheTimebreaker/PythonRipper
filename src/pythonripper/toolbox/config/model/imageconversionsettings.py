@@ -1,9 +1,9 @@
 from enum import StrEnum
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, Field
 
-from .shared_model_data import AUDIO_FORMATS, IMAGE_FORMATS, Format
+from .shared_model_data import AUDIO_FORMATS, IMAGE_FORMATS, Format, StrictBaseModel
 
 
 def validate_image_format(value: Format) -> Format:
@@ -37,7 +37,7 @@ class DimensionLimit(StrEnum):
     LIMIT_SHORTER_SIDE = "shorter side"
 
 
-class ImageConversionSettings(BaseModel):
+class ImageConversionSettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
         title="Enable file conversion during processing of downloads.",

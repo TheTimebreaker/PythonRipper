@@ -1,8 +1,8 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .shared_model_data import IntEnumSort, enabled_description
+from .shared_model_data import IntEnumSort, StrictBaseModel, enabled_description
 
 HF_TIEREDFILTER_DESC = "Choose which level of {what} is allowed. Any value above the chosen level will be disallowed."
 
@@ -123,7 +123,7 @@ class HentaifoundryToggles(StrEnum):
         return self.capitalize()
 
 
-class ExtractorHentaifoundrySettings(BaseModel):
+class ExtractorHentaifoundrySettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
         title="Enabled",

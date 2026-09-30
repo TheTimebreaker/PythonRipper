@@ -1,8 +1,8 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .shared_model_data import enabled_description
+from .shared_model_data import StrictBaseModel, enabled_description
 
 
 class YandereRatings(StrEnum):
@@ -29,7 +29,7 @@ yandere_ratings_descriptions: dict[str, str] = {
 }
 
 
-class ExtractorYandereSettings(BaseModel):
+class ExtractorYandereSettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
         title="Enabled",

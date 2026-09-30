@@ -1,9 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .shared_model_data import enabled_description
+from .shared_model_data import StrictBaseModel, enabled_description
 
 
-class ExtractorKemonoSettings(BaseModel):
+class ExtractorKemonoSettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
         title="Enabled",

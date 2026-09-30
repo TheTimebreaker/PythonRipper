@@ -1,8 +1,8 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .shared_model_data import enabled_description
+from .shared_model_data import StrictBaseModel, enabled_description
 
 
 class DanbooruRatings(StrEnum):
@@ -32,7 +32,7 @@ danbooru_ratings_descriptions: dict[str, str] = {
 }
 
 
-class ExtractorDanbooruSettings(BaseModel):
+class ExtractorDanbooruSettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
         title="Enabled",

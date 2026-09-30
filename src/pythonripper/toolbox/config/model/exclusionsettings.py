@@ -1,9 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .shared_model_data import Format
+from .shared_model_data import Format, StrictBaseModel
 
 
-class ExclusionSettings(BaseModel):
+class ExclusionSettings(StrictBaseModel):
     disallow_ai: bool = Field(
         default=True,
         title="Disallow AI",

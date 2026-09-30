@@ -1,6 +1,12 @@
 from enum import IntEnum, StrEnum
 
+from pydantic import BaseModel, ConfigDict
+
 enabled_description = "If enabled, will allow any automated process within this application to download files via this extractor."
+
+
+class StrictBaseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
 class IntEnumSort(IntEnum):

@@ -1,8 +1,8 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .shared_model_data import enabled_description
+from .shared_model_data import StrictBaseModel, enabled_description
 
 
 class NewgroundsRating(StrEnum):
@@ -30,7 +30,7 @@ class NewgroundsRating(StrEnum):
         }[self]
 
 
-class ExtractorNewgroundsSettings(BaseModel):
+class ExtractorNewgroundsSettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
         title="Enabled",

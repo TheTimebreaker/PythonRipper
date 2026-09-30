@@ -1,8 +1,8 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
-from .shared_model_data import enabled_description
+from .shared_model_data import StrictBaseModel, enabled_description
 
 
 class GelbooruRatings(StrEnum):
@@ -32,7 +32,7 @@ gelbooru_ratings_descriptions: dict[str, str] = {
 }
 
 
-class ExtractorGelbooruSettings(BaseModel):
+class ExtractorGelbooruSettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
         title="Enabled",
