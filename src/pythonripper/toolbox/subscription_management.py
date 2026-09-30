@@ -500,7 +500,6 @@ class CombinedArtistFile(CombinedFile):
         "newgrounds",
         "patreon",
         "pixiv-artists",
-        "reddit",
         "rule34paheal",
         "rule34us",
         "rule34xxx",

@@ -82,7 +82,6 @@ class Worker:
             "newgrounds-favorites",
             "patreon",
             "pixiv",
-            "reddit",
             "tumblr",
         ]
         self.websites.extend(self.boorus)

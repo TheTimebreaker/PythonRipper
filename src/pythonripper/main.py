@@ -266,9 +266,9 @@ async def main() -> None:
 
     match window2.choice:
         case MiscScripts.ADD_ENTRY:
-            add_new_entry.main(config)
+            await add_new_entry.main(config)
         case MiscScripts.ADD_WEBSITE:
-            add_new_website.main(config)
+            await add_new_website.main(config)
         case MiscScripts.ARCHIVE_FOLDER:
             archive_folder.main(app)
         case MiscScripts.PACK_RANDOM_FILES:

@@ -5,12 +5,12 @@ import pythonripper.toolbox.subscription_management as sm
 from pythonripper.toolbox.config import ConfigObject, config
 
 
-def main(config: ConfigObject) -> None:
-    inp = input("Do you want to add <artist> or <tag>? Please enter either EXACTLY to choose: ")
+async def main(config: ConfigObject) -> None:
+    inp = input("Do you want to add <artist> or <tag>? Please enter either EXACTLY to choose: ")  # noqa: ASYNC250
     if inp in ("artist", "<artist>", "artists", "<artists>"):
-        asyncio.run(add_artists(config))
+        await add_artists(config)
     elif inp in ("tag", "<tag>", "tags", "<tags>"):
-        asyncio.run(add_tag(config))
+        await add_tag(config)
     else:
         print("No valid choice detected, run again.")
 
@@ -27,4 +27,4 @@ async def add_tag(config: ConfigObject) -> None:
 
 if __name__ == "__main__":
     cf.init_logger(config, "error", False)
-    main(config)
+    asyncio.run(main(config))

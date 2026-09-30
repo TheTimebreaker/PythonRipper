@@ -168,6 +168,7 @@ def _init_chromedriver(headless: bool) -> WebDriver:
     from selenium.webdriver.chrome.service import Service
 
     chromedriver_main = config.paths.chromedriver_path()
+    chromedriver_main.mkdir(parents=True, exist_ok=True)
     chrome_path, chromedriver_path = _download_chromedriver(chromedriver_main)
     options = Options()
     options.binary_location = str(chrome_path.resolve())

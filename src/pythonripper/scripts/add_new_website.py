@@ -5,8 +5,8 @@ import pythonripper.toolbox.subscription_management as sm
 from pythonripper.toolbox.config import ConfigObject, config
 
 
-def main(config: ConfigObject) -> None:
-    inp = input("Do you want to search the new websites' entries to <artist> or <tag>? Please enter either EXACTLY to choose: ")
+async def main(config: ConfigObject) -> None:
+    inp = input("Do you want to search the new websites' entries to <artist> or <tag>? Please enter either EXACTLY to choose: ")  # noqa: ASYNC250
     obj: sm.CombinedFile
     if inp in ("artist", "<artist>", "artists", "<artists>"):
         obj = sm.CombinedArtistFile(config)
@@ -24,12 +24,14 @@ def main(config: ConfigObject) -> None:
         lookup[i] = website
         s.append(f"({i}) {website}")
     print(" | ".join(s))
-    inp2 = int(input("Enter a number to choose that website: "))
+    inp2 = int(input("Enter a number to choose that website: "))  # noqa: ASYNC250
     if inp2 not in lookup:
         print("No valid choice detected, run again.")
         return
 
-    inp3 = str(input("Do you want to AUTO-SKIP an entry, if the code cannot find any existing tags for any website? y(es) / n(o)): ")).lower()
+    inp3 = str(
+        input("Do you want to AUTO-SKIP an entry, if the code cannot find any existing tags for any website? y(es) / n(o)): ")  # noqa: ASYNC250
+    ).lower()
     if inp3 in ("yes", "y"):
         skip_empty = True
     elif inp3 in ("no", "n"):
@@ -39,7 +41,7 @@ def main(config: ConfigObject) -> None:
         return
 
     choice = lookup[inp2]
-    asyncio.run(func(obj, choice, skip_empty))
+    await func(obj, choice, skip_empty)
 
 
 async def add_artists(obj: sm.CombinedFile, choice: str, skip_empty: bool) -> None:
@@ -52,4 +54,4 @@ async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool) -> None:
 
 if __name__ == "__main__":
     cf.init_logger(config, "error", False)
-    main(config)
+    asyncio.run(main(config))
