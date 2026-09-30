@@ -66,15 +66,53 @@ class MiscWindow(QMainWindow):
     def _build_ui(self) -> None:
         buttons = QWidget(self)
         layout = QVBoxLayout(buttons)
-        for label, callback in (
-            ("Add new entry", lambda: self.apply_choice(MiscScripts.ADD_ENTRY)),
-            ("Add new website", lambda: self.apply_choice(MiscScripts.ADD_WEBSITE)),
-            ("Archive folder", lambda: self.apply_choice(MiscScripts.ARCHIVE_FOLDER)),
-            ("Pack random files", lambda: self.apply_choice(MiscScripts.PACK_RANDOM_FILES)),
-            ("Process downloads", lambda: self.apply_choice(MiscScripts.PROCESS_DOWNLOADS)),
-            ("Verify tagfiles", lambda: self.apply_choice(MiscScripts.VERIFY_TAGFILES)),
+
+        label1 = QLabel("Miscellaneous tasks")
+        font = label1.font()
+        font.setPointSize(24)
+        label1.setFont(font)
+        layout.addWidget(label1)
+        for label, callback, tooltip in (
+            (
+                "Add new entry",
+                lambda: self.apply_choice(MiscScripts.ADD_ENTRY),
+                "Opens the subprogram for adding new artists/tags to your subscribed lists.",
+            ),
+            (
+                "Add new website",
+                lambda: self.apply_choice(MiscScripts.ADD_WEBSITE),
+                "Opens the subprogram for adding a new website to your subscribed lists based on your other websites' lists.",
+            ),
+            (
+                "Archive folder",
+                lambda: self.apply_choice(MiscScripts.ARCHIVE_FOLDER),
+                (
+                    "Choose a folder to turn into a hash archive. This will allow these files to be used for future duplication checks,\n"
+                    "but without keeping the file. Useful for saving disk space."
+                ),
+            ),
+            (
+                "Pack random files",
+                lambda: self.apply_choice(MiscScripts.PACK_RANDOM_FILES),
+                "Choose a folder and a number. Will choose <number> random items from that folder and move them into a temp subdirectory.",
+            ),
+            (
+                "Process downloads",
+                lambda: self.apply_choice(MiscScripts.PROCESS_DOWNLOADS),
+                (
+                    "Run the download processor. Moves files from 'downloads' to 'storage' (set in settings).\n"
+                    "Removes unwanted files. Converts image files to desired output format. Merges folders from the same tag.\n"
+                    "Checks file name length. Check for duplicate files."
+                ),
+            ),
+            (
+                "Verify tagfiles",
+                lambda: self.apply_choice(MiscScripts.VERIFY_TAGFILES),
+                "Initiates the artist and tag tagfiles, which will print all issues to the console.",
+            ),
         ):
             button = QPushButton(label)
+            button.setToolTip(tooltip)
             button.clicked.connect(callback)
             layout.addWidget(button)
         self.setCentralWidget(buttons)
@@ -104,12 +142,32 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         buttons = QWidget(self)
         layout = QVBoxLayout(buttons)
-        for label, callback in (
-            ("Run update", lambda: self.apply_choice(Choices.UPDATE_SCHEDULER)),
-            ("Open config", lambda: self.apply_choice(Choices.SETTINGS)),
-            ("Misc", lambda: self.apply_choice(Choices.MISC)),
+
+        label1 = QLabel(f"PythonRipper {__version__}")
+        font = label1.font()
+        font.setPointSize(24)
+        label1.setFont(font)
+        layout.addWidget(label1)
+
+        for label, callback, tooltip in (
+            (
+                "Run update",
+                lambda: self.apply_choice(Choices.UPDATE_SCHEDULER),
+                "Run the scheduler to update all subscribed artists and tags.",
+            ),
+            (
+                "Open config",
+                lambda: self.apply_choice(Choices.SETTINGS),
+                "Open the application settings editor to configure PythonRipper.",
+            ),
+            (
+                "Misc",
+                lambda: self.apply_choice(Choices.MISC),
+                "Open the miscellaneous tools menu for extra utilities and maintenance tasks.",
+            ),
         ):
             button = QPushButton(label)
+            button.setToolTip(tooltip)
             button.clicked.connect(callback)
             layout.addWidget(button)
         self.setCentralWidget(buttons)
