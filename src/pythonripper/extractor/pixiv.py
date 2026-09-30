@@ -180,7 +180,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
             if json_data.get("illust_ai_type", 0) == 2:
                 tags.append("AI-generated")
 
-            return [tag.replace(self.SPACE_REPLACE, " ") for tag in tags]
+            return [self.invert_formatting(tag) for tag in tags]
 
         if json_data is None:
             if post_id is None:

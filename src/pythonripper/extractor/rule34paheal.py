@@ -32,7 +32,7 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
 
     def format_tagname(self, tagname: str) -> str:
         tagname = tagname.lower()
-        tagname = tagname.replace(" ", "_").replace("/", r"%2F")
+        tagname = tagname.replace(" ", self.SPACE_REPLACE).replace("/", r"%2F")
         return tagname
 
     async def does_this_exist(self, tagname: str) -> bool:
@@ -43,7 +43,7 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
     async def __get_post_data_listerhtml(self, soup: bs4.Tag) -> scraper.PostData:
         post_id = soup["data-post-id"]
         assert isinstance(post_id, str)
-        tags = scraper.TagsData(tags=[x.replace(self.SPACE_REPLACE, " ") for x in str(soup["data-tags"]).split(" ")])
+        tags = scraper.TagsData(tags=[self.invert_formatting(x) for x in str(soup["data-tags"]).split(" ")])
         download_url = str(soup.find("a", {"class": None})["href"])  # type: ignore
         extension = str(soup["data-ext"])
         assert isinstance(extension, str)

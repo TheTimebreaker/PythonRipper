@@ -132,7 +132,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             filehash=json_data["hash"],
             elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
             tags=scraper.TagsData(
-                tags=[tag.replace(self.SPACE_REPLACE, " ") for tag in str(json_data["tags"]).split(" ")],
+                tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
             ),
         )
 
