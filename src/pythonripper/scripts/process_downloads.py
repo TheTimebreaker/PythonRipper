@@ -348,7 +348,7 @@ def image_converter(
     delete_source: bool,
     quality_setting: int,
     dimension_limiter: DimensionLimit,
-    dimension_limiter_value: int = 99999,
+    dimension_limiter_value: int = 65535,
 ) -> None:
     Image.MAX_IMAGE_PIXELS = None
 
