@@ -19,7 +19,15 @@ from PySide6.QtWidgets import (
 )
 
 from pythonripper import __icon__, __version__
-from pythonripper.scripts import add_new_entry, add_new_website, update_scheduler
+from pythonripper.scripts import (
+    add_new_entry,
+    add_new_website,
+    archive_folder,
+    pack_random_files,
+    process_downloads,
+    update_scheduler,
+    verify_tagfiles,
+)
 from pythonripper.toolbox.config import config, get_settingsmanager_object
 
 
@@ -32,6 +40,10 @@ class Choices(StrEnum):
 class MiscScripts(StrEnum):
     ADD_ENTRY = "add_entry"
     ADD_WEBSITE = "add_website"
+    ARCHIVE_FOLDER = "add_folder"
+    PACK_RANDOM_FILES = "pack_random_files"
+    PROCESS_DOWNLOADS = "process_downloads"
+    VERIFY_TAGFILES = "verify_tagfiles"
 
 
 class MiscWindow(QMainWindow):
@@ -57,6 +69,10 @@ class MiscWindow(QMainWindow):
         for label, callback in (
             ("Add new entry", lambda: self.apply_choice(MiscScripts.ADD_ENTRY)),
             ("Add new website", lambda: self.apply_choice(MiscScripts.ADD_WEBSITE)),
+            ("Archive folder", lambda: self.apply_choice(MiscScripts.ARCHIVE_FOLDER)),
+            ("Pack random files", lambda: self.apply_choice(MiscScripts.PACK_RANDOM_FILES)),
+            ("Process downloads", lambda: self.apply_choice(MiscScripts.PROCESS_DOWNLOADS)),
+            ("Verify tagfiles", lambda: self.apply_choice(MiscScripts.VERIFY_TAGFILES)),
         ):
             button = QPushButton(label)
             button.clicked.connect(callback)
@@ -150,7 +166,7 @@ class MainWindow(QMainWindow):
         self.close()
 
 
-def main() -> None:
+async def main() -> None:
     icon = __icon__
     # Main window
     app = QApplication.instance() or QApplication(sys.argv)
@@ -169,7 +185,7 @@ def main() -> None:
 
     match window.choice:
         case Choices.UPDATE_SCHEDULER:
-            asyncio.run(update_scheduler.update_all(config))
+            await update_scheduler.update_all(config)
             return
         case Choices.SETTINGS:
             manager = get_settingsmanager_object()
@@ -195,7 +211,17 @@ def main() -> None:
             add_new_entry.main(config)
         case MiscScripts.ADD_WEBSITE:
             add_new_website.main(config)
+        case MiscScripts.ARCHIVE_FOLDER:
+            archive_folder.main(app)
+        case MiscScripts.PACK_RANDOM_FILES:
+            pack_random_files.main()
+        case MiscScripts.PROCESS_DOWNLOADS:
+            await process_downloads.main()
+        case MiscScripts.VERIFY_TAGFILES:
+            await verify_tagfiles.main(config)
+        case _:
+            print("No valid choice made. Exiting...")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

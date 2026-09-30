@@ -391,7 +391,11 @@ def image_converter(file: Path, goal_format: str, delete_source: bool, quality_s
         logging.error("OSError: '%s'", file)
 
 
+async def main() -> None:
+    worker = Worker(config)
+    await worker.run()
+
+
 if __name__ == "__main__":
     cf.init_logger(config, "error", True)
-    worker = Worker(config)
-    asyncio.run(worker.run())
+    asyncio.run(main())
