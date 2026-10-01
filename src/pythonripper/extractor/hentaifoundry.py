@@ -3,7 +3,7 @@
 import logging
 import re
 from collections.abc import AsyncGenerator
-from typing import Any, final
+from typing import Any, Literal, final
 
 import asynciolimiter
 import bs4
@@ -16,15 +16,14 @@ import pythonripper.toolbox.scraperclasses as scraper
 class HentaiFoundryRoot(scraper.TaggableScraper):
     POST_PATTERN_ALL = r"pictures/user/(?P<username>[\w\d\-_]+)/(?P<postId>\d+)/(?P<postName>[\w\d\-_\.]+)"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/pictures.*/(\d+)"
-    TAG_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/(?:(?:pictures|stories)/)?user/([^/&\?]+)"
+    TAG_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/(?:(?:pictures|stories)/)?(?:user|tagged)/([^/&\?]+)"
 
     HOMEPAGE = "https://www.hentai-foundry.com"
     URL_BASE = HOMEPAGE
-    URL_ARTIST_PROFILE = f'{URL_BASE}/user/{"{artist}"}/profile'
-    URL_ARTIST_PICTURES = f'{URL_BASE}/pictures/user/{"{artist}"}/page/{"{page}"}'
+    URL_ARTIST_PROFILE = f'{URL_BASE}/user/{"{tagname}"}/profile'
+    URL_ARTIST_PICTURES = f'{URL_BASE}/pictures/user/{"{tagname}"}/page/{"{page}"}'
     URL_TAG_PICTURES = f'{URL_BASE}/pictures/tagged/{"{tagname}"}/page/{"{page}"}'
     URL_POST = f'{URL_BASE}/pictures/{"{post_id}"}'
-    URL_TAG = f"{URL_BASE}/user/{"{tagname}"}?enterAgree=1"
 
     ME = "hentaifoundry"
     LIMIT = asynciolimiter.Limiter(100)
@@ -144,6 +143,7 @@ class HentaiFoundryRoot(scraper.TaggableScraper):
 @final
 class HentaiFoundryArtist(HentaiFoundryRoot):
     ME = "hentaifoundry-artists"
+    URL_TAG = f'https://www.hentai-foundry.com/pictures/user/{"{tagname}"}'
 
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
@@ -151,7 +151,7 @@ class HentaiFoundryArtist(HentaiFoundryRoot):
 
     async def _does_this_exist(self, tagname: str) -> bool:
         await self.LIMIT.wait()
-        res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
+        res = await self.session.get(self.URL_ARTIST_PROFILE.format(tagname=self.format_tagname(tagname)), follow_redirects=True)
         result = bool("The requested page does not exist" not in res.text)
         if not result:
             logging.error("[%s] - Username %s does not exist", self.ME.upper(), tagname)
@@ -159,7 +159,7 @@ class HentaiFoundryArtist(HentaiFoundryRoot):
 
     async def _is_banned(self, tagname: str) -> bool:
         await self.LIMIT.wait()
-        res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
+        res = await self.session.get(self.URL_ARTIST_PROFILE.format(tagname=self.format_tagname(tagname)), follow_redirects=True)
         result = bool("Sorry, this user has been banned" in res.text)
         if result:
             logging.error("[%s] - Username %s was banned", self.ME.upper(), tagname)
@@ -169,7 +169,7 @@ class HentaiFoundryArtist(HentaiFoundryRoot):
         self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
     ) -> AsyncGenerator[scraper.PostData]:
         async def max_pages(tagname: str) -> int:
-            tmp_url = self.URL_ARTIST_PICTURES.format(artist=tagname, page=1)
+            tmp_url = self.URL_ARTIST_PICTURES.format(tagname=tagname, page=1)
             await self.LIMIT.wait()
             res = await self.session.get(tmp_url, follow_redirects=True)
             if res.status_code != 200:
@@ -185,7 +185,7 @@ class HentaiFoundryArtist(HentaiFoundryRoot):
         maxpage = await max_pages(tagname)
         for page in range(1, maxpage + 1):
 
-            page_url = self.URL_ARTIST_PICTURES.format(artist=tagname, page=page)
+            page_url = self.URL_ARTIST_PICTURES.format(tagname=tagname, page=page)
             await self.LIMIT.wait()
             res = await self.session.get(page_url, follow_redirects=True)
             page_soup = bs4.BeautifulSoup(res.text, "html.parser")
@@ -205,6 +205,7 @@ class HentaiFoundryArtist(HentaiFoundryRoot):
 @final
 class HentaiFoundryTag(HentaiFoundryRoot):
     ME = "hentaifoundry-tags"
+    URL_TAG = f'https://www.hentai-foundry.com/pictures/tagged/{"{tagname}"}'
     REFERENCE: int
 
     IS_CASE_SENSITIVE = True
@@ -224,10 +225,13 @@ class HentaiFoundryTag(HentaiFoundryRoot):
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
         url = self.URL_TAG_PICTURES.format(tagname=tagname, page=1)
-        res = await self.session.get(url)
+        res = await self.session.get(url, follow_redirects=True)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
         max_posts = self._extract_max_posts(soup)
         logging.info("[%s] - Max posts %s for tag %s", self.ME.upper(), max_posts, tagname)
+
+        if max_posts is False:
+            return False
 
         # Website returns an all-pictures view if it cant find the string, thats why we compare to a known invalid string in self.REFERENCE
         result = max_posts < self.REFERENCE
@@ -235,13 +239,17 @@ class HentaiFoundryTag(HentaiFoundryRoot):
             logging.error("[%s] - Tagname %s does not exist", self.ME.upper(), tagname)
         return max_posts < self.REFERENCE
 
-    def _extract_max_posts(self, soup: bs4.BeautifulSoup) -> int:
+    def _extract_max_posts(self, soup: bs4.BeautifulSoup) -> int | Literal[False]:
+        empty_elem = soup.find("span", {"class": "empty"})
+        if empty_elem and empty_elem.contents and empty_elem.contents[0] == "No results found.":
+            return False
         summary_tag = soup.find("div", {"class": "summary"})
         if summary_tag is None:
             raise cf.ExtractorSkipError("Could not determine max posts of given tag. (no summary string found)")
         summary_str = str(summary_tag.contents[0])
-        match = re.search(r"of\s+([\d,]+)\s+results", summary_str)
+        match = re.search(r"of\s+([\d,]+)\s+results?", summary_str)
         if not match:
+            logging.info(summary_tag)
             raise cf.ExtractorSkipError("Could not determine max posts of given tag. (summary string found, but failed to parse)")
         total = int(match.group(1).replace(",", ""))
         return total

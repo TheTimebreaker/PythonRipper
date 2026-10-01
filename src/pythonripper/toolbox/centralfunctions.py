@@ -2,6 +2,7 @@
 
 import datetime
 import functools
+import itertools
 import logging
 import multiprocessing.pool
 import random
@@ -12,13 +13,71 @@ import urllib.parse
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import requests
 import wget
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from pythonripper.toolbox.config import ConfigObject, config
+
+
+def case_permutations(text: str) -> list[str]:
+    """Returns all possible Capitalization permutations of all the words in input string."""
+    words = text.split()
+    permutations = [
+        " ".join(word[0].upper() + word[1:] if upper else word[0].lower() + word[1:] for word, upper in zip(words, choices, strict=True))
+        for choices in itertools.product((True, False), repeat=len(words))
+    ]
+    permutations.extend([text.upper(), text.lower()])
+
+    return permutations
+
+
+def get_markers() -> dict[str, str]:
+    blacklist_bypass_str = config.settings.general.allow_blacklist_bypass
+    contentfilter_bypass_str = config.settings.general.allow_contentfilter_bypass
+
+    markers: dict[str, str] = {}
+    if blacklist_bypass_str:
+        markers["blacklist_bypass"] = blacklist_bypass_str
+    if contentfilter_bypass_str:
+        markers["contentfilter_bypass"] = contentfilter_bypass_str
+
+    return markers
+
+
+class BypassMarkers(TypedDict):
+    parsed: str
+    """Input string, but all found bypass markers are removed"""
+    blacklist_bypass: bool
+    contentfilter_bypass: bool
+
+
+def parse_markers(s: str) -> BypassMarkers:
+    markers = get_markers()
+    result: BypassMarkers = {
+        "parsed": s,
+        **{marker: False for marker in markers},  # type: ignore
+    }
+
+    left = 0
+    right = len(s)
+
+    while left < right:
+        # Find a marker at the current left edge
+        marker = next((m for m in markers.values() if s.startswith(m, left)), None)
+        if marker is None:
+            break
+        if not s.endswith(marker, left, right):  # The same marker must be at the current right edge
+            return result
+        marker_key = next(key for key, val in markers.items() if val == marker)
+        result[marker_key] = True  # type: ignore # Record that this marker was successfully parsed
+        left += len(marker)
+        right -= len(marker)
+
+    result["parsed"] = s[left:right]
+    return result
 
 
 def timeout(max_timeout_seconds: int) -> Callable[[Any], Any]:
