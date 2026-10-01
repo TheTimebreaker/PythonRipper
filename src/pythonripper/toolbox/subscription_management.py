@@ -219,9 +219,11 @@ class CombinedFile:
             logging.info(urls_to_format)
 
             found_some = False
-            tagnames = set((tagname,))
+            tagnames = set()
             if obj.IS_CASE_SENSITIVE is True:
                 tagnames.update(cf.case_permutations(tagname))
+            else:
+                tagnames.add(tagname.lower())
             logging.info("tagnames: %s", tagnames)
 
             for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
