@@ -67,6 +67,8 @@ class Worker:
             "gelbooru",
             "hypnohub",
             "kusowanka",
+            "pixiv-tags",
+            "hentaifoundry-tags",
             "rule34paheal",
             "rule34us",
             "rule34xxx",
@@ -80,11 +82,11 @@ class Worker:
             "artstation",
             "deviantart",
             "deviantart-favorites",
-            "hentaifoundry",
+            "hentaifoundry-artists",
             "newgrounds",
             "newgrounds-favorites",
             "patreon",
-            "pixiv",
+            "pixiv-artists",
             "tumblr",
         ]
         self.websites.extend(self.boorus)

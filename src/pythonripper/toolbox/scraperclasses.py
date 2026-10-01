@@ -117,7 +117,7 @@ class Scraper(ABC):
                         "stable diffusion",
                     }
                 # Hentaifoundry blacklisting does not actually work, because no API
-                case "hentaifoundry":
+                case "hentaifoundry" | "hentaifoundry-artists" | "hentaifoundry-tags":
                     bonus_tags = set()
                 case "hypnohub":
                     bonus_tags = {"ai art"}

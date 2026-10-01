@@ -50,7 +50,8 @@ class CombinedFile:
         "danbooru": {"object": danbooru.DanbooruAPI},
         "deviantart": {"object": deviantart.DeviantartAPI},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
-        "hentaifoundry": {"object": hentaifoundry.HentaiFoundry},
+        "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
+        "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
         "hypnohub": {"object": hypnohub.HypnohubAPI},
         "newgrounds": {"object": newgrounds.NewgroundsAPI},
         "kusowanka": {"object": kusowanka.KusowankaAPI},
@@ -477,9 +478,9 @@ class CombinedFile:
                             "hentaienvy",
                             "hentaiera",
                             "hentaiforce",
-                            "hentaifoundry",
                             "hentairead",
                             "nhentainet",
+                            "reddit",
                         ]:
                             logging.warning("[%s][%s] - Key for unsupported website.", tag, key)
         for site in self.websites:
@@ -495,6 +496,7 @@ class CombinedArtistFile(CombinedFile):
         "deviantart",
         "gelbooru",
         "hypnohub",
+        "hentaifoundry-artists",
         "kusowanka",
         "newgrounds",
         "patreon",
@@ -518,6 +520,7 @@ class CombinedBooruFile(CombinedFile):
         "animepictures",
         "danbooru",
         "gelbooru",
+        "hentaifoundry-tags",
         "hypnohub",
         "kusowanka",
         "pixiv-tags",

@@ -13,8 +13,7 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
 
 
-@final
-class HentaiFoundry(scraper.TaggableScraper):
+class HentaiFoundryRoot(scraper.TaggableScraper):
     POST_PATTERN_ALL = r"pictures/user/(?P<username>[\w\d\-_]+)/(?P<postId>\d+)/(?P<postName>[\w\d\-_\.]+)"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/pictures.*/(\d+)"
     TAG_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/(?:(?:pictures|stories)/)?user/([^/&\?]+)"
@@ -23,6 +22,7 @@ class HentaiFoundry(scraper.TaggableScraper):
     URL_BASE = HOMEPAGE
     URL_ARTIST_PROFILE = f'{URL_BASE}/user/{"{artist}"}/profile'
     URL_ARTIST_PICTURES = f'{URL_BASE}/pictures/user/{"{artist}"}/page/{"{page}"}'
+    URL_TAG_PICTURES = f'{URL_BASE}/pictures/tagged/{"{tagname}"}/page/{"{page}"}'
     URL_POST = f'{URL_BASE}/pictures/{"{post_id}"}'
     URL_TAG = f"{URL_BASE}/user/{"{tagname}"}?enterAgree=1"
 
@@ -92,26 +92,6 @@ class HentaiFoundry(scraper.TaggableScraper):
 
         return True
 
-    async def does_this_exist(self, tagname: str) -> bool:
-        tagname = self.format_tagname(tagname)
-        return await self._does_this_exist(tagname) and not await self._is_banned(tagname)
-
-    async def _does_this_exist(self, tagname: str) -> bool:
-        await self.LIMIT.wait()
-        res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
-        result = bool("The requested page does not exist" not in res.text)
-        if not result:
-            logging.error("[%s] - Username %s does not exist", self.ME.upper(), tagname)
-        return result
-
-    async def _is_banned(self, tagname: str) -> bool:
-        await self.LIMIT.wait()
-        res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
-        result = bool("Sorry, this user has been banned" in res.text)
-        if result:
-            logging.error("[%s] - Username %s was banned", self.ME.upper(), tagname)
-        return result
-
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         if json_data is None or any(key not in json_data for key in ("user", "post_id", "title")):
             if post_id is None:
@@ -147,11 +127,48 @@ class HentaiFoundry(scraper.TaggableScraper):
         logging.error("[%s] - No download link for post id %s could be found.", self.ME.upper(), post_id)
         raise cf.ExtractorExitError("No download link for post id %s could be found.", post_id)
 
+    def _max_pages(self, soup: bs4.BeautifulSoup) -> int:
+        """Takes in soup and returns, how many pages there are"""
+        found = soup.find("div", {"class": "galleryFooter"})
+        try:
+            assert found
+            found = found.find("li", {"class": "last"})
+            found = found.find("a")["href"]  # type: ignore
+            matched = re.match(r"(?:[\w\d/\-]+)/page/(\d+)", found)  # type: ignore
+            assert matched
+            return int(matched.group(1))
+        except AttributeError:  # if found is empty because theres no more pages
+            return 1
+
+
+@final
+class HentaiFoundryArtist(HentaiFoundryRoot):
+    ME = "hentaifoundry-artists"
+
+    async def does_this_exist(self, tagname: str) -> bool:
+        tagname = self.format_tagname(tagname)
+        return await self._does_this_exist(tagname) and not await self._is_banned(tagname)
+
+    async def _does_this_exist(self, tagname: str) -> bool:
+        await self.LIMIT.wait()
+        res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
+        result = bool("The requested page does not exist" not in res.text)
+        if not result:
+            logging.error("[%s] - Username %s does not exist", self.ME.upper(), tagname)
+        return result
+
+    async def _is_banned(self, tagname: str) -> bool:
+        await self.LIMIT.wait()
+        res = await self.session.get(self.URL_ARTIST_PROFILE.format(artist=self.format_tagname(tagname)), follow_redirects=True)
+        result = bool("Sorry, this user has been banned" in res.text)
+        if result:
+            logging.error("[%s] - Username %s was banned", self.ME.upper(), tagname)
+        return result
+
     async def _fetch_posts(
         self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
     ) -> AsyncGenerator[scraper.PostData]:
         async def max_pages(tagname: str) -> int:
-            """Takes in soup and returns, how many pages there are"""
             tmp_url = self.URL_ARTIST_PICTURES.format(artist=tagname, page=1)
             await self.LIMIT.wait()
             res = await self.session.get(tmp_url, follow_redirects=True)
@@ -159,16 +176,7 @@ class HentaiFoundry(scraper.TaggableScraper):
                 logging.error("[%s] - Maxpages got non-200 response. %s %s . Maybe they got removed?", self.ME.upper(), tmp_url, res.status_code)
                 raise cf.ExtractorExitError()
             soup = bs4.BeautifulSoup(res.text, "html.parser")
-            found = soup.find("div", {"class": "galleryFooter"})
-            try:
-                assert found
-                found = found.find("li", {"class": "last"})
-                found = found.find("a")["href"]  # type: ignore
-                matched = re.match(r"(?:[\w\d/\-]+)/page/(\d+)", found)  # type: ignore
-                assert matched
-                return int(matched.group(1))
-            except AttributeError:  # if found is empty because theres no more pages
-                return 1
+            return self._max_pages(soup)
 
         if update_ids is None:
             update_ids = []
@@ -178,6 +186,86 @@ class HentaiFoundry(scraper.TaggableScraper):
         for page in range(1, maxpage + 1):
 
             page_url = self.URL_ARTIST_PICTURES.format(artist=tagname, page=page)
+            await self.LIMIT.wait()
+            res = await self.session.get(page_url, follow_redirects=True)
+            page_soup = bs4.BeautifulSoup(res.text, "html.parser")
+            gallery_view_table = page_soup.find("div", {"class": "galleryViewTable"})
+            images = gallery_view_table.find_all("div", {"class": "thumb_square"})  # type: ignore
+
+            for image in images:
+                post_link_sub = str(image.find("a", {"class": "thumbLink"})["href"])  # type: ignore
+                matched = re.search(self.POST_PATTERN_ALL, post_link_sub)
+                assert matched
+                post_user, post_id, post_name = matched.groups()
+                if str(post_id) in update_ids:
+                    return
+                yield await self._get_post_data(json_data={"user": post_user, "post_id": post_id, "title": post_name})
+
+
+@final
+class HentaiFoundryTag(HentaiFoundryRoot):
+    ME = "hentaifoundry-tags"
+    REFERENCE: int
+
+    IS_CASE_SENSITIVE = True
+
+    async def init(self) -> bool:
+        super_result = await super().init()
+        self.REFERENCE = await self._create_reference()
+        return super_result
+
+    async def _create_reference(self) -> int:
+        url = self.URL_TAG_PICTURES.format(tagname=cf.id_generator(32), page=1)
+        result = await self.session.get(url)
+        soup = bs4.BeautifulSoup(result.text, "html.parser")
+        max_posts = self._extract_max_posts(soup)
+        return max_posts
+
+    async def does_this_exist(self, tagname: str) -> bool:
+        tagname = self.format_tagname(tagname)
+        url = self.URL_TAG_PICTURES.format(tagname=tagname, page=1)
+        res = await self.session.get(url)
+        soup = bs4.BeautifulSoup(res.text, "html.parser")
+        max_posts = self._extract_max_posts(soup)
+        logging.info("[%s] - Max posts %s for tag %s", self.ME.upper(), max_posts, tagname)
+
+        # Website returns an all-pictures view if it cant find the string, thats why we compare to a known invalid string in self.REFERENCE
+        result = max_posts < self.REFERENCE
+        if not result:
+            logging.error("[%s] - Tagname %s does not exist", self.ME.upper(), tagname)
+        return max_posts < self.REFERENCE
+
+    def _extract_max_posts(self, soup: bs4.BeautifulSoup) -> int:
+        summary_tag = soup.find("div", {"class": "summary"})
+        if summary_tag is None:
+            raise cf.ExtractorSkipError("Could not determine max posts of given tag. (no summary string found)")
+        summary_str = str(summary_tag.contents[0])
+        match = re.search(r"of\s+([\d,]+)\s+results", summary_str)
+        if not match:
+            raise cf.ExtractorSkipError("Could not determine max posts of given tag. (summary string found, but failed to parse)")
+        total = int(match.group(1).replace(",", ""))
+        return total
+
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
+        async def max_pages(tagname: str) -> int:
+            tmp_url = self.URL_TAG_PICTURES.format(tagname=tagname, page=1)
+            await self.LIMIT.wait()
+            res = await self.session.get(tmp_url, follow_redirects=True)
+            if res.status_code != 200:
+                logging.error("[%s] - Maxpages got non-200 response. %s %s . Maybe they got removed?", self.ME.upper(), tmp_url, res.status_code)
+                raise cf.ExtractorExitError()
+            soup = bs4.BeautifulSoup(res.text, "html.parser")
+            return self._max_pages(soup)
+
+        if update_ids is None:
+            update_ids = []
+
+        tagname = self.format_tagname(tagname)
+        maxpage = await max_pages(tagname)
+        for page in range(1, maxpage + 1):
+            page_url = self.URL_TAG_PICTURES.format(tagname=tagname, page=page)
             await self.LIMIT.wait()
             res = await self.session.get(page_url, follow_redirects=True)
             page_soup = bs4.BeautifulSoup(res.text, "html.parser")
