@@ -117,7 +117,7 @@ class Scraper(ABC):
                         "stable diffusion",
                     }
                 # Hentaifoundry blacklisting does not actually work, because no API
-                case "hentaifoundry":
+                case "hentaifoundry" | "hentaifoundry-artists" | "hentaifoundry-tags":
                     bonus_tags = set()
                 case "hypnohub":
                     bonus_tags = {"ai art"}
@@ -670,25 +670,11 @@ async def update_stuff(
 
     # Download
     full_success = True
-    blacklist_bypass_str = config.settings.general.allow_blacklist_bypass
-    contenfilter_bypass_str = config.settings.general.allow_contentfilter_bypass
     for i, tag in enumerate(tag_list):
-        ignore_blacklist = False
-        ignore_contentfilters = True
-
-        # hacky workaround to allow both bypasses. should eventually be a better solution
-        if blacklist_bypass_str and tag.startswith(blacklist_bypass_str) and tag.endswith(blacklist_bypass_str):
-            leng = len(blacklist_bypass_str)
-            tag = tag[leng:-leng]
-            ignore_blacklist = True
-        if contenfilter_bypass_str and tag.startswith(contenfilter_bypass_str) and tag.endswith(contenfilter_bypass_str):
-            leng = len(contenfilter_bypass_str)
-            tag = tag[leng:-leng]
-            ignore_contentfilters = True
-        if contenfilter_bypass_str and tag.startswith(contenfilter_bypass_str) and tag.endswith(contenfilter_bypass_str):
-            leng = len(contenfilter_bypass_str)
-            tag = tag[leng:-leng]
-            ignore_blacklist = True
+        bypass_markers = cf.parse_markers(tag)
+        tag = bypass_markers["parsed"]
+        ignore_blacklist = bypass_markers["blacklist_bypass"]
+        ignore_contentfilters = bypass_markers["contentfilter_bypass"]
 
         this_path = config.paths.downloads() / obj.ME / f.verify_filename(tag)
         print(f"{i+1}/{len(tag_list)} - {tag} - {obj.ME}")

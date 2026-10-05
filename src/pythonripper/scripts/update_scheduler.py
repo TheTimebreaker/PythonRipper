@@ -113,6 +113,7 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
         scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4))
     if config.settings.extractor.hentaifoundry.enabled:
         scheduler.append((pythonripper.updater.update_hentaifoundry.update_hentaifoundry_artists, 28))
+        scheduler.append((pythonripper.updater.update_hentaifoundry.update_hentaifoundry_tags, 28))
     if config.settings.extractor.hypnohub.enabled:
         scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_artists, 28))
         scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_tags, 14))

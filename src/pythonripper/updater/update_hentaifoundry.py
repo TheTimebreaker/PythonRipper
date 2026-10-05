@@ -7,11 +7,16 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_hentaifoundry_artists(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, hentaifoundry.HentaiFoundry, "artists")
+    return await scraper.update_stuff(config, hentaifoundry.HentaiFoundryArtist, "artists")
+
+
+async def update_hentaifoundry_tags(config: ConfigObject) -> bool:
+    return await scraper.update_stuff(config, hentaifoundry.HentaiFoundryTag, "tags")
 
 
 async def main(config: ConfigObject) -> None:
     await update_hentaifoundry_artists(config)
+    await update_hentaifoundry_tags(config)
 
 
 if __name__ == "__main__":

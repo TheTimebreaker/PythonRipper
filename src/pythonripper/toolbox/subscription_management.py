@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import json
 import logging
 import re
@@ -50,7 +51,8 @@ class CombinedFile:
         "danbooru": {"object": danbooru.DanbooruAPI},
         "deviantart": {"object": deviantart.DeviantartAPI},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
-        "hentaifoundry": {"object": hentaifoundry.HentaiFoundry},
+        "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
+        "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
         "hypnohub": {"object": hypnohub.HypnohubAPI},
         "newgrounds": {"object": newgrounds.NewgroundsAPI},
         "kusowanka": {"object": kusowanka.KusowankaAPI},
@@ -214,11 +216,19 @@ class CombinedFile:
                 urls_to_format = [obj.URL_TAG]
             else:
                 urls_to_format = [*obj.URL_TAG]
+            logging.info(urls_to_format)
 
             found_some = False
-            for url_to_format in urls_to_format:
-                this_url = url_to_format.format(tagname=obj.format_tagname(tagname))
-                this_tagname = tagname
+            tagnames = set()
+            if obj.IS_CASE_SENSITIVE is True:
+                tagnames.update(cf.case_permutations(tagname))
+            else:
+                tagnames.add(tagname.lower())
+            logging.info("tagnames: %s", tagnames)
+
+            for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
+                this_url = url_to_format.format(tagname=obj.format_tagname(local_tagname))
+                this_tagname = local_tagname
 
                 try:
                     x = await obj.does_this_exist(this_tagname)
@@ -235,6 +245,8 @@ class CombinedFile:
                     result.add(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
                 if dont_add_homepage is False:
                     result.add(obj.HOMEPAGE)
+
+        tagname = cf.parse_markers(tagname)["parsed"]
 
         result: set[str] = set()
         tasks: list[asyncio.Task[None]] = []
@@ -341,6 +353,7 @@ class CombinedFile:
                 await self.process_urls(artist, [], choice)
                 continue
 
+            logging.info("url_list: %s", url_list)
             await asyncio.to_thread(self._add_open_urls_in_new_tabs, driver, url_list, fallback_handle)
             await asyncio.to_thread(input, f"#{i} / {processing_length} - {artist} - Press ENTER to confirm...")
             confirmed_urls = await asyncio.to_thread(self._add_get_confirmed_urls, driver, fallback_handle)
@@ -364,7 +377,7 @@ class CombinedFile:
             ],
             fallback_handle,
         )
-        self._add_userconfirm_console("CONTINUE WHEN EVERYTHING LOADS")
+        input("\nReview tabs that have opened.\n If all opened successfully, press Enter to continue...")  # noqa: ASYNC250
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         self_data_len = len(self.data)
@@ -402,7 +415,7 @@ class CombinedFile:
         fallback_handle = self._add_ensure_fallback_tab(driver)
         homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites]
         self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
-        self._add_userconfirm_console("CONTINUE WHEN EVERYTHING LOADS")
+        input("\nReview tabs that have opened.\n If all opened successfully, press Enter to continue...")  # noqa: ASYNC250
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         while True:
@@ -477,9 +490,9 @@ class CombinedFile:
                             "hentaienvy",
                             "hentaiera",
                             "hentaiforce",
-                            "hentaifoundry",
                             "hentairead",
                             "nhentainet",
+                            "reddit",
                         ]:
                             logging.warning("[%s][%s] - Key for unsupported website.", tag, key)
         for site in self.websites:
@@ -495,6 +508,7 @@ class CombinedArtistFile(CombinedFile):
         "deviantart",
         "gelbooru",
         "hypnohub",
+        "hentaifoundry-artists",
         "kusowanka",
         "newgrounds",
         "patreon",
@@ -518,6 +532,7 @@ class CombinedBooruFile(CombinedFile):
         "animepictures",
         "danbooru",
         "gelbooru",
+        "hentaifoundry-tags",
         "hypnohub",
         "kusowanka",
         "pixiv-tags",

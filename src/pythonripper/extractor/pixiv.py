@@ -291,6 +291,8 @@ class PixivTagAPI(PixivRoot):
     URL_TAG = "https://www.pixiv.net/en/tags/{tagname}/artworks"
     TAG_PATTERN = r"(?:https?://)?(?:www\.)?pixiv\.net/(?:en/)?tags/([^/?=]+)(?:/artworks)?"
 
+    IS_CASE_SENSITIVE = True
+
     ME = "pixiv-tags"
 
     async def does_this_exist(self, tagname: str) -> bool:
