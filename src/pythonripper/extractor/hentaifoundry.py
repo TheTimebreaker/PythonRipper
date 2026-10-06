@@ -17,6 +17,7 @@ class HentaiFoundryRoot(scraper.DownloadhistoryScraper):
     POST_PATTERN_ALL = r"pictures/user/(?P<username>[\w\d\-_]+)/(?P<postId>\d+)/(?P<postName>[\w\d\-_\.]+)"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/pictures.*/(\d+)"
     TAG_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/(?:(?:pictures|stories)/)?(?:user|tagged)/([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN: ...  # TODO(TheTimebreaker): add once settled
 
     HOMEPAGE = "https://www.hentai-foundry.com"
     URL_BASE = HOMEPAGE

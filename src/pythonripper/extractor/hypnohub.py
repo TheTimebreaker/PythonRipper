@@ -25,6 +25,7 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?hypnohub\.net.*id=(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?hypnohub\.net/index\.php\?(?:.+)?tags=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"hypnohub_(\d+)_"
 
     ME = "hypnohub"
     WEBSITE_NAME = ME

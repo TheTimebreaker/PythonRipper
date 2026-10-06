@@ -22,6 +22,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?danbooru\.donmai\.us/posts/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?danbooru\.donmai\.us/posts\?(?:.+)?tags=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"danbooru_(\d+)_"
 
     ME = "danbooru"
     WEBSITE_NAME = ME

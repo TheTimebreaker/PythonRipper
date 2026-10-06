@@ -20,6 +20,7 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?rule34\.paheal\.net/post/view/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?rule34\.paheal\.net/post/list/([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"rule34paheal_(\d+)_"
 
     ME = "rule34paheal"
     WEBSITE_NAME = ME

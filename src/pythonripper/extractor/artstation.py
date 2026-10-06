@@ -20,6 +20,7 @@ class ArtstationAPI(scraper.TaggableScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?artstation\.com/(?:artwork|projects)/([\w\d]+)"
     TAG_PATTERN = r"https://(?:www\.)?artstation\.com/(?:users/)?([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"artstation_[a-zA-Z\d\- ]+_([^_]+)"
 
     HOMEPAGE = "https://artstation.com/"
     API_URL_ARTIST = "https://www.artstation.com/users/{artist}/projects.json"

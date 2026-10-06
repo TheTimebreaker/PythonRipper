@@ -21,6 +21,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?rule34\.us.*id=(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?rule34\.us/index\.php\?(?:.+)?q=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"rule34us_(\d+)_"
 
     ME = "rule34us"
     WEBSITE_NAME = ME

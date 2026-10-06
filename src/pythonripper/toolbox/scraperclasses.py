@@ -54,6 +54,7 @@ class PostElementSavelink(PostElement):
 class Scraper(ABC):
     HOMEPAGE: str
     POST_PATTERN: str
+    FILENAME_TO_ID_PATTERN: str
 
     WEBSITE_NAME: str
     ME: str

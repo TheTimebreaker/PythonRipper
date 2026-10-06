@@ -24,6 +24,7 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?gelbooru\.com.*id=(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?gelbooru\.com/index\.php\?(?:.+)?tags=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"gelbooru_(\d+)_"
 
     ME = "gelbooru"
     WEBSITE_NAME = ME

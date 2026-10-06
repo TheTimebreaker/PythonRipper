@@ -21,6 +21,7 @@ class YandereAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?yande\.re/post/show/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?yande\.re(?:.+)tags=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"yandere_(\d+)_"
 
     ME = "yandere"
     WEBSITE_NAME = ME

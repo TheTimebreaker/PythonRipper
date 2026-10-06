@@ -64,6 +64,7 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?kusowanka\.com/post/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?kusowanka\.com/((?:artist|character|metadata|parody|tag)/[^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"kusowanka_(\d+)"
 
     ME = "kusowanka"
     WEBSITE_NAME = ME
