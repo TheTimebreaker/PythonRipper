@@ -110,7 +110,6 @@ class HentaiFoundryRoot(scraper.TaggableScraper):
     async def _get_post_data(
         self, post_id: str | None = None, json_data: dict[str, Any] | None = None, source_overwrite: str | None = None
     ) -> scraper.PostData:
-
         if json_data is None or any(key not in json_data for key in ("user", "post_id", "title")):
             if post_id is None:
                 raise ValueError("No post id or valid json_data given (one is necessary).")
