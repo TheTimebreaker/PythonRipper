@@ -4,7 +4,6 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast, final, overload
 
