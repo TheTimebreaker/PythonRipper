@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
-import pythonripper.toolbox.scraperclasses as scrap
+import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper import __icon__
 from pythonripper.extractor.artstation import ArtstationAPI
 from pythonripper.extractor.danbooru import DanbooruAPI
@@ -31,12 +31,12 @@ from pythonripper.toolbox.config import AppSettings, config, get_settingsmanager
 
 
 class WorkerResult(TypedDict):
-    issuer: scrap.Scraper
+    issuer: scraper.Scraper
     path: Path
-    data: scrap.PostData
+    data: scraper.PostData
 
 
-async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scrap.Scraper], files: list[Path]) -> None:
+async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scraper.Scraper], files: list[Path]) -> None:
     try:
         obj_active = obj(config)
         await obj_active.init()
@@ -85,22 +85,22 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
 
     # ignored services:
     # all artist websites: usually no tagging, also you specifically chose this artist
-    # Newgrounds: no good identifier
+    # Deviantart
+    # Hentaifoundry
+    # Newgrounds
+    # TumblrAPI
     # Patreon: no tagging whatsoever. also, you likely paid for this, so take the files
-    objects_by_module: dict[str, type[scrap.Scraper]] = {
+    objects_by_module: dict[str, type[scraper.Scraper]] = {
         # "artstation": ArtstationAPI,
-        "danbooru": DanbooruAPI,
-        # "deviantart": DeviantartAPI,  # no tags
+        # "danbooru": DanbooruAPI,
         # "gelbooru": GelbooruAPI,
-        # "hentaifoundry": HentaiFoundryArtist,  # no tags
         # "hypnohub": HypnohubAPI,
         # "kusowanka": KusowankaAPI,
         # "pixiv": PixivArtistAPI,
         # "rule34paheal": Rule34pahealAPI,
         # "rule34us": Rule34usAPI,
         # "rule34xxx": Rule34xxxAPI,
-        # "tumblr": TumblrAPI,  # no tags
-        # "yandere": YandereAPI,
+        "yandere": YandereAPI,
     }
     files_by_module: dict[str, list[Path]] = {service: [] for service in objects_by_module}
     for file in all_files:
@@ -127,7 +127,6 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
             print(f"Blacklisted!: {filepath}")
 
         elif not issuer.is_content_rating_allowed(data):
-            print(result)
             print(f"Content rating disallowed!: {filepath}")
 
     await asyncio.gather(*workers, return_exceptions=True)

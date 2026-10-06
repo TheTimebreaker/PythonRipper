@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any, final
+from typing import Any, Literal, final
 
 import asynciolimiter
 import httpx
@@ -44,6 +44,10 @@ class YandereAPI(scraper.DownloadhistoryScraper):
         res = await self.session.get(self.API_URL, params=params)
         return bool(res.json())
 
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.yandere.allowed_ratings
+        return data["rating"] in allowed_ratings
+
     def create_ratings_searchtag(self, formatted_tagname: str) -> str:
         cfg = self.config.settings.extractor.yandere.allowed_ratings
         len_cfg = len(cfg)
@@ -84,6 +88,22 @@ class YandereAPI(scraper.DownloadhistoryScraper):
             msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
             logging.error(msg)
             raise cf.ExtractorSkipError(msg) from AttributeError
+
+        rating_field: str | Literal[False] = json_data.get("rating", False)
+        if not rating_field:
+            logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError("No rating field found") from KeyError
+        #fmt:off
+        rating:str|Literal[False] = (
+            YandereRatings.SAFE if rating_field == "s" else
+            YandereRatings.QUESTIONABLE if rating_field == "q" else
+            YandereRatings.EXPLICIT if rating_field == "e" else False
+        )
+        #fmt:on
+        if not rating:
+            logging.error("[%s] - Rating could not be extracted from json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError from KeyError
+
         return scraper.PostData(
             identifier=json_data["id"],
             filehash=json_data["md5"],
@@ -91,6 +111,7 @@ class YandereAPI(scraper.DownloadhistoryScraper):
             tags=scraper.TagsData(
                 tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
             ),
+            rating=rating,
         )
 
     async def _fetch_posts(

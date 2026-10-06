@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any, final
+from typing import Any, Literal, final
 
 import asynciolimiter
 import httpx
@@ -58,6 +58,10 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
         res = await self.session.get(self.API_URL, params=params)
         return bool(res.text)
 
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.hypnohub.allowed_ratings
+        return data["rating"] in allowed_ratings
+
     def create_ratings_searchtag(self, formatted_tagname: str) -> str:
         cfg = self.config.settings.extractor.hypnohub.allowed_ratings
         len_cfg = len(cfg)
@@ -97,6 +101,21 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
             tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
         )
 
+        rating_field: str | Literal[False] = json_data.get("rating", False)
+        if not rating_field:
+            logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError("No rating field found") from KeyError
+        #fmt:off
+        rating:str|Literal[False] = (
+            HypnohubRatings.SAFE if rating_field == "safe" else
+            HypnohubRatings.QUESTIONABLE if rating_field == "questionable" else
+            HypnohubRatings.EXPLICIT if rating_field == "explicit" else False
+        )
+        #fmt:on
+        if not rating:
+            logging.error("[%s] - Rating could not be extracted from json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError from KeyError
+
         download_url = json_data["file_url"]
         extension = f.match_extension(download_url)
         if not extension:
@@ -109,6 +128,7 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
             filehash=str(json_data["hash"]),
             elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
             tags=tags,
+            rating=rating,
         )
 
     async def _fetch_posts(

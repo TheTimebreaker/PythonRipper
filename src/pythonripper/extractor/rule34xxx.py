@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator, Mapping
-from typing import Any, final
+from typing import Any, Literal, final
 
 import aiofiles
 import asynciolimiter
@@ -89,6 +89,10 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
         res = await self.request(self.API_URL, params=params)
         return bool(res.text)
 
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.rule34xxx.allowed_ratings
+        return data["rating"] in allowed_ratings
+
     def create_ratings_searchtag(self, formatted_tagname: str) -> str:
         cfg = self.config.settings.extractor.rule34xxx.allowed_ratings
         len_cfg = len(cfg)
@@ -122,6 +126,21 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             res = await self.request(self.API_URL, params=params)
             json_data = res.json()[0]
 
+        rating_field: str | Literal[False] = json_data.get("rating", False)
+        if not rating_field:
+            logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError("No rating field found") from KeyError
+        #fmt:off
+        rating:str|Literal[False] = (
+            Rule34xxxRatings.SAFE if rating_field == "safe" else
+            Rule34xxxRatings.QUESTIONABLE if rating_field == "questionable" else
+            Rule34xxxRatings.EXPLICIT if rating_field == "explicit" else False
+        )
+        #fmt:on
+        if not rating:
+            logging.error("[%s] - Rating could not be extracted from json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError from KeyError
+
         download_url = json_data["file_url"]
         assert isinstance(download_url, str)
         extension = f.match_extension(download_url)
@@ -129,6 +148,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
             logging.error(msg)
             raise cf.ExtractorSkipError(msg) from AttributeError
+
         return scraper.PostData(
             identifier=json_data["id"],
             filehash=json_data["hash"],
@@ -136,6 +156,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             tags=scraper.TagsData(
                 tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
             ),
+            rating=rating,
         )
 
     async def _fetch_posts(
