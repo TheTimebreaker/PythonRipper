@@ -91,9 +91,26 @@ class HentaiFoundryRoot(scraper.TaggableScraper):
 
         return True
 
+    def _get_hf_url_first_character(self, username: str) -> list[str]:
+        username_first_character = username[0].lower()
+        if username_first_character in ("-",):  # some characters are disallowed as first_character in these direct urls
+            username_first_character = "_"
+
+        # the direct URL uses the username first character in it
+        # however, if the first character is a number, it seems to just put a "0" there
+        # thats why this code blob is weird
+        try:
+            int(username_first_character)
+            lc_characters = ["0", username_first_character]  # also: we can fall back to the actual first character, if the 0 method does not work
+        except ValueError:
+            lc_characters = [username_first_character]
+
+        return lc_characters
+
     async def _get_post_data(
         self, post_id: str | None = None, json_data: dict[str, Any] | None = None, source_overwrite: str | None = None
     ) -> scraper.PostData:
+
         if json_data is None or any(key not in json_data for key in ("user", "post_id", "title")):
             if post_id is None:
                 raise ValueError("No post id or valid json_data given (one is necessary).")
@@ -108,16 +125,7 @@ class HentaiFoundryRoot(scraper.TaggableScraper):
             post_id = str(json_data["post_id"])
             post_title = str(json_data["title"])
 
-        # the direct URL uses the username first character in it
-        # however, if the first character is a number, it seems to just put a "0" there
-        # thats why this code blob is weird
-        username_first_character = username[0].lower()
-        try:
-            int(username_first_character)
-            lc_characters = ["0", username_first_character]  # also: we can fall back to the actual first character, if the 0 method does not work
-        except ValueError:
-            lc_characters = [username_first_character]
-
+        lc_characters = self._get_hf_url_first_character(username)
         for lc_character in lc_characters:
             for extension in ("jpg", "png", "gif", "webp", "swf"):
                 direct_url = f"https://pictures.hentai-foundry.com/{lc_character}/{username}/{post_id}/{username}-{post_id}-{post_title}.{extension}"
