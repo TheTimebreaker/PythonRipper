@@ -1,11 +1,13 @@
 import asyncio
 import logging
 import re
+import shutil
 import traceback
 from pathlib import Path
-from tempfile import NamedTemporaryFile, mkstemp
-from typing import Coroutine, Literal, TypedDict
+from tempfile import NamedTemporaryFile
+from typing import Literal, TypedDict
 
+import send2trash
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
@@ -17,17 +19,14 @@ from pythonripper.extractor.artstation import ArtstationAPI
 from pythonripper.extractor.danbooru import DanbooruAPI
 from pythonripper.extractor.deviantart import DeviantartAPI
 from pythonripper.extractor.gelbooru import GelbooruAPI
-from pythonripper.extractor.hentaifoundry import HentaiFoundryArtist
 from pythonripper.extractor.hypnohub import HypnohubAPI
 from pythonripper.extractor.kusowanka import KusowankaAPI
-from pythonripper.extractor.newgrounds import NewgroundsAPI
 from pythonripper.extractor.pixiv import PixivArtistAPI
 from pythonripper.extractor.rule34paheal import Rule34pahealAPI
 from pythonripper.extractor.rule34us import Rule34usAPI
 from pythonripper.extractor.rule34xxx import Rule34xxxAPI
-from pythonripper.extractor.tumblr import TumblrAPI
 from pythonripper.extractor.yandere import YandereAPI
-from pythonripper.toolbox.config import AppSettings, config, get_settingsmanager_object
+from pythonripper.toolbox.config import AppSettings, ConfigObject, config, get_settingsmanager_object
 
 
 class WorkerResult(TypedDict):
@@ -36,7 +35,7 @@ class WorkerResult(TypedDict):
     data: scraper.PostData
 
 
-async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scraper.Scraper], files: list[Path]) -> None:
+async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scraper.Scraper], config: ConfigObject, files: list[Path]) -> None:
     try:
         obj_active = obj(config)
         await obj_active.init()
@@ -77,6 +76,16 @@ async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scraper.S
         await queue.put(None)
 
 
+def __process_file(file: Path, delete_files: bool) -> None:
+    if delete_files:
+        send2trash.send2trash(file)
+    else:
+        target_dir = file.parent / "removed"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / file.name
+        shutil.move(file, target)
+
+
 async def _verify(directory: Path, settings: AppSettings, delete_files: bool) -> None:
     # Create file list
     print("Loading file list... ", end="")
@@ -85,21 +94,21 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
 
     # ignored services:
     # all artist websites: usually no tagging, also you specifically chose this artist
-    # Deviantart
-    # Hentaifoundry
-    # Newgrounds
-    # TumblrAPI
+    # Newgrounds: no good ID retrival
+    # Hentaifoundry: no tags retrieved
+    # TumblrAPI: no tags
     # Patreon: no tagging whatsoever. also, you likely paid for this, so take the files
     objects_by_module: dict[str, type[scraper.Scraper]] = {
-        # "artstation": ArtstationAPI,
-        # "danbooru": DanbooruAPI,
-        # "gelbooru": GelbooruAPI,
-        # "hypnohub": HypnohubAPI,
-        # "kusowanka": KusowankaAPI,
-        # "pixiv": PixivArtistAPI,
-        # "rule34paheal": Rule34pahealAPI,
-        # "rule34us": Rule34usAPI,
-        # "rule34xxx": Rule34xxxAPI,
+        "artstation": ArtstationAPI,
+        "danbooru": DanbooruAPI,
+        "deviantart": DeviantartAPI,
+        "gelbooru": GelbooruAPI,
+        "hypnohub": HypnohubAPI,
+        "kusowanka": KusowankaAPI,
+        "pixiv": PixivArtistAPI,
+        "rule34paheal": Rule34pahealAPI,
+        "rule34us": Rule34usAPI,
+        "rule34xxx": Rule34xxxAPI,
         "yandere": YandereAPI,
     }
     files_by_module: dict[str, list[Path]] = {service: [] for service in objects_by_module}
@@ -110,7 +119,9 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
                 break
 
     queue: asyncio.Queue[WorkerResult | None] = asyncio.Queue()
-    workers = [asyncio.create_task(_worker(queue, obj, files_by_module[module])) for module, obj in objects_by_module.items()]
+    config = ConfigObject()
+    config.settings = settings
+    workers = [asyncio.create_task(_worker(queue, obj, config, files_by_module[module])) for module, obj in objects_by_module.items()]
     finished: int = 0
 
     while finished < len(workers):
@@ -125,9 +136,14 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
 
         if issuer.blacklist_tag_found(data):
             print(f"Blacklisted!: {filepath}")
+            __process_file(filepath, delete_files=delete_files)
 
         elif not issuer.is_content_rating_allowed(data):
             print(f"Content rating disallowed!: {filepath}")
+            __process_file(filepath, delete_files=delete_files)
+
+        else:
+            print(f"All good: {filepath}")
 
     await asyncio.gather(*workers, return_exceptions=True)
 
@@ -185,14 +201,14 @@ def main() -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    # app = QApplication.instance() or QApplication([])
-    # if not isinstance(app, QApplication):
-    #     raise
+    app = QApplication.instance() or QApplication([])
+    if not isinstance(app, QApplication):
+        raise
 
-    # if __icon__ and __icon__.is_file():
-    #     app.setWindowIcon(QIcon(str(__icon__)))
+    if __icon__ and __icon__.is_file():
+        app.setWindowIcon(QIcon(str(__icon__)))
 
-    # main()
+    main()
 
-    p = Path(r"D:\AppData\TheTimebreaker\PythonRipper\files\archive\booru\sybian - Copy")
+    p = Path(r"D:\AppData\TheTimebreaker\PythonRipper\files\archive\booru\rope bondage")
     asyncio.run(_verify(p, config.settings.model_copy(deep=True), False))
