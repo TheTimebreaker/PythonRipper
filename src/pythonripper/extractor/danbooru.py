@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncGenerator, Mapping
-from typing import Any, final
+from typing import Any, Literal, final
 
 import asynciolimiter
 import httpx
@@ -42,6 +42,10 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
         params: dict[str, str | int] = {"tags": self.format_tagname(tag_name)}
         res = await self.request(self.API_TAG_URL, params=params)
         return bool(res.json())
+
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.danbooru.allowed_ratings
+        return data["rating"] in allowed_ratings
 
     def create_ratings_searchtag(self, formatted_tagname: str) -> str:
         cfg = self.config.settings.extractor.danbooru.allowed_ratings
@@ -116,11 +120,28 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
             metatags=[self.invert_formatting(tag) for tag in str(json_data["tag_string_meta"]).split(" ")],
         )
 
+        rating_field: str | Literal[False] = json_data.get("rating", False)
+        if not rating_field:
+            logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError("No rating field found") from KeyError
+        #fmt:off
+        rating:str|Literal[False] = (
+            DanbooruRatings.GENERAL if rating_field == "g" else
+            DanbooruRatings.SENSITIVE if rating_field == "s" else
+            DanbooruRatings.QUESTIONABLE if rating_field == "q" else
+            DanbooruRatings.EXPLICIT if rating_field == "e" else False
+        )
+        #fmt:on
+        if not rating:
+            logging.error("[%s] - Rating could not be extracted from json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError from KeyError
+
         return scraper.PostData(
             identifier=post_id,
             filehash=str(json_data["md5"]),
             elements=scraper.PostElementLinks(download_url=json_data["file_url"], extension=json_data["file_ext"]),
             tags=tags,
+            rating=rating,
         )
 
     async def _fetch_posts(
