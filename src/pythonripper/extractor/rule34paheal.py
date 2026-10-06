@@ -59,20 +59,21 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
         res = await self.session.get(url)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
 
-        tags_soup = soup.find("table", {"class": "tag_list"}).find("tbody").find_all("a", {"class": "tag_name"})  # type: ignore
+        tags_soup_tmp1 = soup.find("table", {"class": "tag_list"})
+        tags_soup = tags_soup_tmp1.find_all("a", {"class": "tag"})  # type: ignore
         tags = []
         for tag in tags_soup:
             if tag["href"]:
                 tags.append(str(tag.contents[0]).lower())
 
         try:
-            download_soup = soup.find("section", {"id": "Imagemain"}).find("img", {"id": "main_image"})  # type: ignore
+            download_soup = soup.find("section", {"id": "handle_image_media"}).find("img", {"id": "main_image"})  # type: ignore
             download_url = str(download_soup["src"])  # type: ignore
             extension = str(download_soup["data-mime"]).replace("image/", "")  # type: ignore
 
         # NoneType => video
         except AttributeError:
-            download_soup = soup.find("section", {"id": "Videomain"}).find("video", {"id": "main_image"}).find("source")  # type: ignore
+            download_soup = soup.find("section", {"id": "handle_video_media"}).find("video", {"id": "main_image"}).find("source")  # type: ignore
             download_url = str(download_soup["src"])  # type: ignore
             extension = str(download_soup["type"]).replace("video/", "")  # type: ignore
 
