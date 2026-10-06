@@ -108,30 +108,39 @@ class HentaiFoundryRoot(scraper.TaggableScraper):
             post_id = str(json_data["post_id"])
             post_title = str(json_data["title"])
 
-        for extension in ("jpg", "png", "gif", "webp"):
-            direct_url = (
-                f"https://pictures.hentai-foundry.com/{username[0].lower()}/{username}/{post_id}/{username}-{post_id}-{post_title}.{extension}"
-            )
+        # the direct URL uses the username first character in it
+        # however, if the first character is a number, it seems to just put a "0" there
+        # thats why this code blob is weird
+        username_first_character = username[0].lower()
+        try:
+            int(username_first_character)
+            lc_characters = ["0", username_first_character]  # also: we can fall back to the actual first character, if the 0 method does not work
+        except ValueError:
+            lc_characters = [username_first_character]
 
-            await self.LIMIT.wait()
-            res = await self.session.head(direct_url, headers=self.headers, follow_redirects=True)
+        for lc_character in lc_characters:
+            for extension in ("jpg", "png", "gif", "webp"):
+                direct_url = f"https://pictures.hentai-foundry.com/{lc_character}/{username}/{post_id}/{username}-{post_id}-{post_title}.{extension}"
 
-            if source_overwrite:
-                source = source_overwrite
-            else:
-                source = username
+                await self.LIMIT.wait()
+                res = await self.session.head(direct_url, headers=self.headers, follow_redirects=True)
 
-            if res.status_code == 200:
-                download_url = direct_url
-                return scraper.PostData(
-                    identifier=post_id,
-                    source=source,
-                    title=post_title,
-                    elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
-                )
+                if source_overwrite:
+                    source = source_overwrite
+                else:
+                    source = username
+
+                if res.status_code == 200:
+                    download_url = direct_url
+                    return scraper.PostData(
+                        identifier=post_id,
+                        source=source,
+                        title=post_title,
+                        elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+                    )
 
         logging.error("[%s] - No download link for post id %s could be found.", self.ME.upper(), post_id)
-        raise cf.ExtractorExitError("No download link for post id %s could be found.", post_id)
+        raise cf.ExtractorSkipError("No download link for post id %s could be found.", post_id)
 
     def _max_pages(self, soup: bs4.BeautifulSoup) -> int:
         """Takes in soup and returns, how many pages there are"""
