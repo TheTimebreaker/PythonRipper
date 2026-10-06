@@ -49,6 +49,15 @@ class ArtstationAPI(scraper.TaggableScraper):
         res = await self.session.get(api_url)
         return res.status_code == 200
 
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        setting = self.config.settings.extractor.artstation.allow_mature_images
+        print(setting, data["rating"])
+        if setting is True:
+            return True
+        elif data["rating"] == "general":
+            return True
+        return False
+
     async def _get_post_data(self, post_id: str | None = None, _json_data: dict[Any, Any] | None = None) -> scraper.PostData:
         def _get_tags(data: dict[str, Any]) -> list[str]:
             def __process_element(element: dict[str, str | int]) -> None:
@@ -94,12 +103,15 @@ class ArtstationAPI(scraper.TaggableScraper):
             elements.append(scraper.PostElementLinks(download_url=url, extension=extension))
         post_hash = data["id"]
 
+        is_mature = data.get("hide_as_adult", False)
+
         return scraper.PostData(
             identifier=post_id,
             filehash=post_hash,
             elements=elements,
             source=artist,
             tags=scraper.TagsData(tags=_tags),
+            rating="mature" if is_mature else "general",
         )
 
     async def _fetch_posts(

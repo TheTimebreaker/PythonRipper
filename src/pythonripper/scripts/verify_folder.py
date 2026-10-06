@@ -1,7 +1,7 @@
 import asyncio
-import traceback
-import re
 import logging
+import re
+import traceback
 from pathlib import Path
 from tempfile import NamedTemporaryFile, mkstemp
 from typing import Coroutine, Literal, TypedDict
@@ -31,10 +31,12 @@ from pythonripper.toolbox.config import AppSettings, config, get_settingsmanager
 
 
 class WorkerResult(TypedDict):
+    issuer: scrap.Scraper
     path: Path
+    data: scrap.PostData
 
 
-async def _worker(queue: asyncio.Queue[scrap.PostData | None], obj: type[scrap.Scraper], files: list[Path]) -> None:
+async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scrap.Scraper], files: list[Path]) -> None:
     try:
         obj_active = obj(config)
         await obj_active.init()
@@ -44,18 +46,34 @@ async def _worker(queue: asyncio.Queue[scrap.PostData | None], obj: type[scrap.S
         for file in files:
             identifier = re.match(pattern, file.name)
             assert identifier
+
+            # accouting for username+ID vs ID
+            username = None
             try:
-                post_data = await obj_active._get_post_data(identifier.group(1))
+                ide = identifier.group(2)
+                username = identifier.group(1)
+                args = {"post_id": ide, "tagname": username}
+            except IndexError:
+                ide = identifier.group(1)
+                args = {"post_id": ide}
+
+            try:
+                post_data = await obj_active._get_post_data(**args)  # type: ignore
             except cf.ExtractorSkipError, cf.ExtractorExitError:
                 continue
-            await queue.put(post_data)
+
+            result = WorkerResult(
+                issuer=obj_active,
+                path=file,
+                data=post_data,
+            )
+            await queue.put(result)
 
     except Exception as e:
         print(f"Worker crashed: {type(e).__name__}: {e}")
         traceback.print_exc()
 
-    finally:
-        # ALWAYS signals that this worker is done
+    finally:  # ALWAYS signals that this worker is done
         await queue.put(None)
 
 
@@ -71,17 +89,17 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
     # Patreon: no tagging whatsoever. also, you likely paid for this, so take the files
     objects_by_module: dict[str, type[scrap.Scraper]] = {
         # "artstation": ArtstationAPI,
-        # "danbooru": DanbooruAPI,
-        # "deviantart": DeviantartAPI,
+        "danbooru": DanbooruAPI,
+        # "deviantart": DeviantartAPI,  # no tags
         # "gelbooru": GelbooruAPI,
-        # "hentaifoundry": HentaiFoundryArtist,  # noqa: ERA001 # Will be implemented later
+        # "hentaifoundry": HentaiFoundryArtist,  # no tags
         # "hypnohub": HypnohubAPI,
         # "kusowanka": KusowankaAPI,
         # "pixiv": PixivArtistAPI,
         # "rule34paheal": Rule34pahealAPI,
         # "rule34us": Rule34usAPI,
         # "rule34xxx": Rule34xxxAPI,
-        "tumblr": TumblrAPI,
+        # "tumblr": TumblrAPI,  # no tags
         # "yandere": YandereAPI,
     }
     files_by_module: dict[str, list[Path]] = {service: [] for service in objects_by_module}
@@ -91,7 +109,7 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
                 files_by_module[module].append(file)
                 break
 
-    queue: asyncio.Queue[scrap.PostData | None] = asyncio.Queue()
+    queue: asyncio.Queue[WorkerResult | None] = asyncio.Queue()
     workers = [asyncio.create_task(_worker(queue, obj, files_by_module[module])) for module, obj in objects_by_module.items()]
     finished: int = 0
 
@@ -101,7 +119,16 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
             finished += 1
             continue
 
-        print(result)
+        issuer = result["issuer"]
+        data = result["data"]
+        filepath = result["path"]
+
+        if issuer.blacklist_tag_found(data):
+            print(f"Blacklisted!: {filepath}")
+
+        elif not issuer.is_content_rating_allowed(data):
+            print(result)
+            print(f"Content rating disallowed!: {filepath}")
 
     await asyncio.gather(*workers, return_exceptions=True)
 

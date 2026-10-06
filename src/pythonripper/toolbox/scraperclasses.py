@@ -4,6 +4,7 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast, final, overload
 
@@ -32,6 +33,7 @@ class PostData(TypedDict):
     filehash: NotRequired[str]
     elements: PostElement | list[PostElement]
     tags: NotRequired[TagsData]
+    rating: NotRequired[str]
 
 
 class PostElement(TypedDict):
@@ -247,6 +249,9 @@ class Scraper(ABC):
             return True
 
         return False
+
+    def is_content_rating_allowed(self, data: PostData) -> bool:  # noqa: ARG002
+        return True
 
     def filename(
         self,
