@@ -78,10 +78,10 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
         # "hypnohub": HypnohubAPI,
         # "kusowanka": KusowankaAPI,
         # "pixiv": PixivArtistAPI,
-        "rule34paheal": Rule34pahealAPI,
+        # "rule34paheal": Rule34pahealAPI,
         # "rule34us": Rule34usAPI,
         # "rule34xxx": Rule34xxxAPI,
-        # "tumblr": TumblrAPI,
+        "tumblr": TumblrAPI,
         # "yandere": YandereAPI,
     }
     files_by_module: dict[str, list[Path]] = {service: [] for service in objects_by_module}
