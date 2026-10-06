@@ -133,8 +133,11 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
                 raise ValueError("Neither post id nor json_data given (one is necessary).")
             params = {"s": "post", "id": post_id}
             await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL, params=params)
-            json_data = res.json()["post"][0]
+            try:
+                res = await self.session.get(self.API_URL, params=params)
+                json_data = res.json()["post"][0]
+            except (json.JSONDecodeError, KeyError) as error:
+                raise cf.ExtractorSkipError from error
         if post_id is None:
             post_id = str(json_data["id"])
 

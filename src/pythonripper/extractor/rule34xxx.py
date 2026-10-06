@@ -29,7 +29,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
 
     ME = "rule34xxx"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.LeakyBucketLimiter(1.8, capacity=10)
+    LIMIT = asynciolimiter.LeakyBucketLimiter(1.8, capacity=8)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = True
 
@@ -124,12 +124,16 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
 
             params = {"s": "post", "id": post_id}
             res = await self.request(self.API_URL, params=params)
-            json_data = res.json()[0]
+            try:
+                json_data = res.json()[0]
+            except json.JSONDecodeError as error:
+                raise cf.ExtractorSkipError from error
 
         rating_field: str | Literal[False] = json_data.get("rating", False)
         if not rating_field:
             logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
             raise cf.ExtractorSkipError("No rating field found") from KeyError
+        rating_field = rating_field.lower()
         #fmt:off
         rating:str|Literal[False] = (
             Rule34xxxRatings.SAFE if rating_field == "safe" else

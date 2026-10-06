@@ -1,5 +1,6 @@
 """Main module for interacting with https://hypnohub.net/ ."""
 
+import json
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any, Literal, final
@@ -92,8 +93,11 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
                 raise ValueError("Neither post id nor json_data given (one is necessary).")
             params = {"s": "post", "id": post_id}
             await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL, params=params)
-            json_data = res.json()[0]
+            try:
+                res = await self.session.get(self.API_URL, params=params)
+                json_data = res.json()[0]
+            except json.JSONDecodeError as error:
+                raise cf.ExtractorSkipError from error
         if post_id is None:
             post_id = str(json_data["id"])
 

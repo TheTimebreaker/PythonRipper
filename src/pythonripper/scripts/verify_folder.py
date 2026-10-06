@@ -3,13 +3,26 @@ import logging
 import re
 import shutil
 import traceback
+from enum import StrEnum
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Literal, TypedDict
+from typing import Any, TypedDict
 
 import send2trash
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
@@ -76,17 +89,23 @@ async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scraper.S
         await queue.put(None)
 
 
-def __process_file(file: Path, delete_files: bool) -> None:
-    if delete_files:
+def __process_file(file: Path, processing_option: ProcessingOptions) -> None:
+    if processing_option == ProcessingOptions.SKIP:
+        return
+    elif processing_option == ProcessingOptions.DELETE:
         send2trash.send2trash(file)
-    else:
-        target_dir = file.parent / "removed"
+    elif processing_option == ProcessingOptions.MOVE:
+        target_dir = file.parent / "moved"
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / file.name
         shutil.move(file, target)
+    else:
+        raise NotImplementedError("Unimplemented processing option set.")
 
 
-async def _verify(directory: Path, settings: AppSettings, delete_files: bool) -> None:
+async def _verify(
+    directory: Path, settings: AppSettings, blacklisted_processing: ProcessingOptions, disallowed_rating_processing: ProcessingOptions
+) -> None:
     # Create file list
     print("Loading file list... ", end="")
     all_files = [file for file in f.list_files(directory, include_subdirs=False) if "!hashes" not in file.stem]
@@ -123,6 +142,8 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
     config.settings = settings
     workers = [asyncio.create_task(_worker(queue, obj, config, files_by_module[module])) for module, obj in objects_by_module.items()]
     finished: int = 0
+    blacklisted: int = 0
+    content_ratings: int = 0
 
     while finished < len(workers):
         result = await queue.get()
@@ -136,48 +157,179 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
 
         if issuer.blacklist_tag_found(data):
             print(f"Blacklisted!: {filepath}")
-            __process_file(filepath, delete_files=delete_files)
+            __process_file(filepath, processing_option=blacklisted_processing)
+            blacklisted += 1
 
         elif not issuer.is_content_rating_allowed(data):
             print(f"Content rating disallowed!: {filepath}")
-            __process_file(filepath, delete_files=delete_files)
+            __process_file(filepath, processing_option=disallowed_rating_processing)
+            content_ratings += 1
 
         else:
             print(f"All good: {filepath}")
 
     await asyncio.gather(*workers, return_exceptions=True)
 
+    print("=" * 20)
+    print(f"Finished verifying folder {directory}")
+    print(f"Files processed: #{len(all_files)}")
+    print(f"Blacklisted tags found in files: #{blacklisted}")
+    print(f"Disallowed content ratings found in files: #{content_ratings}")
 
-def main() -> None:
-    selected_directory = QFileDialog.getExistingDirectory(None, "Select directory")
-    if not selected_directory:
+
+class ProcessingOptions(StrEnum):
+    SKIP = "Skip matches"
+    DELETE = "Delete matches"
+    MOVE = "Move matches to a subdirectory"
+
+
+class ProcessingWindow(QMainWindow):
+    def __init__(self, parent: Any = None) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Processing Options")
+        self.resize(700, 300)
+
+        self.selected_directory: Path | None = None
+        self.blacklisted_tag_option: ProcessingOptions | None = None
+        self.disallowed_rating_option: ProcessingOptions | None = None
+
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        central = QWidget()
+        self.setCentralWidget(central)
+
+        layout = QVBoxLayout(central)
+
+        text = (
+            "This tool allows you to re-verify already downloaded files in regards to content ratings and blacklisted tags.\n"
+            "May be useful, if your preferences have changed or for sorting downloaded files.\n"
+            "Please choose from the settings below the to-be-verified directory and what you want to do with matches."
+        )
+        self.explainer_text = QLabel(text=text)
+        layout.addWidget(self.explainer_text)
+
+        divider = QWidget()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet("background-color: palette(mid);")
+        layout.addWidget(divider)
+
+        directory_layout = QHBoxLayout()
+        directory_layout.addWidget(QLabel("Directory:"))
+        self.directory_field = QLineEdit()
+        self.directory_field.setReadOnly(True)
+        directory_layout.addWidget(self.directory_field)
+        browse_button = QPushButton("Select...")
+        browse_button.clicked.connect(self._select_directory)
+        directory_layout.addWidget(browse_button)
+        layout.addLayout(directory_layout)
+
+        self.blacklisted_combo = self._create_option_selector(
+            "Blacklisted tag found:",
+            layout,
+            default=ProcessingOptions.MOVE,
+        )
+
+        self.disallowed_rating_combo = self._create_option_selector(
+            "Disallowed content rating:",
+            layout,
+            default=ProcessingOptions.MOVE,
+        )
+
+        layout.addStretch()
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        ok_button = QPushButton("OK")
+        ok_button.setDefault(True)
+        ok_button.clicked.connect(self.accept)
+        button_layout.addWidget(ok_button)
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+
+    def _create_option_selector(
+        self,
+        label_text: str,
+        parent_layout: QVBoxLayout,
+        default: ProcessingOptions | None = None,
+    ) -> QComboBox:
+        row = QHBoxLayout()
+        row.addWidget(QLabel(label_text))
+
+        combo = QComboBox()
+        for option in ProcessingOptions:
+            combo.addItem(option.value, option)
+
+        # Select the default enum value.
+        if default is not None:
+            index = combo.findData(default)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+
+        row.addWidget(combo, 1)
+        parent_layout.addLayout(row)
+        return combo
+
+    def _select_directory(self) -> None:
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select directory",
+        )
+        if directory:
+            self.selected_directory = Path(directory)
+            self.directory_field.setText(directory)
+
+    def accept(self) -> None:
+        self.blacklisted_tag_option = self.blacklisted_combo.currentData()
+        self.disallowed_rating_option = self.disallowed_rating_combo.currentData()
+
+        # Require exactly one option for each selector.
+        if any(value is None for value in (self.blacklisted_tag_option, self.disallowed_rating_option, self.selected_directory)):
+            QMessageBox.warning(
+                self,
+                "Missing value",
+                "Please select an option for every field.",
+            )
+            return
+
+        self.close()
+
+    def reject(self) -> None:
+        QApplication.instance().quit()  # type: ignore
+
+
+def main(app: QApplication) -> None:
+    # General processing settings
+    window = ProcessingWindow()
+    window.show()
+    app.exec()
+
+    directory = window.selected_directory
+    blacklisted_processing = window.blacklisted_tag_option
+    disallowed_rating_processing = window.disallowed_rating_option
+
+    if any(x is None for x in (directory, blacklisted_processing, disallowed_rating_processing)):
         return
-    directory = Path(selected_directory)
-    print(directory)
+    assert directory and blacklisted_processing and disallowed_rating_processing
 
+    # Edit session settings
     dialog = QMessageBox(
         QMessageBox.Icon.Information,
         "Verify folder",
         (
             "If you confirm, a temporary settings window will appear where you can change the settings for this session.\n"
-            "THESE SETTINGS WILL NOT BE PERMANENTLY SAVED AND DO NOT AFFECT YOUR APPLICATION SETTINGS!\n"
-            "After that, the temporary settings will be compared against the files in the selected directory.\n"
-            "Specifically, the files will be checked against the blacklist and against content filters IGNORING BYPASS SETTINGS.\n"
-            "Files, that fail to meet these criteria, can either be deleted or moved to another folder."
-            f"Continue with processing {directory}?"
+            "THESE SETTINGS WILL NOT BE PERMANENTLY SAVED AND DO NOT AFFECT YOUR APPLICATION SETTINGS!\n\n"
+            "Also, keep in mind that this is a copy of the entire config, so there will be many option that don't do anything here."
         ),
     )
-    delete_button = dialog.addButton("Continue, delete files", QMessageBox.ButtonRole.AcceptRole)
-    move_button = dialog.addButton("Continue, move files", QMessageBox.ButtonRole.AcceptRole)
+    dialog.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
     cancel_button = dialog.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
     dialog.setDefaultButton(cancel_button)
     dialog.exec()
-    delete_or_move: Literal["delete", "move"]
-    if dialog.clickedButton() == delete_button:
-        delete_or_move = "delete"
-    elif dialog.clickedButton() == move_button:
-        delete_or_move = "move"
-    else:
+    if dialog.clickedButton() == cancel_button:
         return
 
     tmp_dir = NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, prefix="config", suffix=".json")
@@ -195,7 +347,14 @@ def main() -> None:
         tmp_dir.close()
         tmp_path.unlink(missing_ok=True)
 
-    asyncio.run(_verify(directory, temp_settings, delete_files=bool(delete_or_move == "delete")))
+    asyncio.run(
+        _verify(
+            directory,
+            temp_settings,
+            blacklisted_processing=blacklisted_processing,
+            disallowed_rating_processing=disallowed_rating_processing,
+        )
+    )
 
 
 if __name__ == "__main__":
@@ -208,7 +367,4 @@ if __name__ == "__main__":
     if __icon__ and __icon__.is_file():
         app.setWindowIcon(QIcon(str(__icon__)))
 
-    main()
-
-    p = Path(r"D:\AppData\TheTimebreaker\PythonRipper\files\archive\booru\rope bondage")
-    asyncio.run(_verify(p, config.settings.model_copy(deep=True), False))
+    main(app)

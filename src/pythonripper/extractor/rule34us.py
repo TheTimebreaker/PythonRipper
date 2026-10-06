@@ -1,7 +1,8 @@
 """Main module for interacting with https://rule34.us/ ."""
 
+import asyncio
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from typing import Any, final
 
 import asynciolimiter
@@ -25,7 +26,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
 
     ME = "rule34us"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.LeakyBucketLimiter(1, capacity=10)
+    LIMIT = asynciolimiter.Limiter(3)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False
 
@@ -36,11 +37,22 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
         return True
 
+    async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
+        for i in (0, 3, 5, 7, 10, 10, 60, 60):
+            await self.LIMIT.wait()
+            res = await self.session.get(url, params=params)
+            if res.status_code == 503:  # 503 happens on rule34.us instead of 429
+                logging.warning("[%s] - waiting because status code is %s", self.ME.upper(), res.status_code)
+                await asyncio.sleep(i)
+                continue
+
+            return res
+        raise cf.ExtractorStopError("Probably hit a hard rate limit")
+
     async def does_this_exist(self, tagname: str) -> bool:
         params: dict[str, str | int] = {"r": "posts/index", "q": self.format_tagname(tagname)}
         await self.LIMIT.wait()
-        res = await self.session.get(self.API_URL, params=params)
-        res.raise_for_status()
+        res = await self.request(self.API_URL, params=params)
         return "No results found for this search query" not in res.text
 
     async def _get_post_data(self, post_id: str | None = None, _json_data: Any = None, post_soup: bs4.Tag | None = None) -> scraper.PostData:
@@ -51,8 +63,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
 
         url = f"""{self.API_URL}?r=posts/view&id={post_id}"""
         await self.LIMIT.wait()
-        res = await self.session.get(url)
-        res.raise_for_status()
+        res = await self.request(url)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
 
         tags_soup = {
@@ -115,8 +126,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
 
         while more_files:
             await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL, params=params)
-            res.raise_for_status()
+            res = await self.request(self.API_URL, params=params)
 
             # pagination limit reached. Recalculation of tagname parameter
             if "This browsing action would use up too much CPU" in res.text:
