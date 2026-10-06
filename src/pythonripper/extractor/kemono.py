@@ -185,6 +185,7 @@ class KemonoTypeUser(KemonoBase):
 @final
 class KemonoAfdian(KemonoTypeUser):
     ME = "kemono-afdian"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:
@@ -194,6 +195,7 @@ class KemonoAfdian(KemonoTypeUser):
 @final
 class KemonoBoosty(KemonoTypeUser):
     ME = "kemono-boosty"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:
@@ -203,6 +205,7 @@ class KemonoBoosty(KemonoTypeUser):
 @final
 class KemonoDlsite(KemonoTypeUser):
     ME = "kemono-dlsite"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:
@@ -212,6 +215,7 @@ class KemonoDlsite(KemonoTypeUser):
 @final
 class KemonoPixivfanbox(KemonoTypeUser):
     ME = "kemono-fanbox"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:
@@ -221,6 +225,7 @@ class KemonoPixivfanbox(KemonoTypeUser):
 @final
 class KemonoFantia(KemonoTypeUser):
     ME = "kemono-fantia"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:
@@ -230,6 +235,7 @@ class KemonoFantia(KemonoTypeUser):
 @final
 class KemonoGumroad(KemonoTypeUser):
     ME = "kemono-gumroad"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:
@@ -239,6 +245,7 @@ class KemonoGumroad(KemonoTypeUser):
 @final
 class KemonoPatreon(KemonoTypeUser):
     ME = "kemono-patreon"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:
@@ -248,6 +255,7 @@ class KemonoPatreon(KemonoTypeUser):
 @final
 class KemonoSubscribestar(KemonoTypeUser):
     ME = "kemono-subscribestar"
+    WEBSITE_NAME = ME
 
     @property
     def service(self) -> str:

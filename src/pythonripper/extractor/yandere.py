@@ -23,6 +23,7 @@ class YandereAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?yande\.re(?:.+)tags=([^/&\?]+)"
 
     ME = "yandere"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False

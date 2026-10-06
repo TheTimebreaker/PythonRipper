@@ -23,6 +23,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?rule34\.us/index\.php\?(?:.+)?q=([^/&\?]+)"
 
     ME = "rule34us"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.LeakyBucketLimiter(1, capacity=10)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False

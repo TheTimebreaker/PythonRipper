@@ -57,6 +57,7 @@ class PatreonAPI(scraper.TaggableScraper):
     TAG_PATTERN = r"https://(?:www\.)?patreon\.com/(?:c/|cw/)?([^/&\?]+)"
 
     ME = "patreon"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(98 / 2)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = True

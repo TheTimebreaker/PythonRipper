@@ -20,6 +20,7 @@ class SuperSatanSonAPI(scraper.ArtistWebsiteScraper):
     POST_PATTERN = r"(?:https?://)?(?:www\.)?sss\.booru\.org.*id=(\d+)"
 
     ME = "supersatanson"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(2)
     SPACE_REPLACE = "_"
 

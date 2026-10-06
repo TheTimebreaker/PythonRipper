@@ -26,6 +26,7 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?gelbooru\.com/index\.php\?(?:.+)?tags=([^/&\?]+)"
 
     ME = "gelbooru"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False

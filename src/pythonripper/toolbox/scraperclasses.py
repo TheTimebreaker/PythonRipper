@@ -55,6 +55,7 @@ class Scraper(ABC):
     HOMEPAGE: str
     POST_PATTERN: str
 
+    WEBSITE_NAME: str
     ME: str
     LIMIT: asynciolimiter._BaseLimiter
     SPACE_REPLACE: str
@@ -586,7 +587,7 @@ class TaggableScraper(Scraper):
 class DownloadhistoryScraper(TaggableScraper):
     def __init__(self, config: ConfigObject) -> None:
         super().__init__(config)
-        self.history = f.SqlDownloadHistory(self.ME, self.config)
+        self.history = f.SqlDownloadHistory(self.WEBSITE_NAME, self.config)
 
 
 # self, url, dpath, filename, ignore_download_history

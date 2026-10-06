@@ -20,6 +20,7 @@ class TangsGalleryAPI(scraper.ArtistWebsiteScraper):
     BASE_URL = "https://tangs.gallery"
 
     ME = "tangsgallery"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(10)
     SPACE_REPLACE = " "
 

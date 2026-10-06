@@ -17,6 +17,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 @final
 class ShellViAPI(scraper.ArtistWebsiteScraper):
     ME = "shellvi"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = " "
 

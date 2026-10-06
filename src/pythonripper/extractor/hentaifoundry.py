@@ -13,7 +13,7 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.scraperclasses as scraper
 
 
-class HentaiFoundryRoot(scraper.TaggableScraper):
+class HentaiFoundryRoot(scraper.DownloadhistoryScraper):
     POST_PATTERN_ALL = r"pictures/user/(?P<username>[\w\d\-_]+)/(?P<postId>\d+)/(?P<postName>[\w\d\-_\.]+)"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/pictures.*/(\d+)"
     TAG_PATTERN = r"(?:https?://)?(?:www\.)?hentai-foundry\.com/(?:(?:pictures|stories)/)?(?:user|tagged)/([^/&\?]+)"
@@ -26,6 +26,7 @@ class HentaiFoundryRoot(scraper.TaggableScraper):
     URL_POST = f'{URL_BASE}/pictures/{"{post_id}"}'
 
     ME = "hentaifoundry"
+    WEBSITE_NAME = "hentaifoundry"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False
