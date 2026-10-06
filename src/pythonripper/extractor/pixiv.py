@@ -31,6 +31,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
     hash_secret = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
     base_api_url = "https://app-api.pixiv.net"
     BASE_PATTERN = r"(?:https?://)?(?:www\.|touch\.)?pixiv\.net"
+    FILENAME_TO_ID_PATTERN = r"pixiv\-(?:artists|tags)_(?:\d+)_(\d+)_"
 
     ILLUST_PATTERN = (
         r"(?:https?://)?(?:(?:www\.|touch\.)?pixiv\.net"  # stolen from gallery-dl.extractor.pixiv

@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 import re
 import logging
 from pathlib import Path
@@ -33,21 +34,29 @@ class WorkerResult(TypedDict):
     path: Path
 
 
-async def _worker(queue: asyncio.Queue[str], obj: type[scrap.Scraper], settings: AppSettings, files: list[Path]) -> None:
-    obj_active = obj(config)
-    await obj_active.init()
-    if not hasattr(obj_active, "FILENAME_TO_ID_PATTERN"):
-        print(f"{obj_active.ME} has not filename to ID pattern")
-    pattern = obj.FILENAME_TO_ID_PATTERN
-    for file in files:
-        identifier = re.match(pattern, file.name)
-        print(obj_active.ME, identifier)
-        # await obj_active._get_post_data()
-        timeout = random.randint(100, 2000)
-        await asyncio.sleep(timeout / 1000)
-        await queue.put(str(file))
-    await queue.put(None)
-    return
+async def _worker(queue: asyncio.Queue[scrap.PostData | None], obj: type[scrap.Scraper], files: list[Path]) -> None:
+    try:
+        obj_active = obj(config)
+        await obj_active.init()
+        if not hasattr(obj_active, "FILENAME_TO_ID_PATTERN"):
+            print(f"{obj_active.ME} has not filename to ID pattern")
+        pattern = obj.FILENAME_TO_ID_PATTERN
+        for file in files:
+            identifier = re.match(pattern, file.name)
+            assert identifier
+            try:
+                post_data = await obj_active._get_post_data(identifier.group(1))
+            except cf.ExtractorSkipError, cf.ExtractorExitError:
+                continue
+            await queue.put(post_data)
+
+    except Exception as e:
+        print(f"Worker crashed: {type(e).__name__}: {e}")
+        traceback.print_exc()
+
+    finally:
+        # ALWAYS signals that this worker is done
+        await queue.put(None)
 
 
 async def _verify(directory: Path, settings: AppSettings, delete_files: bool) -> None:
@@ -58,22 +67,22 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
 
     # ignored services:
     # all artist websites: usually no tagging, also you specifically chose this artist
+    # Newgrounds: no good identifier
     # Patreon: no tagging whatsoever. also, you likely paid for this, so take the files
     objects_by_module: dict[str, type[scrap.Scraper]] = {
-        "artstation": ArtstationAPI,
-        "danbooru": DanbooruAPI,
-        "deviantart": DeviantartAPI,
-        "gelbooru": GelbooruAPI,
+        # "artstation": ArtstationAPI,
+        # "danbooru": DanbooruAPI,
+        # "deviantart": DeviantartAPI,
+        # "gelbooru": GelbooruAPI,
         # "hentaifoundry": HentaiFoundryArtist,  # noqa: ERA001 # Will be implemented later
-        "hypnohub": HypnohubAPI,
-        "kusowanka": KusowankaAPI,
-        "newgrounds": NewgroundsAPI,
-        "pixiv": PixivArtistAPI,
+        # "hypnohub": HypnohubAPI,
+        # "kusowanka": KusowankaAPI,
+        # "pixiv": PixivArtistAPI,
         "rule34paheal": Rule34pahealAPI,
-        "rule34us": Rule34usAPI,
-        "rule34xxx": Rule34xxxAPI,
-        "tumblr": TumblrAPI,
-        "yandere": YandereAPI,
+        # "rule34us": Rule34usAPI,
+        # "rule34xxx": Rule34xxxAPI,
+        # "tumblr": TumblrAPI,
+        # "yandere": YandereAPI,
     }
     files_by_module: dict[str, list[Path]] = {service: [] for service in objects_by_module}
     for file in all_files:
@@ -82,23 +91,19 @@ async def _verify(directory: Path, settings: AppSettings, delete_files: bool) ->
                 files_by_module[module].append(file)
                 break
 
-    queue: asyncio.Queue[str] = asyncio.Queue()
-    workers = [asyncio.create_task(_worker(queue, obj, settings, files_by_module[module])) for module, obj in objects_by_module.items()]
+    queue: asyncio.Queue[scrap.PostData | None] = asyncio.Queue()
+    workers = [asyncio.create_task(_worker(queue, obj, files_by_module[module])) for module, obj in objects_by_module.items()]
     finished: int = 0
 
     while finished < len(workers):
         result = await queue.get()
-
         if result is None:
             finished += 1
             continue
 
-        # Consume the result immediately.
-        print(f"{result}")
+        print(result)
 
-    await asyncio.gather(*workers)
-
-    print("yeet")
+    await asyncio.gather(*workers, return_exceptions=True)
 
 
 def main() -> None:

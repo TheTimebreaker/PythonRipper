@@ -109,9 +109,7 @@ class HentaiFoundryRoot(scraper.DownloadhistoryScraper):
 
         return lc_characters
 
-    async def _get_post_data(
-        self, post_id: str | None = None, json_data: dict[str, Any] | None = None, source_overwrite: str | None = None
-    ) -> scraper.PostData:
+    async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         if json_data is None or any(key not in json_data for key in ("user", "post_id", "title")):
             if post_id is None:
                 raise ValueError("No post id or valid json_data given (one is necessary).")
@@ -134,16 +132,11 @@ class HentaiFoundryRoot(scraper.DownloadhistoryScraper):
                 await self.LIMIT.wait()
                 res = await self.session.head(direct_url, headers=self.headers, follow_redirects=True)
 
-                if source_overwrite:
-                    source = source_overwrite
-                else:
-                    source = username
-
                 if res.status_code == 200:
                     download_url = direct_url
                     return scraper.PostData(
                         identifier=post_id,
-                        source=source,
+                        source=username,
                         title=post_title,
                         elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
                     )
@@ -224,7 +217,7 @@ class HentaiFoundryArtist(HentaiFoundryRoot):
                 post_user, post_id, post_name = matched.groups()
                 if str(post_id) in update_ids:
                     return
-                yield await self._get_post_data(json_data={"user": post_user, "post_id": post_id, "title": post_name}, source_overwrite=post_user)
+                yield await self._get_post_data(json_data={"user": post_user, "post_id": post_id, "title": post_name})
 
 
 @final
@@ -312,4 +305,4 @@ class HentaiFoundryTag(HentaiFoundryRoot):
                 post_user, post_id, post_name = matched.groups()
                 if str(post_id) in update_ids:
                     return
-                yield await self._get_post_data(json_data={"user": post_user, "post_id": post_id, "title": post_name}, source_overwrite=tagname)
+                yield await self._get_post_data(json_data={"user": post_user, "post_id": post_id, "title": post_name})

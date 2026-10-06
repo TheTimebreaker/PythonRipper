@@ -53,7 +53,7 @@ class DeviantartAPI(scraper.TaggableScraper):
     POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/(?:art|journal)/(?:[\w\d\-_]+\-|)|deviation/)(\d+)"
     FAVORITES_GALLERY_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/(favourites|gallery)/?([/\w\d\-_]*)?"
     TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
-    FILENAME_TO_ID_PATTERN = r"deviantart_(\d+)_"
+    FILENAME_TO_ID_PATTERN = r"deviantart_[a-zA-Z\d\-\_ ]+_(\d+)_"
 
     ME = "deviantart"
     WEBSITE_NAME = ME
