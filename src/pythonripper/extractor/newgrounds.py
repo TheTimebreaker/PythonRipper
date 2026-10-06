@@ -160,6 +160,10 @@ class NewgroundsAPI(scraper.TaggableScraper):
         res = await self.session.get(self.ARTIST_PAGE_BASE_URL.format(artist=self.format_tagname(tag_name), sublink=""))
         return res.status_code == 200
 
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.newgrounds.content_ratings
+        return data["rating"] in allowed_ratings
+
     def format_tagname(self, tagname: str) -> str:
         return tagname.replace(" ", self.SPACE_REPLACE).replace("(", "").replace(")", "")
 
@@ -211,11 +215,33 @@ class NewgroundsAPI(scraper.TaggableScraper):
             for tag_elem in tags_elems:
                 tags.append(str(tag_elem.contents[0]))
 
+        # get rating
+        rating_element = soup.find("dl", {"data-rating": True})
+        if not rating_element:
+            logging.error("[%s] - Could not find content rating element from post %s", self.ME.upper(), post_url)
+            raise cf.ExtractorSkipError("Could not find content rating element from post %s", post_url) from KeyError
+        rating_element_str = rating_element["data-rating"]
+        if not rating_element_str:
+            logging.error("[%s] - Could not extract content rating from post %s", self.ME.upper(), post_url)
+            raise cf.ExtractorSkipError("Could not extract content rating from post %s", post_url) from KeyError
+        if rating_element_str == "a":
+            rating = NewgroundsRating.ADULT
+        elif rating_element_str == "m":
+            rating = NewgroundsRating.MATURE
+        elif rating_element_str == "t":
+            rating = NewgroundsRating.TEEN
+        elif rating_element_str == "e":
+            rating = NewgroundsRating.EVERYONE
+        else:
+            logging.error("[%s] - Could not find content rating from post %s", self.ME.upper(), post_url)
+            raise cf.ExtractorSkipError("Could not find content rating from post %s", post_url) from KeyError
+
         return scraper.PostData(
             source=artist,
             identifier=post_id,
             title=post_title,
             elements=elements,
+            rating=rating,
         )
 
     async def _get_art_data(self, post_url: str) -> scraper.PostData:
@@ -293,12 +319,30 @@ class NewgroundsAPI(scraper.TaggableScraper):
             for tag_elem in tags_elems:
                 tags.append(str(tag_elem.contents[0]))
 
+        # get rating
+        rating_heading_adult = soup.find("h2", {"class": "rated-a"})
+        rating_heading_teen = soup.find("h2", {"class": "rated-t"})
+        rating_heading_mature = soup.find("h2", {"class": "rated-m"})
+        rating_heading_everyone = soup.find("h2", {"class": "rated-e"})
+        if rating_heading_adult:
+            rating = NewgroundsRating.ADULT
+        elif rating_heading_mature:
+            rating = NewgroundsRating.MATURE
+        elif rating_heading_teen:
+            rating = NewgroundsRating.TEEN
+        elif rating_heading_everyone:
+            rating = NewgroundsRating.EVERYONE
+        else:
+            logging.error("[%s] - Could not find content rating from post %s", self.ME.upper(), post_url)
+            raise cf.ExtractorSkipError("Could not find content rating from post %s", post_url) from KeyError
+
         return scraper.PostData(
             source=artist,
             identifier=post_id,
             title=post_title,
             elements=elements,
             tags=scraper.TagsData(tags=tags),
+            rating=rating,
         )
 
     async def _get_post_data(
