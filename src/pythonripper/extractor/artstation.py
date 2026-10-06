@@ -51,7 +51,6 @@ class ArtstationAPI(scraper.TaggableScraper):
 
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
         setting = self.config.settings.extractor.artstation.allow_mature_images
-        print(setting, data["rating"])
         if setting is True:
             return True
         elif data["rating"] == "general":
