@@ -66,6 +66,7 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?kusowanka\.com/((?:artist|character|metadata|parody|tag)/[^/&\?]+)"
 
     ME = "kusowanka"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "-"
     IS_GOOGLE_SEARCHABLE = False

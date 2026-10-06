@@ -24,6 +24,7 @@ class TumblrAPI(scraper.TaggableScraper):
     TAG_PATTERN = r"https://(?:www\.)?tumblr\.com/([^/&\?]+)"
 
     ME = "tumblr"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.LeakyBucketLimiter(300 / 60, capacity=290)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = True

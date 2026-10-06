@@ -18,6 +18,7 @@ class AkaiRiot(scraper.ArtistWebsiteScraper):
     BASE_URL = "https://www.akairiot.com/"
 
     ME = "akairiot"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(10)
     SPACE_REPLACE = " "
 

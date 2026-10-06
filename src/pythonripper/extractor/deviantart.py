@@ -55,6 +55,7 @@ class DeviantartAPI(scraper.TaggableScraper):
     TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
 
     ME = "deviantart"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = True

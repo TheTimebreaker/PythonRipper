@@ -26,6 +26,7 @@ class Animepictures(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?anime\-pictures\.net/posts\?(?:.+)?search_tag=([^/&\?]+)"
 
     ME = "animepictures"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(0.5, max_burst=10)
     SPACE_REPLACE = "+"
     IS_GOOGLE_SEARCHABLE = False

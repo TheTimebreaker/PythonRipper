@@ -27,6 +27,7 @@ class ArtstationAPI(scraper.TaggableScraper):
     URL_TAG = "https://artstation.com/{tagname}"
 
     ME = "artstation"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = True

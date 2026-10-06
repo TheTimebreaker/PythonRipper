@@ -24,6 +24,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://www.pixiv.net"
 
     ME = "pixiv"
+    WEBSITE_NAME = "pixiv"
 
     client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"  # hard coded, from the app afaik
     client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"  # same

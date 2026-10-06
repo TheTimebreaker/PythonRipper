@@ -22,6 +22,7 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?rule34\.paheal\.net/post/list/([^/&\?]+)"
 
     ME = "rule34paheal"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = False

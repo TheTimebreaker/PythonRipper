@@ -41,6 +41,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
     MOVIE_POST_PATTERN = r"(?:https?://)?(?:www\.)newgrounds\.com/portal/view/(\d+)"
 
     ME = "newgrounds"
+    WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = ""
     IS_GOOGLE_SEARCHABLE = True
