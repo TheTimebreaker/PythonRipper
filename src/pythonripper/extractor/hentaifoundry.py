@@ -119,7 +119,7 @@ class HentaiFoundryRoot(scraper.TaggableScraper):
             lc_characters = [username_first_character]
 
         for lc_character in lc_characters:
-            for extension in ("jpg", "png", "gif", "webp"):
+            for extension in ("jpg", "png", "gif", "webp", "swf"):
                 direct_url = f"https://pictures.hentai-foundry.com/{lc_character}/{username}/{post_id}/{username}-{post_id}-{post_title}.{extension}"
 
                 await self.LIMIT.wait()
