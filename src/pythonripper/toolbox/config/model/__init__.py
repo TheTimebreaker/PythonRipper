@@ -20,5 +20,6 @@ from .extractor_yandere import ExtractorYandereSettings, YandereRatings
 from .pathsettings import PathSettings
 from .imageconversionsettings import ImageConversionSettings, DimensionLimit
 from .exclusionsettings import ExclusionSettings
+from .shared_model_data import alternative_extensions
 
 from .main import GeneralSettings, ExtractorSettings, AppSettings, get_settingsmanager_object

@@ -17,8 +17,7 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.subscription_management as sm
 from pythonripper.toolbox.config import ConfigObject, config
-from pythonripper.toolbox.config.model import DimensionLimit
-from pythonripper.toolbox.config.model.shared_model_data import alternative_extensions
+from pythonripper.toolbox.config.model import DimensionLimit, alternative_extensions
 
 
 class ExitError(Exception):
