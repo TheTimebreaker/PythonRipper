@@ -271,7 +271,9 @@ class DeviantartAPI(scraper.TaggableScraper):
             " ": self.SPACE_REPLACE,
             "(": "",
             ")": "",
+            ":": "",
             ".": "",
+            "@": "",
         }
         for what, by in replace_dict.items():
             tagname = tagname.replace(what, by)
