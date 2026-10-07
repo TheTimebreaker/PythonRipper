@@ -384,7 +384,7 @@ class CombinedFile:
 
             logging.info("url_list: %s", url_list)
             await asyncio.to_thread(self._add_open_urls_in_new_tabs, driver, url_list, fallback_handle)
-            await asyncio.to_thread(input, f"#{i} / {processing_length} - {artist} - Press ENTER to confirm...")
+            await asyncio.to_thread(input, f"#{i+1} / {processing_length} - {artist} - Press ENTER to confirm...")
             confirmed_urls = await asyncio.to_thread(self._add_get_confirmed_urls, driver, fallback_handle)
             await self.process_urls(artist, confirmed_urls, choice)
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
