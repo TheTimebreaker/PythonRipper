@@ -324,9 +324,17 @@ class CombinedFile:
         for i, artist in artists:
             artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist)}
             artist_aliases: set[str] = {
-                artist_alias.replace("artist/", "").replace("tag/", "").replace("character/", "").replace("parody/", "").replace("metadata/", "")
+                artist_alias.replace("artist/", "")
+                .replace("tag/", "")
+                .replace("character/", "")
+                .replace("parody/", "")
+                .replace("metadata/", "")
+                .replace("u/", "")
                 for artist_alias in artist_aliases_tmp
             }
+
+            for existing_alias in self.get_list(choice, artist):  # Removes any alias that already exists for the website and artist
+                artist_aliases.remove(existing_alias)
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
             await q.put((i, artist, url_list))
@@ -360,12 +368,12 @@ class CombinedFile:
             await self.process_urls(artist, confirmed_urls, choice)
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
 
-    async def add_website(self, choice: str, skip_empty: bool) -> None:
+    async def add_website(self, website_choice: str, skip_empty: bool, check_existing_again: bool) -> None:
 
-        await self._add_activate_dict(self.config, choice=choice)
+        await self._add_activate_dict(self.config, choice=website_choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
-        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == choice]
+        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == website_choice]
         self._add_open_urls_in_new_tabs(
             driver,
             [
@@ -383,14 +391,15 @@ class CombinedFile:
         self_data_len = len(self.data)
         artists: list[tuple[int, str]] = []
         for i, (artist_name, artist_data) in enumerate(self.data.items()):
-            if choice in artist_data:
+            if website_choice in artist_data and not check_existing_again:
                 print(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
                 continue
             artists.append((i, artist_name))
 
         q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=30)
         await asyncio.gather(
-            self.worker_consumer(q, self_data_len, driver, fallback_handle, choice, skip_empty), self.worker_producer(artists, q, choice)
+            self.worker_consumer(q, self_data_len, driver, fallback_handle, website_choice, skip_empty),
+            self.worker_producer(artists, q, website_choice),
         )
 
     async def add_tags(self) -> None:
@@ -432,7 +441,7 @@ class CombinedFile:
             self._add_close_non_fallback_tabs(driver, fallback_handle)
 
     def get_list(self, website: str | None = None, artist: str | None = None) -> list[Any]:
-        """Returns sorted list of all entries from a given website."""
+        """Returns sorted list of all entries from a given website or tag/artist."""
         taglist = []
         for name, name_data in self.data.items():
             if (artist is None or name == artist) and bool(name_data):
