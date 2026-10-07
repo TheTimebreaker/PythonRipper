@@ -1,5 +1,6 @@
 import asyncio
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -13,11 +14,17 @@ from PySide6.QtWidgets import (
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.subscription_management as sm
+from pythonripper import __icon__
 from pythonripper.toolbox.config import config
 
 
 async def main() -> None:
-    _app = QApplication.instance() or QApplication([])
+    app = QApplication.instance() or QApplication([])
+    if not isinstance(app, QApplication):
+        raise
+    if __icon__ and __icon__.is_file():
+        app.setWindowIcon(QIcon(str(__icon__)))
+
     dialog = QDialog()
     dialog.setWindowTitle("Add New Website")
     layout = QVBoxLayout(dialog)
