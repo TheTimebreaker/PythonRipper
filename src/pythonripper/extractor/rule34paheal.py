@@ -26,7 +26,6 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = False
 
     async def init(self) -> bool:
         self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)

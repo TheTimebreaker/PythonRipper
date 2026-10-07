@@ -58,7 +58,6 @@ class DeviantartAPI(scraper.TaggableScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = True
 
     REDIRECT_PORT = 3055
     REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"

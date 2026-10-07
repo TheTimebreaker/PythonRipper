@@ -46,7 +46,6 @@ class PixivRoot(scraper.DownloadhistoryScraper):
 
     LIMIT = asynciolimiter.LeakyBucketLimiter(2, capacity=2)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

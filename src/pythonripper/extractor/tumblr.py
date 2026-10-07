@@ -28,7 +28,6 @@ class TumblrAPI(scraper.TaggableScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.LeakyBucketLimiter(300 / 60, capacity=290)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = True
 
     params: dict[str, str | bool]
 

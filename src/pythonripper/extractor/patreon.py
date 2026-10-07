@@ -60,7 +60,6 @@ class PatreonAPI(scraper.TaggableScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(98 / 2)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 

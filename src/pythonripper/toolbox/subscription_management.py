@@ -83,9 +83,6 @@ class CombinedFile:
     tag_type: str = ""
     encoding = "utf-8"
 
-    google_url = "https://www.google.com/search?q={query}"
-    google_space_replace = "+"
-
     def __init__(self, config: ConfigObject) -> None:
         self.data = self.read()
         self.config = config
@@ -253,8 +250,6 @@ class CombinedFile:
                     pass
 
             if found_some is False:
-                if obj.IS_GOOGLE_SEARCHABLE is True:
-                    result.add(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
                 if dont_add_homepage is False:
                     result.add(obj.HOMEPAGE)
 
@@ -399,8 +394,6 @@ class CombinedFile:
             [
                 "https://google.com?q=hi",
                 "https://ublockorigin.com/",
-                "https://www.tampermonkey.net/",
-                "https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm",
                 *homepages,
             ],
             fallback_handle,
@@ -443,7 +436,15 @@ class CombinedFile:
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
         homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites]
-        self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
+        self._add_open_urls_in_new_tabs(
+            driver,
+            [
+                "https://google.com?q=hi",
+                "https://ublockorigin.com/",
+                *homepages,
+            ],
+            fallback_handle,
+        )
         input("\nReview tabs that have opened.\n If all opened successfully, press Enter to continue...")  # noqa: ASYNC250
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 

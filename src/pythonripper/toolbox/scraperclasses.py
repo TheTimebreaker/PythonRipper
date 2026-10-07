@@ -61,7 +61,6 @@ class Scraper(ABC):
     ME: str
     LIMIT: asynciolimiter._BaseLimiter
     SPACE_REPLACE: str
-    IS_GOOGLE_SEARCHABLE: bool = True
     IS_CASE_SENSITIVE: bool = False
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 

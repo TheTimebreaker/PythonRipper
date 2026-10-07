@@ -44,7 +44,6 @@ class NewgroundsAPI(scraper.TaggableScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = ""
-    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 

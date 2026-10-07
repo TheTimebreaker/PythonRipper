@@ -29,7 +29,6 @@ class Animepictures(scraper.DownloadhistoryScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(0.5, max_burst=10)
     SPACE_REPLACE = "+"
-    IS_GOOGLE_SEARCHABLE = False
 
     async def init(self) -> bool:
         self.credentials_path = self.config.paths._credentials() / "animepictures_credentials.json"
