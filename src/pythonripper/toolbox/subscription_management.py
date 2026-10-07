@@ -334,10 +334,9 @@ class CombinedFile:
         self.data[new_tag] = new_tag_obj
         await self.write()
 
-    async def worker_producer(
-        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str | None = None
-    ) -> None:
+    async def worker_producer(self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str) -> None:
         for i, artist in artists:
+            is_case_sensitive = self.websiteinfo[choice]["object_active"].IS_CASE_SENSITIVE
             artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist)}
             artist_aliases: set[str] = {
                 artist_alias.replace("artist/", "")
@@ -348,7 +347,12 @@ class CombinedFile:
                 .replace("u/", "")
                 for artist_alias in artist_aliases_tmp
             }
-            for existing_alias in self.get_list(website=choice, artist=artist):  # Removes any alias that already exists for the website and artist
+            # Case sensitive check
+            if not is_case_sensitive:
+                artist_aliases = {x.lower() for x in artist_aliases}
+
+            # Removes any alias that already exists for the website and artist
+            for existing_alias in self.get_list(website=choice, artist=artist):
                 artist_aliases.remove(existing_alias)
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
@@ -384,7 +388,6 @@ class CombinedFile:
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
 
     async def add_website(self, website_choice: str, skip_empty: bool, check_existing_again: bool) -> None:
-
         await self._add_activate_dict(self.config, choice=website_choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
