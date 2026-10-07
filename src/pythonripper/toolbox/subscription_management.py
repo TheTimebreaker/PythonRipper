@@ -355,7 +355,7 @@ class CombinedFile:
 
             # Removes any alias that already exists for the website and artist
             for existing_alias in self.get_list(website=choice, artist=artist):
-                artist_aliases.remove(existing_alias)
+                artist_aliases.discard(existing_alias)
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
             await q.put((i, artist, url_list))
