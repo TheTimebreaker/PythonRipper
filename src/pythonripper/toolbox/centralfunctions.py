@@ -18,8 +18,10 @@ from typing import Any, TypedDict
 import requests
 import wget
 from selenium.webdriver.remote.webdriver import WebDriver
+from send2trash import send2trash
 
 from pythonripper.toolbox.config import ConfigObject, config
+from pythonripper.toolbox.config.model import FileDeletionMode
 
 
 def case_permutations(text: str) -> list[str]:
@@ -205,7 +207,11 @@ def _download_chromedriver(root_path: Path) -> tuple[Path, Path]:
 
         with zipfile.ZipFile(latest_chrome_path_zip, "r") as zip_ref:
             zip_ref.extractall(path=latest_chrome_path_tmp)  # you can specify the destination folder path here
-        latest_chrome_path_zip.unlink()
+
+        if config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+            send2trash(latest_chrome_path_zip)
+        elif config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
+            latest_chrome_path_zip.unlink()
         shutil.move(latest_chrome_path_tmp / "chrome-win64", latest_chrome_path)
         latest_chrome_path_tmp.rmdir()
 
@@ -214,7 +220,11 @@ def _download_chromedriver(root_path: Path) -> tuple[Path, Path]:
 
         with zipfile.ZipFile(latest_chromedriver_path_zip, "r") as zip_ref:
             zip_ref.extractall(path=latest_chromedriver_path_tmp)  # you can specify the destination folder path here
-        latest_chromedriver_path_zip.unlink()
+
+        if config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+            send2trash(latest_chromedriver_path_zip)
+        elif config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
+            latest_chromedriver_path_zip.unlink()
         shutil.move(latest_chromedriver_path_tmp / "chromedriver-win64", latest_chromedriver_path)
         latest_chromedriver_path_tmp.rmdir()
 
