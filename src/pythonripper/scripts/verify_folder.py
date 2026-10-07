@@ -9,7 +9,6 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, TypedDict
 
-import send2trash
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -24,6 +23,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from send2trash import send2trash
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
@@ -40,7 +40,8 @@ from pythonripper.extractor.rule34paheal import Rule34pahealAPI
 from pythonripper.extractor.rule34us import Rule34usAPI
 from pythonripper.extractor.rule34xxx import Rule34xxxAPI
 from pythonripper.extractor.yandere import YandereAPI
-from pythonripper.toolbox.config import AppSettings, ConfigObject, config, get_settingsmanager_object
+from pythonripper.toolbox.config import AppSettings, ConfigObject, get_settingsmanager_object
+from pythonripper.toolbox.config.model import FileDeletionMode
 
 
 class WorkerResult(TypedDict):
@@ -90,11 +91,14 @@ async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scraper.S
         await queue.put(None)
 
 
-def __process_file(file: Path, processing_option: ProcessingOptions) -> None:
+def __process_file(config: ConfigObject, file: Path, processing_option: ProcessingOptions) -> None:
     if processing_option == ProcessingOptions.SKIP:
         return
     elif processing_option == ProcessingOptions.DELETE:
-        send2trash.send2trash(file)
+        if config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+            send2trash(file)
+        elif config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
+            file.unlink(missing_ok=True)
     elif processing_option == ProcessingOptions.MOVE:
         target_dir = file.parent / "moved"
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -158,12 +162,12 @@ async def _verify(
 
         if issuer.blacklist_tag_found(data):
             print(f"Blacklisted!: {filepath}")
-            __process_file(filepath, processing_option=blacklisted_processing)
+            __process_file(config, filepath, processing_option=blacklisted_processing)
             blacklisted += 1
 
         elif not issuer.is_content_rating_allowed(data):
             print(f"Content rating disallowed!: {filepath}")
-            __process_file(filepath, processing_option=disallowed_rating_processing)
+            __process_file(config, filepath, processing_option=disallowed_rating_processing)
             content_ratings += 1
 
         else:
@@ -343,8 +347,11 @@ def get_session_settings() -> AppSettings:
     if dialog.clickedButton() == cancel_button:
         sys.exit()
 
+    # This gets imported here to prevent any confusion on which config is legal to use
+    from pythonripper.toolbox.config import config as _global_config
+
     tmp_dir = NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, prefix="config", suffix=".json")
-    tmp_dir.write(config.settings.model_dump_json())
+    tmp_dir.write(_global_config.settings.model_dump_json())
     tmp_dir.close()
     tmp_path = Path(tmp_dir.name)
     try:

@@ -22,4 +22,4 @@ from .imageconversionsettings import ImageConversionSettings, DimensionLimit
 from .exclusionsettings import ExclusionSettings
 from .shared_model_data import alternative_extensions
 
-from .main import GeneralSettings, ExtractorSettings, AppSettings, get_settingsmanager_object
+from .main import GeneralSettings, ExtractorSettings, AppSettings, FileDeletionMode, get_settingsmanager_object
