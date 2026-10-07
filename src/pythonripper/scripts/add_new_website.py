@@ -52,8 +52,8 @@ async def main() -> None:
     divider.setFrameShadow(QFrame.Shadow.Sunken)
     layout.addWidget(divider)
 
-    layout.addWidget(QLabel("Check for existing entries again using aliases from other websites:"))
-    check_existing_checkbox = QCheckBox("Check using aliases")
+    layout.addWidget(QLabel("Check existing entries for more possible entries using aliases from other websites:"))
+    check_existing_checkbox = QCheckBox("Check again")
     layout.addWidget(check_existing_checkbox)
 
     buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
