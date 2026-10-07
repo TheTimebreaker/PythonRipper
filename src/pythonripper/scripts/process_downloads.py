@@ -9,15 +9,15 @@ from typing import Any, Self
 
 import duplicate_image_finder as dif
 import imagesize
-import send2trash
 from PIL import Image, UnidentifiedImageError
 from psd_tools import PSDImage
+from send2trash import send2trash
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.subscription_management as sm
 from pythonripper.toolbox.config import ConfigObject, config
-from pythonripper.toolbox.config.model import DimensionLimit, alternative_extensions
+from pythonripper.toolbox.config.model import DimensionLimit, FileDeletionMode, alternative_extensions
 
 
 class ExitError(Exception):
@@ -26,7 +26,8 @@ class ExitError(Exception):
 
 class Log:
     def __init__(self, config: ConfigObject) -> None:
-        self.filepath = config.paths.process_downloads_log()
+        self.config: ConfigObject = config
+        self.filepath = self.config.paths.process_downloads_log()
         self.encoding = "utf-8"
         self.read()
 
@@ -46,7 +47,10 @@ class Log:
 
     def delete(self) -> None:
         f.backup_file(self.filepath)
-        self.filepath.unlink()
+        if self.config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+            send2trash(self.filepath)
+        elif self.config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
+            self.filepath.unlink(missing_ok=True)
 
 
 class Worker:
@@ -171,7 +175,10 @@ class Worker:
             for file in f.iter_files(path):
                 mat = f.match_extension(file.name)
                 if mat and mat in unwanted_extensions:
-                    file.unlink()
+                    if self.config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+                        send2trash(file)
+                    elif self.config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
+                        file.unlink()
         print("=" * 25)
 
     def _convert_images(self, path: Path) -> None:
@@ -448,9 +455,9 @@ def image_converter(
 
         if file == new_file:
             return
-        elif str(delete_source) == "bin":
-            send2trash.send2trash(file)
-        elif delete_source:
+        elif delete_source and config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+            send2trash(file)
+        elif delete_source and config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
             file.unlink(missing_ok=True)
 
     except BrokenPipeError:

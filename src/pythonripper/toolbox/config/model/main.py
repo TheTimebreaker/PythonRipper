@@ -1,3 +1,4 @@
+from enum import StrEnum
 from pathlib import Path
 
 import platformdirs
@@ -28,6 +29,11 @@ from . import (
     PathSettings,
 )
 from .shared_model_data import StrictBaseModel
+
+
+class FileDeletionMode(StrEnum):
+    RECYCLEBIN = "recycle bin"
+    PERMANENT = "permanent"
 
 
 class GeneralSettings(StrictBaseModel):
@@ -88,6 +94,17 @@ class GeneralSettings(StrictBaseModel):
             "Helpful if moving files to other operating systems with stricter path length.\n"
             "Settings this too low may affect this apps' ability too function.\n"
             "Only decrease this from the default, if you know what you're doing."
+        ),
+    )
+
+    file_deletion_mode: FileDeletionMode = Field(
+        default=FileDeletionMode.RECYCLEBIN,
+        title="File deletion mode",
+        description=(
+            "The file deletion mode setting decides how files are deleted by this application.\n"
+            "Recycle bin: Move files to your OS' variant of the recycle bin. Files moved there can be restored.\n"
+            "Permanent: Immediately deletes the file permanently, bypassing your OS' recycle bin. Files can't be restored, unless data recovery "
+            "tools are used."
         ),
     )
 
