@@ -359,20 +359,7 @@ def get_session_settings() -> AppSettings:
         tmp_path.unlink(missing_ok=True)
 
 
-def main(app: QApplication) -> None:
-    processing_settings = get_processing_settings(app)
-    temp_settings = get_session_settings()
-    asyncio.run(
-        _verify(
-            processing_settings["directory"],
-            temp_settings,
-            blacklisted_processing=processing_settings["blacklisted_processing"],
-            disallowed_rating_processing=processing_settings["disallowed_rating_processing"],
-        )
-    )
-
-
-if __name__ == "__main__":
+async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     app = QApplication.instance() or QApplication([])
@@ -382,4 +369,15 @@ if __name__ == "__main__":
     if __icon__ and __icon__.is_file():
         app.setWindowIcon(QIcon(str(__icon__)))
 
-    main(app)
+    processing_settings = get_processing_settings(app)
+    temp_settings = get_session_settings()
+    await _verify(
+        processing_settings["directory"],
+        temp_settings,
+        blacklisted_processing=processing_settings["blacklisted_processing"],
+        disallowed_rating_processing=processing_settings["disallowed_rating_processing"],
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
