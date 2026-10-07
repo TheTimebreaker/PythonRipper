@@ -278,6 +278,8 @@ class DeviantartAPI(scraper.TaggableScraper):
         return tagname
 
     async def does_this_exist(self, tagname: str) -> bool:
+        if len(tagname) > 20:  # tagnames arent allowed to be too long
+            return False
         url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
         res = await self.request(url)
         return res.status_code == 200
