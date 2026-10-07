@@ -57,7 +57,7 @@ class DeviantartAPI(scraper.TaggableScraper):
     ME = "deviantart"
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
-    SPACE_REPLACE = "_"
+    SPACE_REPLACE = "-"
 
     REDIRECT_PORT = 3055
     REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
@@ -265,6 +265,17 @@ class DeviantartAPI(scraper.TaggableScraper):
             return False
 
         return True
+
+    def format_tagname(self, tagname: str) -> str:
+        replace_dict: dict[str, str] = {
+            " ": self.SPACE_REPLACE,
+            "(": "",
+            ")": "",
+            ".": "",
+        }
+        for what, by in replace_dict.items():
+            tagname = tagname.replace(what, by)
+        return tagname
 
     async def does_this_exist(self, tagname: str) -> bool:
         url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
