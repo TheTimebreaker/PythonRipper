@@ -33,7 +33,7 @@ from pythonripper.extractor import (
     tumblr,
     yandere,
 )
-from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config import ConfigObject, config
 
 STOP = object()
 
@@ -499,7 +499,7 @@ class CombinedFile:
             self.get_list(site)
 
 
-class CombinedArtistFile(CombinedFile):
+class _CombinedArtistFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
         "animepictures",
@@ -526,7 +526,7 @@ class CombinedArtistFile(CombinedFile):
         super().__init__(config)
 
 
-class CombinedBooruFile(CombinedFile):
+class _CombinedBooruFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
         "animepictures",
@@ -546,3 +546,7 @@ class CombinedBooruFile(CombinedFile):
     def __init__(self, config: ConfigObject) -> None:
         self.path = config.paths.booru_tags_path()
         super().__init__(config)
+
+
+combined_artist_file = _CombinedArtistFile(config)
+combined_tags_file = _CombinedBooruFile(config)

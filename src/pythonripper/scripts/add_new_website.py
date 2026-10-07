@@ -2,17 +2,17 @@ import asyncio
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.subscription_management as sm
-from pythonripper.toolbox.config import ConfigObject, config
+from pythonripper.toolbox.config import config
 
 
-async def main(config: ConfigObject) -> None:
+async def main() -> None:
     inp = input("Do you want to search the new websites' entries to <artist> or <tag>? Please enter either EXACTLY to choose: ")  # noqa: ASYNC250
     obj: sm.CombinedFile
     if inp in ("artist", "<artist>", "artists", "<artists>"):
-        obj = sm.CombinedArtistFile(config)
+        obj = sm.combined_artist_file
         func = add_artists
     elif inp in ("tag", "<tag>", "tags", "<tags>"):
-        obj = sm.CombinedBooruFile(config)
+        obj = sm.combined_tags_file
         func = add_tag
     else:
         print("No valid choice detected, run again.")
@@ -54,4 +54,4 @@ async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool) -> None:
 
 if __name__ == "__main__":
     cf.init_logger(config, "error", False)
-    asyncio.run(main(config))
+    asyncio.run(main())

@@ -210,7 +210,7 @@ class Worker:
             longest_message = 5
 
             # Artist merge
-            combined_artists = sm.CombinedArtistFile(config)
+            combined_artists = sm.combined_artist_file
             artists = combined_artists.data
 
             for artist, artist_dict in artists.items():
@@ -245,7 +245,7 @@ class Worker:
             longest_message = 5
 
             # Artist merge
-            combined_artists = sm.CombinedBooruFile(config)
+            combined_artists = sm.combined_tags_file
             artists = combined_artists.data
 
             for artist, artist_dict in artists.items():

@@ -672,9 +672,9 @@ async def update_stuff(
 
         tag_object: sm.CombinedFile
         if update_type == "artists":
-            tag_object = sm.CombinedArtistFile(config)
+            tag_object = sm.combined_artist_file
         elif update_type == "tags":
-            tag_object = sm.CombinedBooruFile(config)
+            tag_object = sm.combined_tags_file
         if isinstance(obj, kemono.KemonoBase):
             website = obj.service
         else:

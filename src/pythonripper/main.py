@@ -273,9 +273,9 @@ async def main() -> None:
 
     match window2.choice:
         case MiscScripts.ADD_ENTRY:
-            await add_new_entry.main(config)
+            await add_new_entry.main()
         case MiscScripts.ADD_WEBSITE:
-            await add_new_website.main(config)
+            await add_new_website.main()
         case MiscScripts.ARCHIVE_FOLDER:
             archive_folder.main(app)
         case MiscScripts.PACK_RANDOM_FILES:
@@ -283,7 +283,7 @@ async def main() -> None:
         case MiscScripts.PROCESS_DOWNLOADS:
             await process_downloads.main()
         case MiscScripts.VERIFY_TAGFILES:
-            await verify_tagfiles.main(config)
+            await verify_tagfiles.main()
         case MiscScripts.VERIFY_FOLDER:
             await verify_folder.main()
         case _:
