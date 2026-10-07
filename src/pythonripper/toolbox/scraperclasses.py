@@ -249,6 +249,9 @@ class Scraper(ABC):
 
         return False
 
+    def is_in_downloadhistory(self, data: PostData) -> bool:
+        return self.history is not None and self.history.contains(data["identifier"])
+
     def is_content_rating_allowed(self, data: PostData) -> bool:  # noqa: ARG002
         return True
 
@@ -353,6 +356,7 @@ class Scraper(ABC):
         filename: str | None = None,
         ignore_download_history: bool = False,
         ignore_blacklist: bool = False,
+        ignore_contentfilters: bool = False,
     ) -> bool:
         # Verify args
         if data is None:
@@ -374,11 +378,14 @@ class Scraper(ABC):
         if dpath is None:
             dpath = self.config.paths.downloads()
 
-        if not ignore_download_history and self.history is not None and self.history.contains(post_id):
+        if not ignore_download_history and self.is_in_downloadhistory(data):
             logging.info("[%s] - Skipped download of %s: in download history.", self.ME.upper(), post_id)
             return True
         if not ignore_blacklist and self.blacklist_tag_found(data):
             logging.info("[%s] - Skipped download of %s: blacklisted tags found.", self.ME.upper(), post_id)
+            return True
+        if not ignore_contentfilters and self.is_content_rating_allowed(data):
+            logging.info("[%s] - Skipped download of %s: content rating disallowed.", self.ME.upper(), post_id)
             return True
 
         downloaded_counter = 0
@@ -557,6 +564,7 @@ class TaggableScraper(Scraper):
                         dpath=dpath,
                         ignore_blacklist=ignore_blacklist,
                         ignore_download_history=ignore_download_history,
+                        ignore_contentfilters=ignore_contentfilters,
                     )
                 except cf.ExtractorExitError:
                     logging.error("[%s] - Download of %s lead to the extractor being forced to exit.", self.ME.upper(), post["identifier"])
