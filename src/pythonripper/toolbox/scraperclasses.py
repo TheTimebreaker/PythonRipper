@@ -679,7 +679,7 @@ async def update_stuff(
             website = obj.service
         else:
             website = obj.ME
-        tag_list = tag_object.get_list(website)
+        tag_list = tag_object.get_list(website=website)
     random.shuffle(tag_list)
 
     # Download

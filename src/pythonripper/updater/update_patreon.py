@@ -9,7 +9,7 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 async def update_patreon_artists(config: ConfigObject) -> bool:
     obj_artists = sm.combined_artist_file
-    artists: list[str] = obj_artists.get_list("patreon")
+    artists: list[str] = obj_artists.get_list(website="patreon")
     artists = await patreon.verify_patreon_artist_list(config, artists)
 
     return await scraper.update_stuff(config, patreon.PatreonAPI, "artists", tag_list=artists)

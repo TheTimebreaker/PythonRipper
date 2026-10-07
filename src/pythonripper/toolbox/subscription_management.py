@@ -37,6 +37,18 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 STOP = object()
 
+additional_keys = [
+    "artist-websites",
+    "asmhentai",
+    "doujinscom",
+    "hentaienvy",
+    "hentaiera",
+    "hentaiforce",
+    "hentairead",
+    "nhentainet",
+    "reddit",
+]
+
 
 class WebsiteInfo(TypedDict):
     object: type[scraper.TaggableScraper]
@@ -341,8 +353,7 @@ class CombinedFile:
                 .replace("u/", "")
                 for artist_alias in artist_aliases_tmp
             }
-
-            for existing_alias in self.get_list(choice, artist):  # Removes any alias that already exists for the website and artist
+            for existing_alias in self.get_list(website=choice, artist=artist):  # Removes any alias that already exists for the website and artist
                 artist_aliases.remove(existing_alias)
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
@@ -449,7 +460,7 @@ class CombinedFile:
             await self.process_urls(new_tag, confirmed_urls)
             self._add_close_non_fallback_tabs(driver, fallback_handle)
 
-    def get_list(self, website: str | None = None, artist: str | None = None) -> list[Any]:
+    def get_list(self, *, website: str | None = None, artist: str | None = None) -> list[Any]:
         """Returns sorted list of all entries from a given website or tag/artist."""
         taglist = []
         for name, name_data in self.data.items():
@@ -457,23 +468,9 @@ class CombinedFile:
                 for website_name, is_there in name_data.items():
                     if (website is None or website_name == website) and bool(is_there):
                         if isinstance(is_there, str | int):
-                            if is_there in taglist:
-                                logging.warning(
-                                    "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
-                                    website_name,
-                                    is_there,
-                                    name,
-                                )
                             taglist.append(is_there)
                         elif isinstance(is_there, list):
                             for sublink in is_there:
-                                if sublink in taglist:
-                                    logging.warning(
-                                        "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
-                                        website_name,
-                                        sublink,
-                                        name,
-                                    )
                                 taglist.append(sublink)
 
         return sorted([str(x) for x in taglist])
@@ -494,27 +491,41 @@ class CombinedFile:
         return {name: list(value.keys()) for name, value in taglist.items()}
 
     def check_keys(self) -> None:
+        tags_by_website: dict[str, list[str]] = {website: [] for website in (*self.websites, *additional_keys)}
         for tag, tag_data in self.data.items():
-            for key in self.websites:
-                if key not in tag_data.keys():
-                    logging.warning("[%s][%s] - Website key missing.", tag, key)
+            for website_key in self.websites:
+
+                # Website key checks: missing keys and unsupported keys
+                if website_key not in tag_data.keys():
+                    logging.warning("[%s][%s] - Website key missing.", tag, website_key)
                 else:
-                    for key in tag_data:
-                        if key not in [
-                            *self.websites,
-                            "artist-websites",
-                            "asmhentai",
-                            "doujinscom",
-                            "hentaienvy",
-                            "hentaiera",
-                            "hentaiforce",
-                            "hentairead",
-                            "nhentainet",
-                            "reddit",
-                        ]:
-                            logging.warning("[%s][%s] - Key for unsupported website.", tag, key)
-        for site in self.websites:
-            self.get_list(site)
+                    for website_key in tag_data:
+                        if website_key not in [*self.websites, *additional_keys]:
+                            logging.warning("[%s][%s] - Key for unsupported website.", tag, website_key)
+
+            # ...
+            assert isinstance(tag_data, dict)
+            for _website, _websitedata in tag_data.items():
+                assert isinstance(_website, str)
+                assert isinstance(_websitedata, (list, bool, str, int))
+
+                if isinstance(_websitedata, bool):
+                    if _websitedata:
+                        raise ValueError
+                    continue
+
+                if not isinstance(_websitedata, list):
+                    _websitedata = [_websitedata]
+
+                for _element in _websitedata:
+                    if _element in tags_by_website[_website]:
+                        logging.warning(
+                            "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
+                            _website,
+                            _element,
+                            tag,
+                        )
+                    tags_by_website[_website].append(_element)
 
 
 class _CombinedArtistFile(CombinedFile):
