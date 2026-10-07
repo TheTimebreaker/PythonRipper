@@ -320,7 +320,9 @@ class CombinedFile:
                             new_tag_obj[key].append(tag)
                         except AttributeError:
                             existing_value = new_tag_obj[key]
-                            if isinstance(existing_value, (int, str)):
+                            if not existing_value:
+                                new_tag_obj[key] = [tag]
+                            elif isinstance(existing_value, (int, str)):
                                 new_tag_obj[key] = [existing_value, tag]
                             else:
                                 raise TypeError(
