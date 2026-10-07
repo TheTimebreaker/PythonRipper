@@ -466,20 +466,20 @@ class CombinedFile:
             await self.process_urls(new_tag, confirmed_urls)
             self._add_close_non_fallback_tabs(driver, fallback_handle)
 
-    def get_list(self, *, website: str | None = None, artist: str | None = None) -> list[Any]:
+    def get_list(self, *, website: str | None = None, artist: str | None = None) -> set[str]:
         """Returns sorted list of all entries from a given website or tag/artist."""
-        taglist = []
+        taglist: set[str | int] = set()
         for name, name_data in self.data.items():
             if (artist is None or name == artist) and bool(name_data):
                 for website_name, is_there in name_data.items():
                     if (website is None or website_name == website) and bool(is_there):
                         if isinstance(is_there, str | int):
-                            taglist.append(is_there)
+                            taglist.add(is_there)
                         elif isinstance(is_there, list):
                             for sublink in is_there:
-                                taglist.append(sublink)
+                                taglist.add(sublink)
 
-        return sorted([str(x) for x in taglist])
+        return {str(x) for x in taglist}
 
     def get_all(self) -> dict[Any, Any]:
         """Returns sorted list of all entries from all websites."""
