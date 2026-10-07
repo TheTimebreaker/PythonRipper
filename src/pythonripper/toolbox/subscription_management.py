@@ -347,6 +347,7 @@ class CombinedFile:
                 .replace("parody/", "")
                 .replace("metadata/", "")
                 .replace("u/", "")
+                .replace("r/", "")
                 for artist_alias in artist_aliases_tmp
             }
             # Case sensitive check
