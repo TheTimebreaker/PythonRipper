@@ -73,7 +73,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
         return True
 
     async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
-        for i in (0, 3, 5, 7, 10, 10, 60, 60):
+        for i in (5, 5, 5, 7, 10, 10, 60, 60):
             await self.LIMIT.wait()
             res = await self.session.get(url, params=params)
             if res.status_code == 429:

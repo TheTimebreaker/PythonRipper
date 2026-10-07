@@ -112,6 +112,11 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
         if post_id is None:
             post_id = str(json_data["id"])
 
+        filehash = json_data.get("md5", False)
+        if filehash is False:
+            logging.error("[%s] - Could not find md5 field in data from %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError(f"Could not find md5 field in data from {post_id}") from KeyError
+
         tags = scraper.TagsData(
             artists=[self.invert_formatting(tag) for tag in str(json_data["tag_string_artist"]).split(" ")],
             parodies=[self.invert_formatting(tag) for tag in str(json_data["tag_string_copyright"]).split(" ")],
@@ -138,7 +143,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
 
         return scraper.PostData(
             identifier=post_id,
-            filehash=str(json_data["md5"]),
+            filehash=filehash,
             elements=scraper.PostElementLinks(download_url=json_data["file_url"], extension=json_data["file_ext"]),
             tags=tags,
             rating=rating,

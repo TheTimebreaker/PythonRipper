@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 import shutil
+import sys
 import traceback
 from enum import StrEnum
 from pathlib import Path
@@ -301,8 +302,13 @@ class ProcessingWindow(QMainWindow):
         QApplication.instance().quit()  # type: ignore
 
 
-def main(app: QApplication) -> None:
-    # General processing settings
+class ProcessingSettings(TypedDict):
+    directory: Path
+    blacklisted_processing: ProcessingOptions
+    disallowed_rating_processing: ProcessingOptions
+
+
+def get_processing_settings(app: QApplication) -> ProcessingSettings:
     window = ProcessingWindow()
     window.show()
     app.exec()
@@ -312,10 +318,15 @@ def main(app: QApplication) -> None:
     disallowed_rating_processing = window.disallowed_rating_option
 
     if any(x is None for x in (directory, blacklisted_processing, disallowed_rating_processing)):
-        return
+        sys.exit()
     assert directory and blacklisted_processing and disallowed_rating_processing
 
-    # Edit session settings
+    return ProcessingSettings(
+        directory=directory, blacklisted_processing=blacklisted_processing, disallowed_rating_processing=disallowed_rating_processing
+    )
+
+
+def get_session_settings() -> AppSettings:
     dialog = QMessageBox(
         QMessageBox.Icon.Information,
         "Verify folder",
@@ -330,7 +341,7 @@ def main(app: QApplication) -> None:
     dialog.setDefaultButton(cancel_button)
     dialog.exec()
     if dialog.clickedButton() == cancel_button:
-        return
+        sys.exit()
 
     tmp_dir = NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, prefix="config", suffix=".json")
     tmp_dir.write(config.settings.model_dump_json())
@@ -341,18 +352,22 @@ def main(app: QApplication) -> None:
         manager.load()
         manager.edit_gui()
 
-        temp_settings = manager.model.model_copy(deep=True)
+        return manager.model.model_copy(deep=True)
 
     finally:
         tmp_dir.close()
         tmp_path.unlink(missing_ok=True)
 
+
+def main(app: QApplication) -> None:
+    processing_settings = get_processing_settings(app)
+    temp_settings = get_session_settings()
     asyncio.run(
         _verify(
-            directory,
+            processing_settings["directory"],
             temp_settings,
-            blacklisted_processing=blacklisted_processing,
-            disallowed_rating_processing=disallowed_rating_processing,
+            blacklisted_processing=processing_settings["blacklisted_processing"],
+            disallowed_rating_processing=processing_settings["disallowed_rating_processing"],
         )
     )
 
