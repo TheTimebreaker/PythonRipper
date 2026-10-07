@@ -653,7 +653,7 @@ async def artist_website_updater(config: ConfigObject, obj_ref: type[ArtistWebsi
 
 
 async def update_stuff(
-    config: ConfigObject, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_list: list[str] | None = None
+    config: ConfigObject, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_set: set[str] | None = None
 ) -> bool:
     obj = obj_ref(config)
     if not await obj.init():
@@ -664,7 +664,7 @@ async def update_stuff(
     print("=" * 50)
 
     # Load artist / tag list
-    if tag_list is None:
+    if tag_set is None:
         # import necessary here to prevent circular imports
         import pythonripper.toolbox.subscription_management as sm  # noqa: I001, RUF100
         import pythonripper.extractor.kemono as kemono
@@ -678,7 +678,8 @@ async def update_stuff(
             website = obj.service
         else:
             website = obj.ME
-        tag_list = tag_object.get_list(website=website)
+        tag_set = tag_object.get_list(website=website)
+    tag_list = list(tag_set)
     random.shuffle(tag_list)
 
     # Download

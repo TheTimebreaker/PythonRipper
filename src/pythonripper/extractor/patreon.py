@@ -3,7 +3,7 @@
 import json
 import logging
 from collections import defaultdict
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator, Iterable
 from datetime import datetime
 from http.cookiejar import MozillaCookieJar
 from typing import Any, Literal, final
@@ -19,7 +19,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.toolbox.config import ConfigObject
 
 
-async def verify_patreon_artist_list(config: ConfigObject, artist_list: list[str]) -> list[str]:
+async def verify_patreon_artist_list(config: ConfigObject, artist_list: Iterable[str]) -> set[str]:
     """Verifies the full artist list (containing ALL artists) with the json of memberships
     provided in patreon_memberships.json
 
@@ -46,7 +46,7 @@ async def verify_patreon_artist_list(config: ConfigObject, artist_list: list[str
 
     if file_has_changed:
         await f.atomic_write(membsfile, data=json.dumps(data, indent=4, sort_keys=True))
-    return active_memberships
+    return set(active_memberships)
 
 
 @final
