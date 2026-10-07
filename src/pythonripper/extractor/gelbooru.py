@@ -3,7 +3,7 @@
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any, final
+from typing import Any, Literal, final
 
 import aiofiles
 import asynciolimiter
@@ -24,6 +24,7 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?gelbooru\.com.*id=(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?gelbooru\.com/index\.php\?(?:.+)?tags=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"gelbooru_(\d+)_"
 
     ME = "gelbooru"
     WEBSITE_NAME = ME
@@ -95,6 +96,10 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
         res = await self.session.get(self.API_URL, params=params)
         return "post" in res.json() and bool(res.json()["post"])
 
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.gelbooru.allowed_ratings
+        return data["rating"] in allowed_ratings
+
     def create_ratings_searchtag(self, formatted_tagname: str) -> str:
         cfg = self.config.settings.extractor.gelbooru.allowed_ratings
         len_cfg = len(cfg)
@@ -128,8 +133,11 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
                 raise ValueError("Neither post id nor json_data given (one is necessary).")
             params = {"s": "post", "id": post_id}
             await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL, params=params)
-            json_data = res.json()["post"][0]
+            try:
+                res = await self.session.get(self.API_URL, params=params)
+                json_data = res.json()["post"][0]
+            except (json.JSONDecodeError, KeyError) as error:
+                raise cf.ExtractorSkipError from error
         if post_id is None:
             post_id = str(json_data["id"])
 
@@ -137,17 +145,35 @@ class GelbooruAPI(scraper.DownloadhistoryScraper):
             tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
         )
 
+        rating_field: str | Literal[False] = json_data.get("rating", False)
+        if not rating_field:
+            logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError("No rating field found") from KeyError
+        #fmt:off
+        rating:str|Literal[False] = (
+            GelbooruRatings.GENERAL if rating_field == "general" else
+            GelbooruRatings.SENSITIVE if rating_field == "sensitive" else
+            GelbooruRatings.QUESTIONABLE if rating_field == "questionable" else
+            GelbooruRatings.EXPLICIT if rating_field == "explicit" else False
+        )
+        #fmt:on
+        if not rating:
+            logging.error("[%s] - Rating could not be extracted from json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError from KeyError
+
         download_url = json_data["file_url"]
         extension = f.match_extension(download_url)
         if not extension:
             msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
             logging.error(msg)
             raise cf.ExtractorSkipError(msg) from AttributeError
+
         return scraper.PostData(
             identifier=post_id,
             filehash=str(json_data["md5"]),
             elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
             tags=tags,
+            rating=rating,
         )
 
     async def _fetch_posts(

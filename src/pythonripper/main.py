@@ -26,6 +26,7 @@ from pythonripper.scripts import (
     pack_random_files,
     process_downloads,
     update_scheduler,
+    verify_folder,
     verify_tagfiles,
 )
 from pythonripper.toolbox.config import config, get_settingsmanager_object
@@ -44,6 +45,7 @@ class MiscScripts(StrEnum):
     PACK_RANDOM_FILES = "pack_random_files"
     PROCESS_DOWNLOADS = "process_downloads"
     VERIFY_TAGFILES = "verify_tagfiles"
+    VERIFY_FOLDER = "verify_folder"
 
 
 class MiscWindow(QMainWindow):
@@ -109,6 +111,11 @@ class MiscWindow(QMainWindow):
                 "Verify tagfiles",
                 lambda: self.apply_choice(MiscScripts.VERIFY_TAGFILES),
                 "Initiates the artist and tag tagfiles, which will print all issues to the console.",
+            ),
+            (
+                "Verify folder",
+                lambda: self.apply_choice(MiscScripts.VERIFY_FOLDER),
+                "Allows you to re-verify the files in a folder based on your current preferences.",
             ),
         ):
             button = QPushButton(label)
@@ -277,6 +284,8 @@ async def main() -> None:
             await process_downloads.main()
         case MiscScripts.VERIFY_TAGFILES:
             await verify_tagfiles.main(config)
+        case MiscScripts.VERIFY_FOLDER:
+            await verify_folder.main()
         case _:
             print("No valid choice made. Exiting...")
 

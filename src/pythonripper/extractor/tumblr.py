@@ -22,6 +22,7 @@ class TumblrAPI(scraper.TaggableScraper):
     URL_TAG = "https://tumblr.com/{tagname}"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?tumblr\.com/([^/]+)/(\d+)/?"
     TAG_PATTERN = r"https://(?:www\.)?tumblr\.com/([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"tumblr_([a-zA-Z\d\- ]+)_(\d+)"
 
     ME = "tumblr"
     WEBSITE_NAME = ME

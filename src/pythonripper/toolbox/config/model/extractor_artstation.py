@@ -9,3 +9,8 @@ class ExtractorArtstationSettings(StrictBaseModel):
         title="Enabled",
         description=enabled_description,
     )
+    allow_mature_images: bool = Field(
+        default=True,
+        title="Allow mature images",
+        description="Allow images marked as 'mature content' by artstation.",
+    )

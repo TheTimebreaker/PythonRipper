@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator, Mapping
-from typing import Any, final
+from typing import Any, Literal, final
 
 import aiofiles
 import asynciolimiter
@@ -25,10 +25,11 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?rule34\.xxx.*id=(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?rule34\.xxx/index\.php\?(?:.+)?tags=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"rule34xxx_(\d+)_"
 
     ME = "rule34xxx"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.LeakyBucketLimiter(1.8, capacity=10)
+    LIMIT = asynciolimiter.LeakyBucketLimiter(1.8, capacity=8)
     SPACE_REPLACE = "_"
     IS_GOOGLE_SEARCHABLE = True
 
@@ -72,7 +73,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
         return True
 
     async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
-        for i in (0, 3, 5, 7, 10, 10, 60, 60):
+        for i in (5, 5, 5, 7, 10, 10, 60, 60):
             await self.LIMIT.wait()
             res = await self.session.get(url, params=params)
             if res.status_code == 429:
@@ -87,6 +88,10 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
         params: dict[str, str | int] = {"s": "post", "tags": self.format_tagname(tagname)}
         res = await self.request(self.API_URL, params=params)
         return bool(res.text)
+
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.rule34xxx.allowed_ratings
+        return data["rating"] in allowed_ratings
 
     def create_ratings_searchtag(self, formatted_tagname: str) -> str:
         cfg = self.config.settings.extractor.rule34xxx.allowed_ratings
@@ -119,7 +124,26 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
 
             params = {"s": "post", "id": post_id}
             res = await self.request(self.API_URL, params=params)
-            json_data = res.json()[0]
+            try:
+                json_data = res.json()[0]
+            except json.JSONDecodeError as error:
+                raise cf.ExtractorSkipError from error
+
+        rating_field: str | Literal[False] = json_data.get("rating", False)
+        if not rating_field:
+            logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError("No rating field found") from KeyError
+        rating_field = rating_field.lower()
+        #fmt:off
+        rating:str|Literal[False] = (
+            Rule34xxxRatings.SAFE if rating_field == "safe" else
+            Rule34xxxRatings.QUESTIONABLE if rating_field == "questionable" else
+            Rule34xxxRatings.EXPLICIT if rating_field == "explicit" else False
+        )
+        #fmt:on
+        if not rating:
+            logging.error("[%s] - Rating could not be extracted from json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError from KeyError
 
         download_url = json_data["file_url"]
         assert isinstance(download_url, str)
@@ -128,6 +152,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
             logging.error(msg)
             raise cf.ExtractorSkipError(msg) from AttributeError
+
         return scraper.PostData(
             identifier=json_data["id"],
             filehash=json_data["hash"],
@@ -135,6 +160,7 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
             tags=scraper.TagsData(
                 tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
             ),
+            rating=rating,
         )
 
     async def _fetch_posts(

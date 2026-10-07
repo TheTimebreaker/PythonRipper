@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncGenerator, Mapping
-from typing import Any, final
+from typing import Any, Literal, final
 
 import asynciolimiter
 import httpx
@@ -22,6 +22,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?danbooru\.donmai\.us/posts/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?danbooru\.donmai\.us/posts\?(?:.+)?tags=([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"danbooru_(\d+)_"
 
     ME = "danbooru"
     WEBSITE_NAME = ME
@@ -41,6 +42,10 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
         params: dict[str, str | int] = {"tags": self.format_tagname(tag_name)}
         res = await self.request(self.API_TAG_URL, params=params)
         return bool(res.json())
+
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        allowed_ratings = self.config.settings.extractor.danbooru.allowed_ratings
+        return data["rating"] in allowed_ratings
 
     def create_ratings_searchtag(self, formatted_tagname: str) -> str:
         cfg = self.config.settings.extractor.danbooru.allowed_ratings
@@ -107,6 +112,11 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
         if post_id is None:
             post_id = str(json_data["id"])
 
+        filehash = json_data.get("md5", False)
+        if filehash is False:
+            logging.error("[%s] - Could not find md5 field in data from %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError(f"Could not find md5 field in data from {post_id}") from KeyError
+
         tags = scraper.TagsData(
             artists=[self.invert_formatting(tag) for tag in str(json_data["tag_string_artist"]).split(" ")],
             parodies=[self.invert_formatting(tag) for tag in str(json_data["tag_string_copyright"]).split(" ")],
@@ -115,11 +125,28 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
             metatags=[self.invert_formatting(tag) for tag in str(json_data["tag_string_meta"]).split(" ")],
         )
 
+        rating_field: str | Literal[False] = json_data.get("rating", False)
+        if not rating_field:
+            logging.error("[%s] - No rating field found in json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError("No rating field found") from KeyError
+        #fmt:off
+        rating:str|Literal[False] = (
+            DanbooruRatings.GENERAL if rating_field == "g" else
+            DanbooruRatings.SENSITIVE if rating_field == "s" else
+            DanbooruRatings.QUESTIONABLE if rating_field == "q" else
+            DanbooruRatings.EXPLICIT if rating_field == "e" else False
+        )
+        #fmt:on
+        if not rating:
+            logging.error("[%s] - Rating could not be extracted from json data from post %s", self.ME.upper(), post_id)
+            raise cf.ExtractorSkipError from KeyError
+
         return scraper.PostData(
             identifier=post_id,
-            filehash=str(json_data["md5"]),
+            filehash=filehash,
             elements=scraper.PostElementLinks(download_url=json_data["file_url"], extension=json_data["file_ext"]),
             tags=tags,
+            rating=rating,
         )
 
     async def _fetch_posts(

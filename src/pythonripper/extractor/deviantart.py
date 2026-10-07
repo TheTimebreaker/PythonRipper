@@ -49,10 +49,10 @@ class DeviantartAPI(scraper.TaggableScraper):
     URL_POST = "https://www.deviantart.com/deviation/{post_id}"
     URL_TAG = "https://deviantart.com/{tagname}"
 
-    IMAGE_POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/art/([\w\d\-_]+)"
-    POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/(?:art|journal)/(?:[\w\d\-_]+\-|)|deviation/)(\d+)"
+    POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/(?:art|journal)/(?:[\w\d\-\~\_]+\-|)|deviation/)(\d+)"
     FAVORITES_GALLERY_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/(favourites|gallery)/?([/\w\d\-_]*)?"
     TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = r"deviantart_[a-zA-Z\d\-\_ ]+_(\d+)_"
 
     ME = "deviantart"
     WEBSITE_NAME = ME
@@ -272,6 +272,14 @@ class DeviantartAPI(scraper.TaggableScraper):
         res = await self.request(url)
         return res.status_code == 200
 
+    def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
+        setting = self.config.settings.extractor.deviantart.allow_mature_content
+        if setting is True:
+            return True
+        elif data["rating"] == "general":
+            return True
+        return False
+
     async def request(
         self,
         url: str,
@@ -382,11 +390,14 @@ class DeviantartAPI(scraper.TaggableScraper):
         title = json_data["title"]
         assert isinstance(title, str)
 
+        is_mature = json_data.get("is_mature", False)
+
         return scraper.PostData(
             identifier=post_id,
             source=source,
             title=title,
             elements=scraper.PostElementData(data=json_data),
+            rating="mature" if is_mature else "general",
         )
 
     async def _fetch_posts(

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import platformdirs
 from pydantic import ConfigDict, Field, model_validator
 from pydantic_gui_settings_editor import ConfigCollapeNestedSettings, SettingsManager, SettingsManagerConfig, Theme
@@ -136,9 +138,10 @@ class AppSettings(StrictBaseModel):
     extractor: ExtractorSettings = Field(default_factory=ExtractorSettings, title="Extractors", description="Settings for supported extractors.")
 
 
-def get_settingsmanager_object() -> SettingsManager[AppSettings]:
-    user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
-    config_json_path = user_config_path / "config" / "config.json"
+def get_settingsmanager_object(config_path: Path | None = None) -> SettingsManager[AppSettings]:
+    if config_path is None:
+        user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
+        config_path = user_config_path / "config" / "config.json"
     chosen_theme = Theme.SYSTEM
 
     manager_settings = SettingsManagerConfig(
@@ -147,7 +150,7 @@ def get_settingsmanager_object() -> SettingsManager[AppSettings]:
         collapsed_nested_settings=ConfigCollapeNestedSettings.ENABLED_EXPANDED,
     )
 
-    manager = SettingsManager(AppSettings, settings_path=config_json_path, additional_config=manager_settings)
+    manager = SettingsManager(AppSettings, settings_path=config_path, additional_config=manager_settings)
     manager.load()
 
     if manager.model.general.theme != chosen_theme:
