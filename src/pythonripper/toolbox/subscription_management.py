@@ -309,12 +309,21 @@ class CombinedFile:
 
                         if re.match(r"^(?:\s?[A-Za-z]\s)+$", tag):
                             raise ValueError("Tag %s was detected with spaces from url %s and pattern %s", tag, url, obj.TAG_PATTERN)
-                        new_tag_obj[key].append(tag)
+                        try:
+                            new_tag_obj[key].append(tag)
+                        except AttributeError:
+                            existing_value = new_tag_obj[key]
+                            if isinstance(existing_value, (int, str)):
+                                new_tag_obj[key] = [existing_value, tag]
+                            else:
+                                raise TypeError(
+                                    "theres some unsupported value type in your data! %s %s", existing_value, type(existing_value)
+                                ) from AttributeError
                         break
                     except AttributeError:
                         continue
             else:
-                print(f"Could not verify link {url} .")
+                print(f"Could not verify link {url}")
         self.data[new_tag] = new_tag_obj
         await self.write()
 
