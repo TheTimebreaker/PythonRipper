@@ -79,6 +79,11 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
         return True
 
     def format_tagname(self, tagname: str) -> str:
+        if not any(tagname.startswith(x) for x in ("artist/", "character/", "metadata/", "parody/", "tag/")):
+            msg = f"Tagname {tagname} is misformatted, it must include the tag category (e.g. tag/<tag>, artist/<tag>, ...)!"
+            logging.error("[%s] - %s", self.ME.upper(), msg)
+            raise cf.ExtractorSkipError(msg)
+
         tagname = (
             tagname.replace(" ", "-").replace(":", "-").replace("(", "").replace(")", "").replace(";", "-").replace(".", "-").replace("?", "-")
         ).replace("--", "-")
