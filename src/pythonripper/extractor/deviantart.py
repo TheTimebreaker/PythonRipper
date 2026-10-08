@@ -274,9 +274,12 @@ class DeviantartAPI(scraper.TaggableScraper):
             ":": "",
             ".": "",
             "@": "",
+            "|": "",
         }
         for what, by in replace_dict.items():
             tagname = tagname.replace(what, by)
+        while self.SPACE_REPLACE * 2 in tagname:
+            tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
         return tagname
 
     async def does_this_exist(self, tagname: str) -> bool:
