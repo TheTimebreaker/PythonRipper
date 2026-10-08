@@ -106,5 +106,5 @@ async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool, check_exi
 
 
 if __name__ == "__main__":
-    cf.init_logger(config, "error", False)
+    cf.init_logger(config, "critical", False)
     asyncio.run(main())

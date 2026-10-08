@@ -54,13 +54,7 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
 
     HOMEPAGE = "https://kusowanka.com/"
     URL_BASE = HOMEPAGE
-    URL_TAG = (
-        "https://kusowanka.com/artist/{tagname}",
-        "https://kusowanka.com/character/{tagname}",
-        "https://kusowanka.com/metadata/{tagname}",
-        "https://kusowanka.com/parody/{tagname}",
-        "https://kusowanka.com/tag/{tagname}",
-    )
+    URL_TAG = "https://kusowanka.com/{tagname}"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?kusowanka\.com/post/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?kusowanka\.com/((?:artist|character|metadata|parody|tag)/[^/&\?]+)"

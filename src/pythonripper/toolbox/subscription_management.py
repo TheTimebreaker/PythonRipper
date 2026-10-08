@@ -233,6 +233,19 @@ class CombinedFile:
                 tagnames.update(cf.case_permutations(tagname))
             else:
                 tagnames.add(tagname.lower())
+            if isinstance(obj, kusowanka.KusowankaAPI):  # kusowanka special case because they use the category in the url
+                kusowanka_tagnames: set[str] = set()
+                for tn in tagnames:
+                    kusowanka_tagnames.update(
+                        (
+                            f"artist/{tn}",
+                            f"character/{tn}",
+                            f"metadata/{tn}",
+                            f"parody/{tn}",
+                            f"tag/{tn}",
+                        )
+                    )
+                tagnames = kusowanka_tagnames
             logging.info("tagnames: %s", tagnames)
 
             for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
