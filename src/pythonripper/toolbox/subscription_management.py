@@ -233,19 +233,6 @@ class CombinedFile:
                 tagnames.update(cf.case_permutations(tagname))
             else:
                 tagnames.add(tagname.lower())
-            if isinstance(obj, kusowanka.KusowankaAPI):  # kusowanka special case because they use the category in the url
-                kusowanka_tagnames: set[str] = set()
-                for tn in tagnames:
-                    kusowanka_tagnames.update(
-                        (
-                            f"artist/{tn}",
-                            f"character/{tn}",
-                            f"metadata/{tn}",
-                            f"parody/{tn}",
-                            f"tag/{tn}",
-                        )
-                    )
-                tagnames = kusowanka_tagnames
             logging.info("tagnames: %s", tagnames)
 
             for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
@@ -350,8 +337,9 @@ class CombinedFile:
         await self.write()
 
     async def worker_producer(self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str) -> None:
+        obj = self.websiteinfo[choice]["object_active"]
         for i, artist in artists:
-            is_case_sensitive = self.websiteinfo[choice]["object_active"].IS_CASE_SENSITIVE
+            is_case_sensitive = obj.IS_CASE_SENSITIVE
             artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist)}
             artist_aliases: set[str] = {
                 artist_alias.replace("artist/", "")
@@ -366,6 +354,21 @@ class CombinedFile:
             # Case sensitive check
             if not is_case_sensitive:
                 artist_aliases = {x.lower() for x in artist_aliases}
+
+            # kusowanka special case because they use the category in the url
+            if isinstance(obj, kusowanka.KusowankaAPI):
+                kusowanka_aliases: set[str] = set()
+                for tn in artist_aliases:
+                    kusowanka_aliases.update(
+                        (
+                            f"artist/{tn}",
+                            f"character/{tn}",
+                            f"metadata/{tn}",
+                            f"parody/{tn}",
+                            f"tag/{tn}",
+                        )
+                    )
+                artist_aliases = kusowanka_aliases
 
             # Removes any alias that already exists for the website and artist
             for existing_alias in self.get_list(website=choice, artist=artist):
