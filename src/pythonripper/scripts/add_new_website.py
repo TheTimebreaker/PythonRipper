@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFrame,
     QLabel,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -16,6 +17,13 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.subscription_management as sm
 from pythonripper import __icon__
 from pythonripper.toolbox.config import config
+
+
+def create_divider() -> QFrame:
+    divider = QFrame()
+    divider.setFrameShape(QFrame.Shape.HLine)
+    divider.setFrameShadow(QFrame.Shadow.Sunken)
+    return divider
 
 
 async def main() -> None:
@@ -35,33 +43,32 @@ async def main() -> None:
     entry_type.addItem("Tags", "tag")
     layout.addWidget(entry_type)
 
-    divider = QFrame()
-    divider.setFrameShape(QFrame.Shape.HLine)
-    divider.setFrameShadow(QFrame.Shadow.Sunken)
-    layout.addWidget(divider)
+    layout.addWidget(create_divider())
 
     layout.addWidget(QLabel("Choose the website to add:"))
     website = QComboBox()
     website.addItems(sm.combined_artist_file.websites)
     layout.addWidget(website)
 
-    divider = QFrame()
-    divider.setFrameShape(QFrame.Shape.HLine)
-    divider.setFrameShadow(QFrame.Shadow.Sunken)
-    layout.addWidget(divider)
+    layout.addWidget(create_divider())
 
     layout.addWidget(QLabel("Automatically skip an entry if no existing tags can be found for any website:"))
     skip_empty_checkbox = QCheckBox("Enable auto-skip")
     layout.addWidget(skip_empty_checkbox)
 
-    divider = QFrame()
-    divider.setFrameShape(QFrame.Shape.HLine)
-    divider.setFrameShadow(QFrame.Shadow.Sunken)
-    layout.addWidget(divider)
+    layout.addWidget(create_divider())
 
     layout.addWidget(QLabel("Check existing entries for more possible entries using aliases from other websites:"))
     check_existing_checkbox = QCheckBox("Check again")
     layout.addWidget(check_existing_checkbox)
+
+    layout.addWidget(create_divider())
+
+    layout.addWidget(QLabel("Skip processing the first <your value> number of elements:"))
+    starting_index_spinbox = QSpinBox(maximum=2**16)
+    layout.addWidget(starting_index_spinbox)
+
+    layout.addWidget(create_divider())
 
     buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
     buttons.accepted.connect(dialog.accept)
@@ -86,15 +93,16 @@ async def main() -> None:
     website_choice = website.currentText()
     skip_empty = skip_empty_checkbox.isChecked()
     check_existing_again = check_existing_checkbox.isChecked()
-    await func(obj, website_choice, skip_empty, check_existing_again)
+    starting_index: int = starting_index_spinbox.value()
+    await func(obj, website_choice, skip_empty, check_existing_again, starting_index)
 
 
-async def add_artists(obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool) -> None:
-    await obj.add_website(choice, skip_empty, check_existing_again)
+async def add_artists(obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool, starting_index: int) -> None:
+    await obj.add_website(choice, skip_empty, check_existing_again, starting_index)
 
 
-async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool) -> None:
-    await obj.add_website(choice, skip_empty, check_existing_again)
+async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool, starting_index: int) -> None:
+    await obj.add_website(choice, skip_empty, check_existing_again, starting_index)
 
 
 if __name__ == "__main__":

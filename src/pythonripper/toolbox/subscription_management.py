@@ -390,7 +390,7 @@ class CombinedFile:
             await self.process_urls(artist, confirmed_urls, choice)
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
 
-    async def add_website(self, website_choice: str, skip_empty: bool, check_existing_again: bool) -> None:
+    async def add_website(self, website_choice: str, skip_empty: bool = True, check_existing_again: bool = False, starting_index: int = 0) -> None:
         await self._add_activate_dict(self.config, choice=website_choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
@@ -410,6 +410,8 @@ class CombinedFile:
         self_data_len = len(self.data)
         artists: list[tuple[int, str]] = []
         for i, (artist_name, artist_data) in enumerate(self.data.items()):
+            if i < starting_index:
+                continue
             if website_choice in artist_data and not check_existing_again:
                 print(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
                 continue
