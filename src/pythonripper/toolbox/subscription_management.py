@@ -440,7 +440,7 @@ class CombinedFile:
                 continue
             artists.append((i, artist_name))
 
-        q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=30)
+        q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=200)
         await asyncio.gather(
             self.worker_consumer(q, self_data_len, driver, fallback_handle, website_choice, skip_empty),
             self.worker_producer(artists, q, website_choice),
