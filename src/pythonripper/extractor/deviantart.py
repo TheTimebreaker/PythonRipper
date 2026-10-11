@@ -269,15 +269,12 @@ class DeviantartAPI(scraper.TaggableScraper):
     def format_tagname(self, tagname: str) -> str:
         replace_dict: dict[str, str] = {
             " ": self.SPACE_REPLACE,
-            "(": "",
-            ")": "",
-            ":": "",
-            ".": "",
-            "@": "",
-            "|": "",
         }
+        remove_dict: set[str] = {"(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "&", "/"}
         for what, by in replace_dict.items():
             tagname = tagname.replace(what, by)
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
         while self.SPACE_REPLACE * 2 in tagname:
             tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
         return tagname
