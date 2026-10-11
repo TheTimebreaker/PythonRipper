@@ -371,9 +371,15 @@ class CombinedFile:
                 artist_aliases = kusowanka_aliases
 
             # Removes any alias that already exists for the website and artist
+            preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases}
             for existing_alias in self.get_list(website=choice, artist=artist):
                 artist_aliases.discard(existing_alias)
-                artist_aliases.discard(obj.format_tagname(existing_alias))
+
+                formatted_existing_alias = obj.format_tagname(existing_alias)
+                artist_aliases.discard(formatted_existing_alias)
+
+                if formatted_existing_alias in preprocessed_artist_aliases:
+                    artist_aliases.discard(preprocessed_artist_aliases[formatted_existing_alias])
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
             await q.put((i, artist, url_list))
