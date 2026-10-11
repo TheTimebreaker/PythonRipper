@@ -7,6 +7,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 import urllib.parse
 import webbrowser
 from collections.abc import AsyncGenerator
@@ -280,7 +281,16 @@ class DeviantartAPI(scraper.TaggableScraper):
         return tagname
 
     async def does_this_exist(self, tagname: str) -> bool:
+        def contains_non_latin_letter(text: str) -> bool:
+            for char in text:
+                if unicodedata.category(char).startswith("L"):
+                    if "LATIN" not in unicodedata.name(char, ""):
+                        return True
+            return False
+
         if len(tagname) > 20:  # tagnames arent allowed to be too long
+            return False
+        if contains_non_latin_letter(tagname):  # deviantart does not seem to allow non-latin letters
             return False
         url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
         res = await self.request(url)
