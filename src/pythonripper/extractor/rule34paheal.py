@@ -46,7 +46,7 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
         assert isinstance(post_id, str)
         tags = scraper.TagsData(tags=[self.invert_formatting(x) for x in str(soup["data-tags"]).split(" ")])
         download_url = str(soup.find("a", {"class": None})["href"])  # type: ignore
-        extension = str(soup["data-ext"])
+        extension = str(soup["data-mime"]).replace("image/", "")
         assert isinstance(extension, str)
         md5 = download_url.split("/")[-1]
         return scraper.PostData(
