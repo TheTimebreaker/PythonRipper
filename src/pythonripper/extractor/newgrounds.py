@@ -154,17 +154,34 @@ class NewgroundsAPI(scraper.TaggableScraper):
 
         return True
 
-    async def does_this_exist(self, tag_name: str) -> bool:
+    async def does_this_exist(self, tagname: str) -> bool:
         await self.LIMIT.wait()
-        res = await self.session.get(self.ARTIST_PAGE_BASE_URL.format(artist=self.format_tagname(tag_name), sublink=""))
+        res = await self.session.get(self.ARTIST_PAGE_BASE_URL.format(artist=self.format_tagname(tagname), sublink=""))
         return res.status_code == 200
+
+    async def does_this_have_posts(self, tagname: str) -> bool:
+        async for _ in self._fetch_posts(tagname, endpoint="art"):
+            return True
+        async for _ in self._fetch_posts(tagname, endpoint="audio"):
+            return True
+        return False
 
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
         allowed_ratings = self.config.settings.extractor.newgrounds.content_ratings
         return data["rating"] in allowed_ratings
 
     def format_tagname(self, tagname: str) -> str:
-        return tagname.replace(" ", self.SPACE_REPLACE).replace("(", "").replace(")", "")
+        replace_dict: dict[str, str] = {
+            " ": self.SPACE_REPLACE,
+        }
+        remove_dict: set[str] = {"(", ")", "[", "]", "{", "}", ":", ".", "|", "!", "?", '"', "'", "§", "$", "%", "&", "/"}
+        for what, by in replace_dict.items():
+            tagname = tagname.replace(what, by)
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
+        if self.SPACE_REPLACE * 2 in tagname:
+            tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
+        return tagname
 
     async def _get_audio_data(self, post_url: str) -> scraper.PostData:
         async def _iter_over_audio(audio_script_tag: bs4.Tag) -> AsyncGenerator[str]:

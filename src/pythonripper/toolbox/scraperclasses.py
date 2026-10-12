@@ -79,7 +79,10 @@ class Scraper(ABC):
         return tagname.replace(" ", self.SPACE_REPLACE)
 
     def invert_formatting(self, formatted_tagname: str) -> str:
-        map = {"&#039;": "'", self.SPACE_REPLACE: " "}
+        map = {"&#039;": "'"}
+        if not self.SPACE_REPLACE == "":  # prevents funky looking formattings
+            map[self.SPACE_REPLACE] = " "
+
         for what, by in map.items():
             formatted_tagname = formatted_tagname.replace(what, by)
         return formatted_tagname
@@ -440,6 +443,9 @@ class TaggableScraper(Scraper):
 
     @abstractmethod
     async def does_this_exist(self, tagname: str) -> bool: ...
+
+    @abstractmethod
+    async def does_this_have_posts(self, tagname: str) -> bool: ...
 
     @overload
     async def download_tag(
