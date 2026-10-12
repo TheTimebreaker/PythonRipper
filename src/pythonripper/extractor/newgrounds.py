@@ -310,12 +310,12 @@ class NewgroundsAPI(scraper.TaggableScraper):
         single_image = tmp.find("a", {"href": True})
         art_image_row = soup.find_all("div", {"class": "art-image-row"})
         art_view_gallery = soup.find("div", {"class": "art-view-gallery"})
-        if single_image:
-            generator = _iter_over_single_image(single_image)
-        elif art_image_row:
+        if art_image_row:
             generator = _iter_over_art_image_row(art_image_row)
         elif art_view_gallery:
             generator = _iter_over_art_view_gallery(art_view_gallery)
+        elif single_image:
+            generator = _iter_over_single_image(single_image)
         else:
             raise NotImplementedError
         elements: list[scraper.PostElement] = []
