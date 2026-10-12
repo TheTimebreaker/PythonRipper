@@ -64,6 +64,12 @@ async def main() -> None:
 
     layout.addWidget(create_divider())
 
+    layout.addWidget(QLabel("Only allow new entries, if they have atleast one post:"))
+    must_have_posts_checkbox = QCheckBox("Must have posts")
+    layout.addWidget(must_have_posts_checkbox)
+
+    layout.addWidget(create_divider())
+
     layout.addWidget(QLabel("Skip processing the first <your value> number of elements:"))
     starting_index_spinbox = QSpinBox(maximum=2**16)
     layout.addWidget(starting_index_spinbox)
@@ -85,24 +91,21 @@ async def main() -> None:
     obj: sm.CombinedFile
     if entry_type.currentData() == "artist":
         obj = sm.combined_artist_file
-        func = add_artists
     else:
         obj = sm.combined_tags_file
-        func = add_tag
 
     website_choice = website.currentText()
     skip_empty = skip_empty_checkbox.isChecked()
     check_existing_again = check_existing_checkbox.isChecked()
+    must_have_posts = must_have_posts_checkbox.isChecked()
     starting_index: int = starting_index_spinbox.value()
-    await func(obj, website_choice, skip_empty, check_existing_again, starting_index)
+    await add_website_to_object(obj, website_choice, skip_empty, check_existing_again, must_have_posts, starting_index)
 
 
-async def add_artists(obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool, starting_index: int) -> None:
-    await obj.add_website(choice, skip_empty, check_existing_again, starting_index)
-
-
-async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool, starting_index: int) -> None:
-    await obj.add_website(choice, skip_empty, check_existing_again, starting_index)
+async def add_website_to_object(
+    obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool, must_have_posts: bool, starting_index: int
+) -> None:
+    await obj.add_website(choice, skip_empty, check_existing_again, must_have_posts, starting_index)
 
 
 if __name__ == "__main__":

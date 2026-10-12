@@ -218,7 +218,9 @@ class CombinedFile:
         if QApplication.instance() is app and not app.parent():
             app.quit()
 
-    async def _add_get_tag_urls(self, tagname: str, website: str | None = None, dont_add_homepage: bool = False) -> list[str]:
+    async def _add_get_tag_urls(
+        self, tagname: str, website: str | None = None, dont_add_homepage: bool = False, must_have_posts: bool = False
+    ) -> list[str]:
         async def task(obj: scraper.TaggableScraper) -> None:
             urls_to_format = []
             if isinstance(obj.URL_TAG, str):
@@ -240,10 +242,11 @@ class CombinedFile:
                 this_tagname = local_tagname
 
                 try:
-                    x = await obj.does_this_exist(this_tagname)
-                    if x:
-                        result.add(this_url)
-                        found_some = True
+                    exists = await obj.does_this_exist(this_tagname)
+                    if exists:
+                        if not must_have_posts or await obj.does_this_have_posts(this_tagname):
+                            result.add(this_url)
+                            found_some = True
                     else:
                         continue
                 except json.decoder.JSONDecodeError, ConnectionAbortedError, ConnectionRefusedError, cf.ExtractorExitError, cf.ExtractorStopError:
@@ -336,7 +339,9 @@ class CombinedFile:
         self.data[new_tag] = new_tag_obj
         await self.write()
 
-    async def worker_producer(self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str) -> None:
+    async def worker_producer(
+        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str, must_have_posts: bool
+    ) -> None:
         obj = self.websiteinfo[choice]["object_active"]
         for i, artist in artists:
             is_case_sensitive = obj.IS_CASE_SENSITIVE
@@ -381,7 +386,7 @@ class CombinedFile:
                 if formatted_existing_alias in preprocessed_artist_aliases:
                     artist_aliases.discard(preprocessed_artist_aliases[formatted_existing_alias])
 
-            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
+            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True, must_have_posts)}
             await q.put((i, artist, url_list))
         await q.put(STOP)
 
@@ -413,7 +418,9 @@ class CombinedFile:
             await self.process_urls(artist, confirmed_urls, choice)
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
 
-    async def add_website(self, website_choice: str, skip_empty: bool = True, check_existing_again: bool = False, starting_index: int = 0) -> None:
+    async def add_website(
+        self, website_choice: str, skip_empty: bool = True, check_existing_again: bool = False, must_have_posts: bool = False, starting_index: int = 0
+    ) -> None:
         await self._add_activate_dict(self.config, choice=website_choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
@@ -443,7 +450,7 @@ class CombinedFile:
         q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=200)
         await asyncio.gather(
             self.worker_consumer(q, self_data_len, driver, fallback_handle, website_choice, skip_empty),
-            self.worker_producer(artists, q, website_choice),
+            self.worker_producer(artists, q, website_choice, must_have_posts),
         )
 
     async def add_tags(self) -> None:
