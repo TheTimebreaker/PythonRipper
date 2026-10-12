@@ -311,7 +311,7 @@ class CombinedFile:
                         if not matched:
                             raise AttributeError
                         tag_formatted = matched.group(1)
-                        tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
+                        tag = obj.invert_formatting(tag_formatted)
                         while tag.startswith((" ", "+")):
                             tag = tag[1:]
                         while tag.endswith((" ", "+")):
