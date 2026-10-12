@@ -42,6 +42,7 @@ class PostElement(TypedDict):
 class PostElementLinks(PostElement):
     download_url: str
     extension: str
+    """File extension without the dot"""
 
 
 class PostElementData(PostElement):
