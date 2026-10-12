@@ -94,6 +94,9 @@ class Animepictures(scraper.DownloadhistoryScraper):
         res = await self.session.get(self.API_URL, params={"page": 0, "search_tag": self.format_tagname(tagname), "lang": "en"})
         return "in request 0 pictures" not in res.text
 
+    async def does_this_have_posts(self, tagname: str) -> bool:
+        raise NotImplementedError()
+
     def format_tagname(self, tagname: str) -> str:
         return tagname.replace(" ", self.SPACE_REPLACE).replace("/", "%2F")
 

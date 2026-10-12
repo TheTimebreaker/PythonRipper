@@ -444,8 +444,10 @@ class TaggableScraper(Scraper):
     @abstractmethod
     async def does_this_exist(self, tagname: str) -> bool: ...
 
-    @abstractmethod
-    async def does_this_have_posts(self, tagname: str) -> bool: ...
+    async def does_this_have_posts(self, tagname: str) -> bool:
+        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True):
+            return True
+        return False
 
     @overload
     async def download_tag(
