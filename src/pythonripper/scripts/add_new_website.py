@@ -47,7 +47,6 @@ async def main() -> None:
 
     layout.addWidget(QLabel("Choose the website to add:"))
     website = QComboBox()
-    website.addItems(sm.combined_artist_file.websites)
     layout.addWidget(website)
 
     layout.addWidget(create_divider())
@@ -81,9 +80,20 @@ async def main() -> None:
     buttons.rejected.connect(dialog.reject)
     layout.addWidget(buttons)
 
-    if not sm.combined_artist_file.websites or not sm.combined_tags_file.websites:
-        website.setEnabled(False)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+    ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+
+    def update_websites() -> None:
+        websites = sm.combined_artist_file.websites if entry_type.currentData() == "artist" else sm.combined_tags_file.websites
+        selected_website = website.currentText()
+        website.clear()
+        website.addItems(websites)
+        if selected_website in websites:
+            website.setCurrentText(selected_website)
+        website.setEnabled(bool(websites))
+        ok_button.setEnabled(bool(websites))
+
+    update_websites()
+    entry_type.currentIndexChanged.connect(update_websites)
 
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return
