@@ -15,6 +15,10 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 
+MINUTE = 60
+HOUR = MINUTE * 60
+DAY = HOUR * 24
+
 
 @final
 class TumblrAPI(scraper.TaggableScraper):
@@ -27,7 +31,12 @@ class TumblrAPI(scraper.TaggableScraper):
 
     ME = "tumblr"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.LeakyBucketLimiter(300 / 60, capacity=290)
+    # docs: https://github.com/tumblr/docs/blob/master/api.md#rate-limits
+    LIMITS = (
+        asynciolimiter.Limiter(300 / MINUTE),  # 300 per IP per minute
+        asynciolimiter.Limiter(1000 / HOUR),  # 1000 per user per hour
+        asynciolimiter.Limiter(5000 / DAY),  # 5000 per user per day
+    )
     SPACE_REPLACE = "_"
 
     params: dict[str, str | bool]
@@ -94,8 +103,12 @@ class TumblrAPI(scraper.TaggableScraper):
 
         return True
 
+    async def wait_for_limits(self) -> None:
+        for limit in self.LIMITS:
+            await limit.wait()
+
     async def request(self, url: str, params: dict[str, str | int] | None = None) -> curl_cffi.Response | httpx.Response:
-        await self.LIMIT.wait()
+        await self.wait_for_limits()
         res = await self.session.get(url, params=params)
         if res.status_code == 429 and res.json()["meta"]["msg"] == "Limit Exceeded":  # type: ignore
             raise cf.ExtractorStopError("Reached API limit") from ConnectionRefusedError
