@@ -9,6 +9,7 @@ from typing import Any, final
 import aiofiles
 import asynciolimiter
 import curl_cffi
+import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
@@ -76,24 +77,32 @@ class TumblrAPI(scraper.TaggableScraper):
             return True
 
         async def test_session() -> bool:
-            await self.LIMIT.wait()
-            response = await self.session.get(f"{self.API_URL}/v2/tagged", params={"tag": "anime"})
-            return response.status_code == 200
+            res = await self.request(f"{self.API_URL}/v2/tagged", params={"tag": "anime"})
+            return res.status_code == 200
 
         if not await get_api_key():
+            logging.error("[%s] - Getting API key failed.", self.ME.upper())
             return False
 
         if not await setup_session():
+            logging.error("[%s] - Setting up session failed.", self.ME.upper())
             return False
 
         if not await test_session():
+            logging.error("[%s] - Testing session revealed the session is not working properly.", self.ME.upper())
             return False
 
         return True
 
-    async def does_this_exist(self, tagname: str) -> bool:
+    async def request(self, url: str, params: dict[str, str | int] | None = None) -> curl_cffi.Response | httpx.Response:
         await self.LIMIT.wait()
-        res = await self.session.get(f"{self.API_URL}/v2/blog/{self.format_tagname(tagname)}/info")
+        res = await self.session.get(url, params=params)
+        if res.status_code == 429 and res.json()["meta"]["msg"] == "Limit Exceeded":  # type: ignore
+            raise cf.ExtractorStopError("Reached API limit") from ConnectionRefusedError
+        return res
+
+    async def does_this_exist(self, tagname: str) -> bool:
+        res = await self.request(f"{self.API_URL}/v2/blog/{self.format_tagname(tagname)}/info")
         return res.status_code == 200
 
     async def _get_post_data(
@@ -103,8 +112,7 @@ class TumblrAPI(scraper.TaggableScraper):
             if post_id is None or tagname is None:
                 raise ValueError("Neither post_id + username nor json_data given (one is necessary).")
             tagname = self.format_tagname(tagname)
-            await self.LIMIT.wait()
-            res = await self.session.get(f"{self.API_URL}/v2/blog/{tagname}/posts/photo", params={"id": post_id})
+            res = await self.request(f"{self.API_URL}/v2/blog/{tagname}/posts/photo", params={"id": post_id})
             if res.status_code != 200:
                 logging.error("[%s] - %s %s : %s", self.ME.upper(), tagname, post_id, res.status_code)
                 raise cf.ExtractorExitError("%s %s : %s", tagname, post_id, res.status_code)
@@ -133,8 +141,7 @@ class TumblrAPI(scraper.TaggableScraper):
         assert isinstance(params["offset"], int)
 
         while more_files:
-            await self.LIMIT.wait()
-            res = await self.session.get(f"{self.API_URL}/v2/blog/{tagname}/posts/photo", params=params)
+            res = await self.request(f"{self.API_URL}/v2/blog/{tagname}/posts/photo", params=params)
             json_response = res.json()["response"]["posts"]  # type: ignore
 
             for post in json_response:
@@ -147,8 +154,7 @@ class TumblrAPI(scraper.TaggableScraper):
             more_files = bool(json_response)
 
     async def _download_file(self, url: str, dpath: Path, filename: str) -> bool:
-        await self.LIMIT.wait()
-        res = await self.session.get(url)
+        res = await self.request(url)
         return await f.download_file(config=self.config, path=dpath, filename=filename, request_content=res.content)
 
     async def __download_post_image(self, post_element_data: dict[str, Any], dpath: Path, filename: str | None) -> bool:
