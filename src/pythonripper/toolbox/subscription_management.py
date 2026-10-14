@@ -449,7 +449,7 @@ class CombinedFile:
             driver,
             [
                 "https://google.com?q=hi",
-                "https://ublockorigin.com/",
+                "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh",
                 *homepages,
             ],
             fallback_handle,
@@ -498,7 +498,7 @@ class CombinedFile:
             driver,
             [
                 "https://google.com?q=hi",
-                "https://ublockorigin.com/",
+                "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh/",
                 *homepages,
             ],
             fallback_handle,
