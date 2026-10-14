@@ -5,6 +5,7 @@ import logging
 import re
 import urllib.parse
 from collections.abc import Iterable
+from itertools import chain, combinations, permutations
 from pathlib import Path
 from typing import Any, ClassVar, NotRequired, TypedDict, cast
 
@@ -385,6 +386,25 @@ class CombinedFile:
 
                 if formatted_existing_alias in preprocessed_artist_aliases:
                     artist_aliases.discard(preprocessed_artist_aliases[formatted_existing_alias])
+
+                list_of_bypass_markers: list[str] = []
+                for me in (
+                    self.config.settings.general.allow_blacklist_bypass,
+                    self.config.settings.general.allow_contentfilter_bypass,
+                ):
+                    if me:
+                        list_of_bypass_markers.append(me)
+                bypass_permutations = list(
+                    chain.from_iterable(
+                        permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
+                    )
+                )
+                for combination in bypass_permutations:
+                    target_tmp = existing_alias
+                    if combination:
+                        for element in combination:
+                            target_tmp = f"{element}{target_tmp}{element}"
+                    artist_aliases.discard(target_tmp)
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True, must_have_posts)}
             await q.put((i, artist, url_list))
