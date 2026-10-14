@@ -1,5 +1,6 @@
 """Central functions that can't be stored in main due to circular dependencies"""
 
+import asyncio
 import datetime
 import functools
 import itertools
@@ -11,7 +12,8 @@ import string
 import time
 import urllib.parse
 import zipfile
-from collections.abc import Callable
+from collections import deque
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -285,3 +287,37 @@ def get_full_class_name(obj: Exception) -> str:
     if module is None or module == str.__class__.__module__:
         return obj.__class__.__name__
     return module + "." + obj.__class__.__name__
+
+
+class QuotaLimiter:
+    def __init__(self, limits: Iterable[tuple[int, int]]) -> None:
+        self.limits = limits
+        self.timestamps: list[deque[Any]] = [deque() for _ in limits]
+        self.lock = asyncio.Lock()
+
+    async def wait(self) -> None:
+        while True:
+            async with self.lock:
+                now = time.monotonic()
+                wait_time = 0.0
+
+                # Check every quota before allowing a request.
+                for (maximum, window), timestamps in zip(self.limits, self.timestamps, strict=True):
+
+                    # Remove requests outside this quota's window.
+                    while timestamps and timestamps[0] <= now - window:
+                        timestamps.popleft()
+
+                    if len(timestamps) >= maximum:
+                        wait_time = max(
+                            wait_time,
+                            timestamps[0] + window - now,
+                        )
+
+                if wait_time <= 0:
+                    # Reserve a slot in ALL quotas atomically.
+                    for timestamps in self.timestamps:
+                        timestamps.append(now)
+                    return
+
+            await asyncio.sleep(wait_time)
