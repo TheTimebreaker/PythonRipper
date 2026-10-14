@@ -345,7 +345,7 @@ class CombinedFile:
         obj = self.websiteinfo[choice]["object_active"]
         for i, artist in artists:
             is_case_sensitive = obj.IS_CASE_SENSITIVE
-            artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist)}
+            artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist, remove_bypass_markers=True)}
             artist_aliases: set[str] = {
                 artist_alias.replace("artist/", "")
                 .replace("tag/", "")
@@ -499,7 +499,7 @@ class CombinedFile:
             await self.process_urls(new_tag, confirmed_urls)
             self._add_close_non_fallback_tabs(driver, fallback_handle)
 
-    def get_list(self, *, website: str | None = None, artist: str | None = None) -> set[str]:
+    def get_list(self, *, website: str | None = None, artist: str | None = None, remove_bypass_markers: bool = False) -> set[str]:
         """Returns sorted list of all entries from a given website or tag/artist."""
         taglist: set[str | int] = set()
         for name, name_data in self.data.items():
@@ -512,6 +512,8 @@ class CombinedFile:
                             for sublink in is_there:
                                 taglist.add(sublink)
 
+        if remove_bypass_markers:
+            return {cf.parse_markers(str(x))["parsed"] for x in taglist}
         return {str(x) for x in taglist}
 
     def get_all(self) -> dict[Any, Any]:
