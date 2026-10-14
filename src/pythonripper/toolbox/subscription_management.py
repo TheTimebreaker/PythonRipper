@@ -378,7 +378,19 @@ class CombinedFile:
 
             # Removes any alias that already exists for the website and artist
             preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases}
-            for existing_alias in self.get_list(website=choice, artist=artist):
+            list_of_bypass_markers: list[str] = []
+            for me in (
+                self.config.settings.general.allow_blacklist_bypass,
+                self.config.settings.general.allow_contentfilter_bypass,
+            ):
+                if me:
+                    list_of_bypass_markers.append(me)
+            bypass_permutations = list(
+                chain.from_iterable(
+                    permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
+                )
+            )
+            for existing_alias in self.get_list(website=choice, artist=artist, remove_bypass_markers=True):
                 artist_aliases.discard(existing_alias)
 
                 formatted_existing_alias = obj.format_tagname(existing_alias)
@@ -387,18 +399,6 @@ class CombinedFile:
                 if formatted_existing_alias in preprocessed_artist_aliases:
                     artist_aliases.discard(preprocessed_artist_aliases[formatted_existing_alias])
 
-                list_of_bypass_markers: list[str] = []
-                for me in (
-                    self.config.settings.general.allow_blacklist_bypass,
-                    self.config.settings.general.allow_contentfilter_bypass,
-                ):
-                    if me:
-                        list_of_bypass_markers.append(me)
-                bypass_permutations = list(
-                    chain.from_iterable(
-                        permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
-                    )
-                )
                 for combination in bypass_permutations:
                     target_tmp = existing_alias
                     if combination:
