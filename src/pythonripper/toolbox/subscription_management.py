@@ -518,6 +518,7 @@ class CombinedFile:
         processing_length: int,
         driver: WebDriver,
         fallback_handle: str,
+        feedback: _QtFeedbackWindow,
         choice: str | None = None,
         skip_empty: bool = False,
     ) -> None:
@@ -535,7 +536,7 @@ class CombinedFile:
 
             logging.info("url_list: %s", url_list)
             await asyncio.to_thread(self._add_open_urls_in_new_tabs, driver, url_list, fallback_handle)
-            await asyncio.to_thread(input, f"#{i+1} / {processing_length} - {artist} - Press ENTER to confirm...")
+            await feedback.ask(f"#{i+1} / {processing_length} - {artist} - Click Continue to confirm.")
             confirmed_urls = await asyncio.to_thread(self._add_get_confirmed_urls, driver, fallback_handle)
             await self.process_urls(artist, confirmed_urls, choice)
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
@@ -543,6 +544,32 @@ class CombinedFile:
     async def add_website(
         self, website_choice: str, skip_empty: bool = True, check_existing_again: bool = False, must_have_posts: bool = False, starting_index: int = 0
     ) -> None:
+        feedback = _QtFeedbackWindow()
+        qt_task = asyncio.create_task(feedback.process_qt_events())
+
+        try:
+            await self._add_website_with_feedback(website_choice, skip_empty, check_existing_again, must_have_posts, starting_index, feedback)
+        except asyncio.CancelledError:
+            if not feedback.closed_by_user:
+                raise
+        finally:
+            qt_task.cancel()
+
+    async def _add_website_with_feedback(
+        self,
+        website_choice: str,
+        skip_empty: bool,
+        check_existing_again: bool,
+        must_have_posts: bool,
+        starting_index: int,
+        feedback: _QtFeedbackWindow,
+    ) -> None:
+        feedback.info(r""" /\_/\
+( o.o )
+ > ^ <
+Hello! Please wait until the web browser has finished initializing.""")
+        await asyncio.sleep(0)
+
         await self._add_activate_dict(self.config, choice=website_choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
@@ -555,7 +582,7 @@ class CombinedFile:
             ],
             fallback_handle,
         )
-        input("\nReview tabs that have opened.\n If all opened successfully, press Enter to continue...")  # noqa: ASYNC250
+        await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         self_data_len = len(self.data)
@@ -570,7 +597,7 @@ class CombinedFile:
 
         q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=200)
         await asyncio.gather(
-            self.worker_consumer(q, self_data_len, driver, fallback_handle, website_choice, skip_empty),
+            self.worker_consumer(q, self_data_len, driver, fallback_handle, feedback, website_choice, skip_empty),
             self.worker_producer(artists, q, website_choice, must_have_posts),
         )
 
@@ -590,7 +617,6 @@ class CombinedFile:
         feedback.info(r""" /\_/\
 ( o.o )
  > ^ <
-
 Hello! Please wait until the web browser has finished initializing.""")
         await asyncio.sleep(0)
 
