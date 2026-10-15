@@ -14,10 +14,6 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 
-MINUTE = 60
-HOUR = MINUTE * 60
-DAY = HOUR * 24
-
 
 @final
 class TumblrAPI(scraper.TaggableScraper):
