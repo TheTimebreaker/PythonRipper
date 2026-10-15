@@ -89,6 +89,7 @@ class _QtFeedbackWindow(QWidget):
 
     def info(self, message: str) -> None:
         """Add an info message to the feedback window. Will not block the thread."""
+        print(message)
         self.messages.appendPlainText(message)
         if not self.isVisible():
             self.show()
@@ -98,6 +99,7 @@ class _QtFeedbackWindow(QWidget):
         if self.pending is not None:
             raise RuntimeError("A feedback prompt is already active.")
 
+        print(message)
         self.messages.appendPlainText(message)
         self.entry.clear()
         self.entry.setEnabled(True)
