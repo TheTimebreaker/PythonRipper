@@ -448,7 +448,6 @@ class CombinedFile:
         self._add_open_urls_in_new_tabs(
             driver,
             [
-                "https://google.com?q=hi",
                 "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh",
                 *homepages,
             ],
@@ -497,7 +496,6 @@ class CombinedFile:
         self._add_open_urls_in_new_tabs(
             driver,
             [
-                "https://google.com?q=hi",
                 "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh/",
                 *homepages,
             ],
