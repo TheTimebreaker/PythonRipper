@@ -5,7 +5,6 @@ import logging
 import re
 from collections.abc import AsyncGenerator, Iterable
 from http.cookiejar import MozillaCookieJar
-from pathlib import Path
 from typing import Any, Literal
 
 import asynciolimiter
@@ -79,7 +78,6 @@ class NewgroundsAPI(scraper.TaggableScraper):
         async def start_session() -> bool:
             async def test_session(session: httpx.AsyncClient) -> bool:
                 res = await session.get("https://www.newgrounds.com/art/view/afrobull/squirrel-girl-2")
-                await f.atomic_write(Path("test.html"), res.text, encoding="utf-8-sig")
                 if "You must be logged in, and at least 18 years of age to view this content" in str(res.text):
                     logging.error("[%s] - The session in-use does not allow accessing 18+ content. Please check manually!", self.ME.upper())
                     return False
