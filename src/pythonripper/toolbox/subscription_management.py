@@ -231,11 +231,29 @@ class CombinedFile:
             logging.info(urls_to_format)
 
             found_some = False
-            tagnames = set()
+            tagnames: set[str] = set()
             if obj.IS_CASE_SENSITIVE is True:
                 tagnames.update(cf.case_permutations(tagname))
             else:
                 tagnames.add(tagname.lower())
+
+            # kusowanka special case
+            if isinstance(obj, kusowanka.KusowankaAPI):
+                kuso_tagnames: set[str] = set()
+                for this_tagname in tagnames:
+                    if not any(this_tagname.startswith(f"{x}/") for x in ("artist", "character", "metadata", "parody", "tag")):
+                        kuso_tagnames.update(
+                            (
+                                f"artist/{this_tagname}",
+                                f"character/{this_tagname}",
+                                f"metadata/{this_tagname}",
+                                f"parody/{this_tagname}",
+                                f"tag/{this_tagname}",
+                            )
+                        )
+                    else:
+                        kuso_tagnames.add(this_tagname)
+                tagnames = kuso_tagnames
             logging.info("tagnames: %s", tagnames)
 
             for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
