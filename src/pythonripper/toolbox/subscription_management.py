@@ -813,6 +813,7 @@ Hello! Please wait until the web browser has finished initializing.""")
 class _CombinedArtistFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
+        "animepictures",
         "artstation",
         "danbooru",
         "deviantart-artists",
@@ -843,6 +844,7 @@ class _CombinedArtistFile(CombinedFile):
 class _CombinedBooruFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
+        "animepictures",
         "danbooru",
         "deviantart-tags",
         "furry34",
