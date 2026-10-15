@@ -1,11 +1,9 @@
 from .extractor_artists import ExtractorArtistwebsitesSettings
 from .extractor_artstation import ExtractorArtstationSettings
-from .extractor_animepicture import ExtractorAnimepicturesSettings
 from .extractor_danbooru import ExtractorDanbooruSettings, DanbooruRatings
 from .extractor_deviantart import ExtractorDeviantartSettings
 from .extractor_gelbooru import ExtractorGelbooruSettings, GelbooruRatings
 from .extractor_hypnohub import ExtractorHypnohubSettings, HypnohubRatings
-from .extractor_kemono import ExtractorKemonoSettings
 from .extractor_hentaifoundry import ExtractorHentaifoundrySettings
 from .extractor_kusowanka import ExtractorKusowankaSettings
 from .extractor_newgrounds import ExtractorNewgroundsSettings, NewgroundsRating

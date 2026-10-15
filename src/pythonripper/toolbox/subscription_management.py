@@ -26,7 +26,6 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.extractor import (
-    animepictures,
     artstation,
     danbooru,
     deviantart,
@@ -143,7 +142,6 @@ class WebsiteInfo(TypedDict):
 class CombinedFile:
     space_default = "_"
     websiteinfo: ClassVar[dict[str, WebsiteInfo]] = {
-        "animepictures": {"object": animepictures.Animepictures},
         "artstation": {"object": artstation.ArtstationAPI},
         "danbooru": {"object": danbooru.DanbooruAPI},
         "deviantart": {"object": deviantart.DeviantartAPI},
@@ -739,7 +737,6 @@ Hello! Please wait until the web browser has finished initializing.""")
 class _CombinedArtistFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
-        "animepictures",
         "artstation",
         "danbooru",
         "deviantart",
@@ -766,7 +763,6 @@ class _CombinedArtistFile(CombinedFile):
 class _CombinedBooruFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
-        "animepictures",
         "danbooru",
         "gelbooru",
         "hentaifoundry-tags",

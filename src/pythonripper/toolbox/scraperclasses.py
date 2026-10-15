@@ -95,8 +95,6 @@ class Scraper(ABC):
             match self.ME:
                 case "akairiot":
                     bonus_tags = set()
-                case "animepictures":
-                    bonus_tags = set()
                 case "artstation":
                     bonus_tags = {"ai", "aigenerated", "midjourney", "createdwithaI"}
                 case "danbooru":
@@ -127,9 +125,6 @@ class Scraper(ABC):
                     bonus_tags = set()
                 case "hypnohub":
                     bonus_tags = {"ai art"}
-                # Kemono blacklisting does not actually work, because no API
-                case "kemono":
-                    bonus_tags = set()
                 case "kusowanka":
                     bonus_tags = {"ai-generated", "ai-generated background"}
                 case "newgrounds":
@@ -676,17 +671,13 @@ async def update_stuff(
     if tag_set is None:
         # import necessary here to prevent circular imports
         import pythonripper.toolbox.subscription_management as sm  # noqa: I001, RUF100
-        import pythonripper.extractor.kemono as kemono
 
         tag_object: sm.CombinedFile
         if update_type == "artists":
             tag_object = sm.combined_artist_file
         elif update_type == "tags":
             tag_object = sm.combined_tags_file
-        if isinstance(obj, kemono.KemonoBase):
-            website = obj.service
-        else:
-            website = obj.ME
+        website = obj.ME
         tag_set = tag_object.get_list(website=website)
     tag_list = list(tag_set)
     random.shuffle(tag_list)

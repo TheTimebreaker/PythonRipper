@@ -7,7 +7,6 @@ from pydantic_gui_settings_editor import ConfigCollapeNestedSettings, SettingsMa
 
 from . import (
     ExclusionSettings,
-    ExtractorAnimepicturesSettings,
     ExtractorArtistwebsitesSettings,
     ExtractorArtstationSettings,
     ExtractorDanbooruSettings,
@@ -15,7 +14,6 @@ from . import (
     ExtractorGelbooruSettings,
     ExtractorHentaifoundrySettings,
     ExtractorHypnohubSettings,
-    ExtractorKemonoSettings,
     ExtractorKusowankaSettings,
     ExtractorNewgroundsSettings,
     ExtractorPatreonSettings,
@@ -129,14 +127,12 @@ class GeneralSettings(StrictBaseModel):
 
 class ExtractorSettings(StrictBaseModel):
     artistwebsites: ExtractorArtistwebsitesSettings = Field(default_factory=ExtractorArtistwebsitesSettings)
-    animepictures: ExtractorAnimepicturesSettings = Field(default_factory=ExtractorAnimepicturesSettings)  # NotImplementedYet
     artstation: ExtractorArtstationSettings = Field(default_factory=ExtractorArtstationSettings)
     danbooru: ExtractorDanbooruSettings = Field(default_factory=ExtractorDanbooruSettings)
     deviantart: ExtractorDeviantartSettings = Field(default_factory=ExtractorDeviantartSettings)
     gelbooru: ExtractorGelbooruSettings = Field(default_factory=ExtractorGelbooruSettings)
     hentaifoundry: ExtractorHentaifoundrySettings = Field(default_factory=ExtractorHentaifoundrySettings)
     hypnohub: ExtractorHypnohubSettings = Field(default_factory=ExtractorHypnohubSettings)
-    kemono: ExtractorKemonoSettings = Field(default_factory=ExtractorKemonoSettings)
     kusowanka: ExtractorKusowankaSettings = Field(default_factory=ExtractorKusowankaSettings)
     newgrounds: ExtractorNewgroundsSettings = Field(default_factory=ExtractorNewgroundsSettings)
     patreon: ExtractorPatreonSettings = Field(default_factory=ExtractorPatreonSettings)
