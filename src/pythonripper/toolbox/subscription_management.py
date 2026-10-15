@@ -530,7 +530,7 @@ class CombinedFile:
             i, artist, url_list = item
 
             if len(url_list) == 0 and skip_empty:
-                print(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
+                feedback.info(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
                 await self.process_urls(artist, [], choice)
                 continue
 
@@ -591,7 +591,7 @@ Hello! Please wait until the web browser has finished initializing.""")
             if i < starting_index:
                 continue
             if website_choice in artist_data and not check_existing_again:
-                print(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
+                feedback.info(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
                 continue
             artists.append((i, artist_name))
 
