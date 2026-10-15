@@ -5,10 +5,20 @@ import logging
 import re
 import urllib.parse
 from collections.abc import Iterable
+from itertools import chain, combinations, permutations
 from pathlib import Path
-from typing import Any, ClassVar, NotRequired, TypedDict, cast
+from typing import Any, ClassVar, NotRequired, TypedDict, cast, override
 
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtGui import QCloseEvent
+from PySide6.QtWidgets import (
+    QApplication,
+    QLineEdit,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -36,6 +46,93 @@ from pythonripper.extractor import (
 from pythonripper.toolbox.config import ConfigObject, config
 
 STOP = object()
+
+additional_keys = [
+    "animepictures",
+    "artist-websites",
+    "asmhentai",
+    "doujinscom",
+    "hentaienvy",
+    "hentaiera",
+    "hentaiforce",
+    "hentairead",
+    "nhentainet",
+    "reddit",
+]
+
+
+class _QtFeedbackWindow(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+        self.app = QApplication.instance() or QApplication([])
+        self.loop = asyncio.get_running_loop()
+        self.owner_task = asyncio.current_task()
+        self.closed_by_user = False
+        self.pending: asyncio.Future[str] | None = None
+
+        self.setWindowTitle("Subscription management")
+        self.resize(650, 400)
+        self.messages = QPlainTextEdit()
+        self.messages.setReadOnly(True)
+        self.entry = QLineEdit()
+        self.entry.setPlaceholderText("Enter response...")
+        self.entry.setEnabled(False)
+        self.submit_button = QPushButton("Continue")
+        self.submit_button.setEnabled(False)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.messages)
+        layout.addWidget(self.entry)
+        layout.addWidget(self.submit_button)
+
+        self.submit_button.clicked.connect(self._submit)
+        self.entry.returnPressed.connect(self._submit)
+
+    def info(self, message: str) -> None:
+        """Add an info message to the feedback window. Will not block the thread."""
+        print(message)
+        self.messages.appendPlainText(message)
+        if not self.isVisible():
+            self.show()
+
+    async def ask(self, message: str) -> str:
+        """Ask the user for a response / confirmation in the feedback window. Will block the thread."""
+        if self.pending is not None:
+            raise RuntimeError("A feedback prompt is already active.")
+
+        print(message)
+        self.messages.appendPlainText(message)
+        self.entry.clear()
+        self.entry.setEnabled(True)
+        self.submit_button.setEnabled(True)
+        self.pending = self.loop.create_future()
+        self.show()
+        self.raise_()
+        self.entry.setFocus()
+
+        try:
+            return await self.pending
+        finally:
+            self.pending = None
+            self.entry.clear()
+            self.entry.setEnabled(False)
+            self.submit_button.setEnabled(False)
+
+    def _submit(self) -> None:
+        if self.pending is not None and not self.pending.done():
+            self.pending.set_result(self.entry.text())
+
+    async def process_qt_events(self) -> None:
+        while True:
+            self.app.processEvents()
+            await asyncio.sleep(0.01)
+
+    @override
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.closed_by_user = True
+        if self.owner_task is not None and not self.owner_task.done():
+            self.owner_task.cancel()
+        event.accept()
 
 
 class WebsiteInfo(TypedDict):
@@ -70,9 +167,6 @@ class CombinedFile:
     path: Path
     tag_type: str = ""
     encoding = "utf-8"
-
-    google_url = "https://www.google.com/search?q={query}"
-    google_space_replace = "+"
 
     def __init__(self, config: ConfigObject) -> None:
         self.data = self.read()
@@ -209,7 +303,12 @@ class CombinedFile:
         if QApplication.instance() is app and not app.parent():
             app.quit()
 
-    async def _add_get_tag_urls(self, tagname: str, website: str | None = None, dont_add_homepage: bool = False) -> list[str]:
+    async def _add_userconfirm(self, name: str, feedback: _QtFeedbackWindow) -> None:
+        await feedback.ask(f"Review tabs for {name!r}.\nClose the bad tabs manually, keep the good ones open, then click Continue.")
+
+    async def _add_get_tag_urls(
+        self, tagname: str, website: str | None = None, dont_add_homepage: bool = False, must_have_posts: bool = False
+    ) -> list[str]:
         async def task(obj: scraper.TaggableScraper) -> None:
             urls_to_format = []
             if isinstance(obj.URL_TAG, str):
@@ -219,11 +318,29 @@ class CombinedFile:
             logging.info(urls_to_format)
 
             found_some = False
-            tagnames = set()
+            tagnames: set[str] = set()
             if obj.IS_CASE_SENSITIVE is True:
                 tagnames.update(cf.case_permutations(tagname))
             else:
                 tagnames.add(tagname.lower())
+
+            # kusowanka special case
+            if isinstance(obj, kusowanka.KusowankaAPI):
+                kuso_tagnames: set[str] = set()
+                for this_tagname in tagnames:
+                    if not any(this_tagname.startswith(f"{x}/") for x in ("artist", "character", "metadata", "parody", "tag")):
+                        kuso_tagnames.update(
+                            (
+                                f"artist/{this_tagname}",
+                                f"character/{this_tagname}",
+                                f"metadata/{this_tagname}",
+                                f"parody/{this_tagname}",
+                                f"tag/{this_tagname}",
+                            )
+                        )
+                    else:
+                        kuso_tagnames.add(this_tagname)
+                tagnames = kuso_tagnames
             logging.info("tagnames: %s", tagnames)
 
             for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
@@ -231,18 +348,17 @@ class CombinedFile:
                 this_tagname = local_tagname
 
                 try:
-                    x = await obj.does_this_exist(this_tagname)
-                    if x:
-                        result.add(this_url)
-                        found_some = True
+                    exists = await obj.does_this_exist(this_tagname)
+                    if exists:
+                        if not must_have_posts or await obj.does_this_have_posts(this_tagname):
+                            result.add(this_url)
+                            found_some = True
                     else:
                         continue
                 except json.decoder.JSONDecodeError, ConnectionAbortedError, ConnectionRefusedError, cf.ExtractorExitError, cf.ExtractorStopError:
                     pass
 
             if found_some is False:
-                if obj.IS_GOOGLE_SEARCHABLE is True:
-                    result.add(self.google_url.format(query=(f"{tagname} {obj.ME.lower()}").replace(" ", self.google_space_replace)))
                 if dont_add_homepage is False:
                     result.add(obj.HOMEPAGE)
 
@@ -301,7 +417,7 @@ class CombinedFile:
                         if not matched:
                             raise AttributeError
                         tag_formatted = matched.group(1)
-                        tag = tag_formatted.replace(obj.SPACE_REPLACE, " ")
+                        tag = obj.invert_formatting(tag_formatted)
                         while tag.startswith((" ", "+")):
                             tag = tag[1:]
                         while tag.endswith((" ", "+")):
@@ -309,26 +425,93 @@ class CombinedFile:
 
                         if re.match(r"^(?:\s?[A-Za-z]\s)+$", tag):
                             raise ValueError("Tag %s was detected with spaces from url %s and pattern %s", tag, url, obj.TAG_PATTERN)
-                        new_tag_obj[key].append(tag)
+                        try:
+                            new_tag_obj[key].append(tag)
+                        except AttributeError:
+                            existing_value = new_tag_obj[key]
+                            if not existing_value:
+                                new_tag_obj[key] = [tag]
+                            elif isinstance(existing_value, (int, str)):
+                                new_tag_obj[key] = [existing_value, tag]
+                            else:
+                                raise TypeError(
+                                    "theres some unsupported value type in your data! %s %s", existing_value, type(existing_value)
+                                ) from AttributeError
                         break
                     except AttributeError:
                         continue
             else:
-                print(f"Could not verify link {url} .")
+                print(f"Could not verify link {url}")
         self.data[new_tag] = new_tag_obj
         await self.write()
 
     async def worker_producer(
-        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str | None = None
+        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str, must_have_posts: bool
     ) -> None:
+        obj = self.websiteinfo[choice]["object_active"]
         for i, artist in artists:
-            artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist)}
+            is_case_sensitive = obj.IS_CASE_SENSITIVE
+            artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist, remove_bypass_markers=True)}
             artist_aliases: set[str] = {
-                artist_alias.replace("artist/", "").replace("tag/", "").replace("character/", "").replace("parody/", "").replace("metadata/", "")
+                artist_alias.replace("artist/", "")
+                .replace("tag/", "")
+                .replace("character/", "")
+                .replace("parody/", "")
+                .replace("metadata/", "")
+                .replace("u/", "")
+                .replace("r/", "")
                 for artist_alias in artist_aliases_tmp
             }
+            # Case sensitive check
+            if not is_case_sensitive:
+                artist_aliases = {x.lower() for x in artist_aliases}
 
-            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True)}
+            # kusowanka special case because they use the category in the url
+            if isinstance(obj, kusowanka.KusowankaAPI):
+                kusowanka_aliases: set[str] = set()
+                for tn in artist_aliases:
+                    kusowanka_aliases.update(
+                        (
+                            f"artist/{tn}",
+                            f"character/{tn}",
+                            f"metadata/{tn}",
+                            f"parody/{tn}",
+                            f"tag/{tn}",
+                        )
+                    )
+                artist_aliases = kusowanka_aliases
+
+            # Removes any alias that already exists for the website and artist
+            preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases}
+            list_of_bypass_markers: list[str] = []
+            for me in (
+                self.config.settings.general.allow_blacklist_bypass,
+                self.config.settings.general.allow_contentfilter_bypass,
+            ):
+                if me:
+                    list_of_bypass_markers.append(me)
+            bypass_permutations = list(
+                chain.from_iterable(
+                    permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
+                )
+            )
+            for existing_alias in self.get_list(website=choice, artist=artist, remove_bypass_markers=True):
+                artist_aliases.discard(existing_alias)
+
+                formatted_existing_alias = obj.format_tagname(existing_alias)
+                artist_aliases.discard(formatted_existing_alias)
+
+                if formatted_existing_alias in preprocessed_artist_aliases:
+                    artist_aliases.discard(preprocessed_artist_aliases[formatted_existing_alias])
+
+                for combination in bypass_permutations:
+                    target_tmp = existing_alias
+                    if combination:
+                        for element in combination:
+                            target_tmp = f"{element}{target_tmp}{element}"
+                    artist_aliases.discard(target_tmp)
+
+            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True, must_have_posts)}
             await q.put((i, artist, url_list))
         await q.put(STOP)
 
@@ -338,6 +521,7 @@ class CombinedFile:
         processing_length: int,
         driver: WebDriver,
         fallback_handle: str,
+        feedback: _QtFeedbackWindow,
         choice: str | None = None,
         skip_empty: bool = False,
     ) -> None:
@@ -349,116 +533,155 @@ class CombinedFile:
             i, artist, url_list = item
 
             if len(url_list) == 0 and skip_empty:
-                print(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
+                feedback.info(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
                 await self.process_urls(artist, [], choice)
                 continue
 
             logging.info("url_list: %s", url_list)
             await asyncio.to_thread(self._add_open_urls_in_new_tabs, driver, url_list, fallback_handle)
-            await asyncio.to_thread(input, f"#{i} / {processing_length} - {artist} - Press ENTER to confirm...")
+            await feedback.ask(f"#{i+1} / {processing_length} - {artist} - Click Continue to confirm.")
             confirmed_urls = await asyncio.to_thread(self._add_get_confirmed_urls, driver, fallback_handle)
             await self.process_urls(artist, confirmed_urls, choice)
             await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
 
-    async def add_website(self, choice: str, skip_empty: bool) -> None:
+    async def add_website(
+        self, website_choice: str, skip_empty: bool = True, check_existing_again: bool = False, must_have_posts: bool = False, starting_index: int = 0
+    ) -> None:
+        feedback = _QtFeedbackWindow()
+        qt_task = asyncio.create_task(feedback.process_qt_events())
 
-        await self._add_activate_dict(self.config, choice=choice)
+        try:
+            await self._add_website_with_feedback(website_choice, skip_empty, check_existing_again, must_have_posts, starting_index, feedback)
+        except asyncio.CancelledError:
+            if not feedback.closed_by_user:
+                raise
+        finally:
+            qt_task.cancel()
+
+    async def _add_website_with_feedback(
+        self,
+        website_choice: str,
+        skip_empty: bool,
+        check_existing_again: bool,
+        must_have_posts: bool,
+        starting_index: int,
+        feedback: _QtFeedbackWindow,
+    ) -> None:
+        feedback.info(r""" /\_/\
+( o.o )
+ > ^ <
+Hello! Please wait until the web browser has finished initializing.""")
+        await asyncio.sleep(0)
+
+        await self._add_activate_dict(self.config, choice=website_choice)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
-        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == choice]
+        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == website_choice]
         self._add_open_urls_in_new_tabs(
             driver,
             [
-                "https://google.com?q=hi",
-                "https://ublockorigin.com/",
-                "https://www.tampermonkey.net/",
-                "https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm",
+                "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh",
                 *homepages,
             ],
             fallback_handle,
         )
-        input("\nReview tabs that have opened.\n If all opened successfully, press Enter to continue...")  # noqa: ASYNC250
+        await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         self_data_len = len(self.data)
         artists: list[tuple[int, str]] = []
         for i, (artist_name, artist_data) in enumerate(self.data.items()):
-            if choice in artist_data:
-                print(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
+            if i < starting_index:
+                continue
+            if website_choice in artist_data and not check_existing_again:
+                feedback.info(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
                 continue
             artists.append((i, artist_name))
 
-        q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=30)
+        q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=200)
         await asyncio.gather(
-            self.worker_consumer(q, self_data_len, driver, fallback_handle, choice, skip_empty), self.worker_producer(artists, q, choice)
+            self.worker_consumer(q, self_data_len, driver, fallback_handle, feedback, website_choice, skip_empty),
+            self.worker_producer(artists, q, website_choice, must_have_posts),
         )
 
     async def add_tags(self) -> None:
-        def get_new_tag_name() -> str:
-            result = input(f"Please enter the {self.tag_type} which you wanna add: ")
+        feedback = _QtFeedbackWindow()
+        qt_task = asyncio.create_task(feedback.process_qt_events())
+
+        try:
+            await self._add_tags_with_feedback(feedback)
+        except asyncio.CancelledError:
+            if not feedback.closed_by_user:
+                raise
+        finally:
+            qt_task.cancel()
+
+    async def _add_tags_with_feedback(self, feedback: _QtFeedbackWindow) -> None:
+        feedback.info(r""" /\_/\
+( o.o )
+ > ^ <
+Hello! Please wait until the web browser has finished initializing.""")
+        await asyncio.sleep(0)
+
+        async def get_new_tag_name() -> str:
+            result = await feedback.ask(f"Please enter the {self.tag_type} which you want to add:")
             if result in str(self.data):
-                pw = cf.id_generator(6)
-                print(
-                    f'The given {self.tag_type} "{result}" was found in your subscribed list. '
-                    "If this is not the case, please enter the following code:"
+                password = cf.id_generator(6)
+                feedback.info(
+                    f'The given {self.tag_type} "{result}" was found in your '
+                    "subscribed list. If this is not the case, enter the "
+                    "confirmation code shown in the next prompt."
                 )
-                if input(f"Enter {pw} :") != pw:
+                if await feedback.ask(f"Enter {password}:") != password:
                     return ""
-            while result.startswith(" "):
-                result = result[1:]
-            while result.endswith(" "):
-                result = result[:-1]
-            return result
+
+            return result.strip()
 
         await self._add_activate_dict(self.config)
         driver = cf.init_selenium(False)
         fallback_handle = self._add_ensure_fallback_tab(driver)
         homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites]
-        self._add_open_urls_in_new_tabs(driver, ["https://google.com?q=hi", "https://ublockorigin.com/", *homepages], fallback_handle)
-        input("\nReview tabs that have opened.\n If all opened successfully, press Enter to continue...")  # noqa: ASYNC250
+        self._add_open_urls_in_new_tabs(
+            driver,
+            [
+                "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh/",
+                *homepages,
+            ],
+            fallback_handle,
+        )
+        await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         while True:
-            print("=" * 20)
-            new_tag = get_new_tag_name()
-            if not new_tag or new_tag == "":
+            feedback.info("=" * 20)
+            new_tag = await get_new_tag_name()
+            if not new_tag:
                 continue
-            print(f"Gathering for {new_tag}")
+
+            feedback.info(f"Gathering links for '{new_tag}'")
             url_list = await self._add_get_tag_urls(new_tag)
             self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
-            self._add_userconfirm_console(new_tag)
+            await self._add_userconfirm(new_tag, feedback)
             confirmed_urls = self._add_get_confirmed_urls(driver, fallback_handle)
             await self.process_urls(new_tag, confirmed_urls)
             self._add_close_non_fallback_tabs(driver, fallback_handle)
 
-    def get_list(self, website: str | None = None, artist: str | None = None) -> list[Any]:
-        """Returns sorted list of all entries from a given website."""
-        taglist = []
+    def get_list(self, *, website: str | None = None, artist: str | None = None, remove_bypass_markers: bool = False) -> set[str]:
+        """Returns sorted list of all entries from a given website or tag/artist."""
+        taglist: set[str | int] = set()
         for name, name_data in self.data.items():
             if (artist is None or name == artist) and bool(name_data):
                 for website_name, is_there in name_data.items():
                     if (website is None or website_name == website) and bool(is_there):
                         if isinstance(is_there, str | int):
-                            if is_there in taglist:
-                                logging.warning(
-                                    "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
-                                    website_name,
-                                    is_there,
-                                    name,
-                                )
-                            taglist.append(is_there)
+                            taglist.add(is_there)
                         elif isinstance(is_there, list):
                             for sublink in is_there:
-                                if sublink in taglist:
-                                    logging.warning(
-                                        "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
-                                        website_name,
-                                        sublink,
-                                        name,
-                                    )
-                                taglist.append(sublink)
+                                taglist.add(sublink)
 
-        return sorted([str(x) for x in taglist])
+        if remove_bypass_markers:
+            return {cf.parse_markers(str(x))["parsed"] for x in taglist}
+        return {str(x) for x in taglist}
 
     def get_all(self) -> dict[Any, Any]:
         """Returns sorted list of all entries from all websites."""
@@ -476,27 +699,41 @@ class CombinedFile:
         return {name: list(value.keys()) for name, value in taglist.items()}
 
     def check_keys(self) -> None:
+        tags_by_website: dict[str, list[str]] = {website: [] for website in (*self.websites, *additional_keys)}
         for tag, tag_data in self.data.items():
-            for key in self.websites:
-                if key not in tag_data.keys():
-                    logging.warning("[%s][%s] - Website key missing.", tag, key)
+            for website_key in self.websites:
+
+                # Website key checks: missing keys and unsupported keys
+                if website_key not in tag_data.keys():
+                    logging.warning("[%s][%s] - Website key missing.", tag, website_key)
                 else:
-                    for key in tag_data:
-                        if key not in [
-                            *self.websites,
-                            "artist-websites",
-                            "asmhentai",
-                            "doujinscom",
-                            "hentaienvy",
-                            "hentaiera",
-                            "hentaiforce",
-                            "hentairead",
-                            "nhentainet",
-                            "reddit",
-                        ]:
-                            logging.warning("[%s][%s] - Key for unsupported website.", tag, key)
-        for site in self.websites:
-            self.get_list(site)
+                    for website_key in tag_data:
+                        if website_key not in [*self.websites, *additional_keys]:
+                            logging.warning("[%s][%s] - Key for unsupported website.", tag, website_key)
+
+            # ...
+            assert isinstance(tag_data, dict)
+            for _website, _websitedata in tag_data.items():
+                assert isinstance(_website, str)
+                assert isinstance(_websitedata, (list, bool, str, int))
+
+                if isinstance(_websitedata, bool):
+                    if _websitedata:
+                        raise ValueError
+                    continue
+
+                if not isinstance(_websitedata, list):
+                    _websitedata = [_websitedata]
+
+                for _element in _websitedata:
+                    if _element in tags_by_website[_website]:
+                        logging.warning(
+                            "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",
+                            _website,
+                            _element,
+                            tag,
+                        )
+                    tags_by_website[_website].append(_element)
 
 
 class _CombinedArtistFile(CombinedFile):

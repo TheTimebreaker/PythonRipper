@@ -1,9 +1,10 @@
 """Main module for interacting with https://www.patreon.com/ ."""
 
+import asyncio
 import json
 import logging
 from collections import defaultdict
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator, Iterable
 from datetime import datetime
 from http.cookiejar import MozillaCookieJar
 from typing import Any, Literal, final
@@ -19,7 +20,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.toolbox.config import ConfigObject
 
 
-async def verify_patreon_artist_list(config: ConfigObject, artist_list: list[str]) -> list[str]:
+async def verify_patreon_artist_list(config: ConfigObject, artist_list: Iterable[str]) -> set[str]:
     """Verifies the full artist list (containing ALL artists) with the json of memberships
     provided in patreon_memberships.json
 
@@ -46,7 +47,7 @@ async def verify_patreon_artist_list(config: ConfigObject, artist_list: list[str
 
     if file_has_changed:
         await f.atomic_write(membsfile, data=json.dumps(data, indent=4, sort_keys=True))
-    return active_memberships
+    return set(active_memberships)
 
 
 @final
@@ -58,9 +59,8 @@ class PatreonAPI(scraper.TaggableScraper):
 
     ME = "patreon"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.Limiter(98 / 2)
+    LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 
@@ -95,8 +95,7 @@ class PatreonAPI(scraper.TaggableScraper):
             return True
 
         async def verify_cookies() -> bool:
-            await self.LIMIT.wait()
-            res = await self.session.get("https://www.patreon.com/api/current_user")
+            res = await self.request("https://www.patreon.com/api/current_user")
             if "This route is restricted to logged in users." in str(res.json()) or res.status_code != 200:
                 logging.error(
                     "[%s] - The cookies provided did not log in properly. Delete %s and re-run script to receive instructions for new cookies.",
@@ -114,9 +113,19 @@ class PatreonAPI(scraper.TaggableScraper):
 
         return True
 
+    async def request(self, url: str, follow_redirects: bool = False) -> httpx.Response:
+        for i in [1, 3, 5, 10, 10, 30, 30]:
+            try:
+                await self.LIMIT.wait()
+                res = await self.session.get(url, follow_redirects=follow_redirects)
+                return res
+            except httpx.ReadTimeout:
+                await asyncio.sleep(i)
+                continue
+        raise cf.ExtractorSkipError("Unable to get a response from url %s", url)
+
     async def does_this_exist(self, tagname: str) -> bool:
-        await self.LIMIT.wait()
-        res = await self.session.get(f"https://www.patreon.com/c/{self.format_tagname(tagname)}", follow_redirects=True)
+        res = await self.request(f"https://www.patreon.com/c/{self.format_tagname(tagname)}", follow_redirects=True)
         return res.status_code in (200, 307)
 
     def build_url(self, endpoint: str, campaign_id: str | int) -> str:
@@ -294,7 +303,7 @@ class PatreonAPI(scraper.TaggableScraper):
         if json_data is None or lookup is None:
             if post_id is None:
                 raise ValueError("No post_id or json_data + lookup table given (one is necessary).")
-            res = await self.session.get(f"https://www.patreon.com/posts/{post_id}", follow_redirects=True)
+            res = await self.request(f"https://www.patreon.com/posts/{post_id}", follow_redirects=True)
             if res.status_code != 200:
                 raise ConnectionAbortedError()
             bootstrap = extract_bootstrap(res.text)
@@ -360,8 +369,7 @@ class PatreonAPI(scraper.TaggableScraper):
 
         url = self.build_url("posts", campaign_id)
         while True:
-            await self.LIMIT.wait()
-            res = await self.session.get(url)
+            res = await self.request(url)
             if res.status_code == 200:
                 lookup: dict[str, dict[str, dict[str, Any]]] = self.convert_included_to_lookup(res.json()["included"])
                 for post in res.json()["data"]:

@@ -54,13 +54,7 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
 
     HOMEPAGE = "https://kusowanka.com/"
     URL_BASE = HOMEPAGE
-    URL_TAG = (
-        "https://kusowanka.com/artist/{tagname}",
-        "https://kusowanka.com/character/{tagname}",
-        "https://kusowanka.com/metadata/{tagname}",
-        "https://kusowanka.com/parody/{tagname}",
-        "https://kusowanka.com/tag/{tagname}",
-    )
+    URL_TAG = "https://kusowanka.com/{tagname}"
 
     POST_PATTERN = r"(?:https?://)?(?:www\.)?kusowanka\.com/post/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?kusowanka\.com/((?:artist|character|metadata|parody|tag)/[^/&\?]+)"
@@ -70,7 +64,6 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "-"
-    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 
@@ -80,6 +73,11 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
         return True
 
     def format_tagname(self, tagname: str) -> str:
+        if not any(tagname.startswith(x) for x in ("artist/", "character/", "metadata/", "parody/", "tag/")):
+            msg = f"Tagname {tagname} is misformatted, it must include the tag category (e.g. tag/<tag>, artist/<tag>, ...)!"
+            logging.error("[%s] - %s", self.ME.upper(), msg)
+            raise cf.ExtractorSkipError(msg)
+
         tagname = (
             tagname.replace(" ", "-").replace(":", "-").replace("(", "").replace(")", "").replace(";", "-").replace(".", "-").replace("?", "-")
         ).replace("--", "-")

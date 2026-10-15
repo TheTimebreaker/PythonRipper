@@ -29,9 +29,8 @@ class Rule34xxxAPI(scraper.DownloadhistoryScraper):
 
     ME = "rule34xxx"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.LeakyBucketLimiter(1.8, capacity=8)
+    LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = True
 
     session: httpx.AsyncClient
 

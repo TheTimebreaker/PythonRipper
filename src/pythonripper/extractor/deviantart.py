@@ -7,6 +7,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 import urllib.parse
 import webbrowser
 from collections.abc import AsyncGenerator
@@ -57,8 +58,7 @@ class DeviantartAPI(scraper.TaggableScraper):
     ME = "deviantart"
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
-    SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = True
+    SPACE_REPLACE = "-"
 
     REDIRECT_PORT = 3055
     REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
@@ -267,7 +267,38 @@ class DeviantartAPI(scraper.TaggableScraper):
 
         return True
 
+    def format_tagname(self, tagname: str) -> str:
+        replace_dict: dict[str, str] = {
+            " ": self.SPACE_REPLACE,
+        }
+        remove_dict: set[str] = {"(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "&", "/"}
+        for what, by in replace_dict.items():
+            tagname = tagname.replace(what, by)
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
+        while self.SPACE_REPLACE * 2 in tagname:
+            tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
+        return tagname
+
+    async def does_this_have_posts(self, tagname: str) -> bool:
+        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True):
+            return True
+        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True, fetch_favorites=True):
+            return True
+        return False
+
     async def does_this_exist(self, tagname: str) -> bool:
+        def contains_non_latin_letter(text: str) -> bool:
+            for char in text:
+                if unicodedata.category(char).startswith("L"):
+                    if "LATIN" not in unicodedata.name(char, ""):
+                        return True
+            return False
+
+        if len(tagname) > 20:  # tagnames arent allowed to be too long
+            return False
+        if contains_non_latin_letter(tagname):  # deviantart does not seem to allow non-latin letters
+            return False
         url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
         res = await self.request(url)
         return res.status_code == 200
@@ -419,7 +450,7 @@ class DeviantartAPI(scraper.TaggableScraper):
 
         endpoint: Literal["gallery", "favourites", "collections"]
         if fetch_favorites is True:
-            endpoint = "collections"
+            endpoint = "collections"  # idk why the endpoint isnt named "favourites" but i dont make the rules
         else:
             endpoint = "gallery"
         if folder_id is None:

@@ -28,7 +28,6 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(3)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

@@ -42,6 +42,7 @@ class PostElement(TypedDict):
 class PostElementLinks(PostElement):
     download_url: str
     extension: str
+    """File extension without the dot"""
 
 
 class PostElementData(PostElement):
@@ -61,7 +62,6 @@ class Scraper(ABC):
     ME: str
     LIMIT: asynciolimiter._BaseLimiter
     SPACE_REPLACE: str
-    IS_GOOGLE_SEARCHABLE: bool = True
     IS_CASE_SENSITIVE: bool = False
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
@@ -80,7 +80,10 @@ class Scraper(ABC):
         return tagname.replace(" ", self.SPACE_REPLACE)
 
     def invert_formatting(self, formatted_tagname: str) -> str:
-        map = {"&#039;": "'", self.SPACE_REPLACE: " "}
+        map = {"&#039;": "'"}
+        if not self.SPACE_REPLACE == "":  # prevents funky looking formattings
+            map[self.SPACE_REPLACE] = " "
+
         for what, by in map.items():
             formatted_tagname = formatted_tagname.replace(what, by)
         return formatted_tagname
@@ -442,6 +445,11 @@ class TaggableScraper(Scraper):
     @abstractmethod
     async def does_this_exist(self, tagname: str) -> bool: ...
 
+    async def does_this_have_posts(self, tagname: str) -> bool:
+        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True):
+            return True
+        return False
+
     @overload
     async def download_tag(
         self,
@@ -654,7 +662,7 @@ async def artist_website_updater(config: ConfigObject, obj_ref: type[ArtistWebsi
 
 
 async def update_stuff(
-    config: ConfigObject, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_list: list[str] | None = None
+    config: ConfigObject, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_set: set[str] | None = None
 ) -> bool:
     obj = obj_ref(config)
     if not await obj.init():
@@ -665,7 +673,7 @@ async def update_stuff(
     print("=" * 50)
 
     # Load artist / tag list
-    if tag_list is None:
+    if tag_set is None:
         # import necessary here to prevent circular imports
         import pythonripper.toolbox.subscription_management as sm  # noqa: I001, RUF100
         import pythonripper.extractor.kemono as kemono
@@ -679,7 +687,8 @@ async def update_stuff(
             website = obj.service
         else:
             website = obj.ME
-        tag_list = tag_object.get_list(website)
+        tag_set = tag_object.get_list(website=website)
+    tag_list = list(tag_set)
     random.shuffle(tag_list)
 
     # Download

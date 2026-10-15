@@ -1,57 +1,123 @@
 import asyncio
 
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFrame,
+    QLabel,
+    QSpinBox,
+    QVBoxLayout,
+)
+
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.subscription_management as sm
+from pythonripper import __icon__
 from pythonripper.toolbox.config import config
 
 
+def create_divider() -> QFrame:
+    divider = QFrame()
+    divider.setFrameShape(QFrame.Shape.HLine)
+    divider.setFrameShadow(QFrame.Shadow.Sunken)
+    return divider
+
+
 async def main() -> None:
-    inp = input("Do you want to search the new websites' entries to <artist> or <tag>? Please enter either EXACTLY to choose: ")  # noqa: ASYNC250
+    app = QApplication.instance() or QApplication([])
+    if not isinstance(app, QApplication):
+        raise
+    if __icon__ and __icon__.is_file():
+        app.setWindowIcon(QIcon(str(__icon__)))
+
+    dialog = QDialog()
+    dialog.setWindowTitle("Add New Website")
+    layout = QVBoxLayout(dialog)
+
+    layout.addWidget(QLabel("Search the new website's entries for:"))
+    entry_type = QComboBox()
+    entry_type.addItem("Artists", "artist")
+    entry_type.addItem("Tags", "tag")
+    layout.addWidget(entry_type)
+
+    layout.addWidget(create_divider())
+
+    layout.addWidget(QLabel("Choose the website to add:"))
+    website = QComboBox()
+    layout.addWidget(website)
+
+    layout.addWidget(create_divider())
+
+    layout.addWidget(QLabel("Automatically skip an entry if no existing tags can be found for any website:"))
+    skip_empty_checkbox = QCheckBox("Enable auto-skip")
+    layout.addWidget(skip_empty_checkbox)
+
+    layout.addWidget(create_divider())
+
+    layout.addWidget(QLabel("Check existing entries for more possible entries using aliases from other websites:"))
+    check_existing_checkbox = QCheckBox("Check again")
+    layout.addWidget(check_existing_checkbox)
+
+    layout.addWidget(create_divider())
+
+    layout.addWidget(QLabel("Only allow new entries, if they have atleast one post:"))
+    must_have_posts_checkbox = QCheckBox("Must have posts")
+    layout.addWidget(must_have_posts_checkbox)
+
+    layout.addWidget(create_divider())
+
+    layout.addWidget(QLabel("Skip processing the first <your value> number of elements:"))
+    starting_index_spinbox = QSpinBox(maximum=2**16)
+    layout.addWidget(starting_index_spinbox)
+
+    layout.addWidget(create_divider())
+
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+    buttons.accepted.connect(dialog.accept)
+    buttons.rejected.connect(dialog.reject)
+    layout.addWidget(buttons)
+
+    ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+
+    def update_websites() -> None:
+        websites = sm.combined_artist_file.websites if entry_type.currentData() == "artist" else sm.combined_tags_file.websites
+        selected_website = website.currentText()
+        website.clear()
+        website.addItems(websites)
+        if selected_website in websites:
+            website.setCurrentText(selected_website)
+        website.setEnabled(bool(websites))
+        ok_button.setEnabled(bool(websites))
+
+    update_websites()
+    entry_type.currentIndexChanged.connect(update_websites)
+
+    if dialog.exec() != QDialog.DialogCode.Accepted:
+        return
+
     obj: sm.CombinedFile
-    if inp in ("artist", "<artist>", "artists", "<artists>"):
+    if entry_type.currentData() == "artist":
         obj = sm.combined_artist_file
-        func = add_artists
-    elif inp in ("tag", "<tag>", "tags", "<tags>"):
+    else:
         obj = sm.combined_tags_file
-        func = add_tag
-    else:
-        print("No valid choice detected, run again.")
-        return
 
-    lookup = {}
-    s = []
-    for i, website in enumerate(obj.websites):
-        lookup[i] = website
-        s.append(f"({i}) {website}")
-    print(" | ".join(s))
-    inp2 = int(input("Enter a number to choose that website: "))  # noqa: ASYNC250
-    if inp2 not in lookup:
-        print("No valid choice detected, run again.")
-        return
-
-    inp3 = str(
-        input("Do you want to AUTO-SKIP an entry, if the code cannot find any existing tags for any website? y(es) / n(o)): ")  # noqa: ASYNC250
-    ).lower()
-    if inp3 in ("yes", "y"):
-        skip_empty = True
-    elif inp3 in ("no", "n"):
-        skip_empty = False
-    else:
-        print("No valid choice detected, run again.")
-        return
-
-    choice = lookup[inp2]
-    await func(obj, choice, skip_empty)
+    website_choice = website.currentText()
+    skip_empty = skip_empty_checkbox.isChecked()
+    check_existing_again = check_existing_checkbox.isChecked()
+    must_have_posts = must_have_posts_checkbox.isChecked()
+    starting_index: int = starting_index_spinbox.value()
+    await add_website_to_object(obj, website_choice, skip_empty, check_existing_again, must_have_posts, starting_index)
 
 
-async def add_artists(obj: sm.CombinedFile, choice: str, skip_empty: bool) -> None:
-    await obj.add_website(choice, skip_empty)
-
-
-async def add_tag(obj: sm.CombinedFile, choice: str, skip_empty: bool) -> None:
-    await obj.add_website(choice, skip_empty)
+async def add_website_to_object(
+    obj: sm.CombinedFile, choice: str, skip_empty: bool, check_existing_again: bool, must_have_posts: bool, starting_index: int
+) -> None:
+    await obj.add_website(choice, skip_empty, check_existing_again, must_have_posts, starting_index)
 
 
 if __name__ == "__main__":
-    cf.init_logger(config, "error", False)
+    cf.init_logger(config, "critical", False)
     asyncio.run(main())

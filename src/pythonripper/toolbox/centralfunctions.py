@@ -1,5 +1,6 @@
 """Central functions that can't be stored in main due to circular dependencies"""
 
+import asyncio
 import datetime
 import functools
 import itertools
@@ -11,7 +12,8 @@ import string
 import time
 import urllib.parse
 import zipfile
-from collections.abc import Callable
+from collections import deque
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -149,41 +151,34 @@ def init_logger(config: ConfigObject, level: str, log2file: bool) -> None:
     level = level.lower()
     match level:  # Matches the level argument to the words logging actually understands :)
         case "debug":
-            level = "DEBUG"
+            level2 = logging.DEBUG
         case "info":
-            level = "INFO"
+            level2 = logging.INFO
         case "warning":
-            level = "WARNING"
+            level2 = logging.WARNING
         case "error":
-            level = "ERROR"
+            level2 = logging.ERROR
         case "critical":
-            level = "CRITICAL"
+            level2 = logging.CRITICAL
 
         case _:
-            level = "DEBUG"
+            level2 = logging.DEBUG
 
     msg_format = "[%(asctime)s][%(levelname)s]%(message)s"
-
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
     if log2file:
         print(f"Logs will be logged into: {config.paths.errorpath()}")
-        logging.basicConfig(
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler(config.paths.errorpath(), encoding="utf-16"),
-            ],
-            level=level,
-            format=msg_format,
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-    else:
-        logging.basicConfig(
-            handlers=[
-                logging.StreamHandler(),
-            ],
-            level=level,
-            format=msg_format,
-        )
+        handlers.append(logging.FileHandler(config.paths.errorpath(), encoding="utf-16"))
 
+    basic_config = {
+        "handlers": handlers,
+        "force": True,
+        "level": level2,
+        "format": msg_format,
+    }
+    if log2file:
+        basic_config["datefmt"] = "%Y-%m-%d %H:%M:%S"
+    logging.basicConfig(**basic_config)  # type: ignore
     logging.critical(datetime.datetime.strftime(datetime.datetime.now(), format="%Y-%m-%d %H:%M:%S"))
 
 
@@ -285,3 +280,37 @@ def get_full_class_name(obj: Exception) -> str:
     if module is None or module == str.__class__.__module__:
         return obj.__class__.__name__
     return module + "." + obj.__class__.__name__
+
+
+class QuotaLimiter:
+    def __init__(self, limits: Iterable[tuple[int, int]]) -> None:
+        self.limits = limits
+        self.timestamps: list[deque[Any]] = [deque() for _ in limits]
+        self.lock = asyncio.Lock()
+
+    async def wait(self) -> None:
+        while True:
+            async with self.lock:
+                now = time.monotonic()
+                wait_time = 0.0
+
+                # Check every quota before allowing a request.
+                for (maximum, window), timestamps in zip(self.limits, self.timestamps, strict=True):
+
+                    # Remove requests outside this quota's window.
+                    while timestamps and timestamps[0] <= now - window:
+                        timestamps.popleft()
+
+                    if len(timestamps) >= maximum:
+                        wait_time = max(
+                            wait_time,
+                            timestamps[0] + window - now,
+                        )
+
+                if wait_time <= 0:
+                    # Reserve a slot in ALL quotas atomically.
+                    for timestamps in self.timestamps:
+                        timestamps.append(now)
+                    return
+
+            await asyncio.sleep(wait_time)

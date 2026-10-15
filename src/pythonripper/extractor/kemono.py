@@ -37,7 +37,6 @@ class KemonoBase(scraper.TaggableScraper):
     ME = "kemono"
     LIMIT = asynciolimiter.LeakyBucketLimiter(2, capacity=100)
     SPACE_REPLACE = ""
-    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

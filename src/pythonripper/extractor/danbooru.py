@@ -28,7 +28,6 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.LeakyBucketLimiter(rate=1, capacity=10)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

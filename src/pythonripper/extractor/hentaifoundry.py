@@ -30,7 +30,6 @@ class HentaiFoundryRoot(scraper.DownloadhistoryScraper):
     WEBSITE_NAME = "hentaifoundry"
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = False
 
     session: httpx.AsyncClient
 

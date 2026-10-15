@@ -29,7 +29,6 @@ class Animepictures(scraper.DownloadhistoryScraper):
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(0.5, max_burst=10)
     SPACE_REPLACE = "+"
-    IS_GOOGLE_SEARCHABLE = False
 
     async def init(self) -> bool:
         self.credentials_path = self.config.paths._credentials() / "animepictures_credentials.json"
@@ -94,6 +93,9 @@ class Animepictures(scraper.DownloadhistoryScraper):
         await self.LIMIT.wait()
         res = await self.session.get(self.API_URL, params={"page": 0, "search_tag": self.format_tagname(tagname), "lang": "en"})
         return "in request 0 pictures" not in res.text
+
+    async def does_this_have_posts(self, tagname: str) -> bool:
+        raise NotImplementedError()
 
     def format_tagname(self, tagname: str) -> str:
         return tagname.replace(" ", self.SPACE_REPLACE).replace("/", "%2F")
