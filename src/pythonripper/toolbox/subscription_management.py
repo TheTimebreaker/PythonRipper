@@ -7,9 +7,18 @@ import urllib.parse
 from collections.abc import Iterable
 from itertools import chain, combinations, permutations
 from pathlib import Path
-from typing import Any, ClassVar, NotRequired, TypedDict, cast
+from typing import Any, ClassVar, NotRequired, TypedDict, cast, override
 
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtGui import QCloseEvent
+from PySide6.QtWidgets import (
+    QApplication,
+    QLineEdit,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 from selenium.common.exceptions import NoSuchWindowException, WebDriverException
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -49,6 +58,78 @@ additional_keys = [
     "nhentainet",
     "reddit",
 ]
+
+
+class _QtFeedbackWindow(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+        self.app = QApplication.instance() or QApplication([])
+        self.loop = asyncio.get_running_loop()
+        self.owner_task = asyncio.current_task()
+        self.closed_by_user = False
+        self.pending: asyncio.Future[str] | None = None
+
+        self.setWindowTitle("Subscription management")
+        self.resize(650, 400)
+        self.messages = QPlainTextEdit()
+        self.messages.setReadOnly(True)
+        self.entry = QLineEdit()
+        self.entry.setPlaceholderText("Enter response...")
+        self.entry.setEnabled(False)
+        self.submit_button = QPushButton("Continue")
+        self.submit_button.setEnabled(False)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.messages)
+        layout.addWidget(self.entry)
+        layout.addWidget(self.submit_button)
+
+        self.submit_button.clicked.connect(self._submit)
+        self.entry.returnPressed.connect(self._submit)
+
+    def info(self, message: str) -> None:
+        """Add an info message to the feedback window. Will not block the thread."""
+        self.messages.appendPlainText(message)
+        if not self.isVisible():
+            self.show()
+
+    async def ask(self, message: str) -> str:
+        """Ask the user for a response / confirmation in the feedback window. Will block the thread."""
+        if self.pending is not None:
+            raise RuntimeError("A feedback prompt is already active.")
+
+        self.messages.appendPlainText(message)
+        self.entry.clear()
+        self.entry.setEnabled(True)
+        self.submit_button.setEnabled(True)
+        self.pending = self.loop.create_future()
+        self.show()
+        self.raise_()
+        self.entry.setFocus()
+
+        try:
+            return await self.pending
+        finally:
+            self.pending = None
+            self.entry.clear()
+            self.entry.setEnabled(False)
+            self.submit_button.setEnabled(False)
+
+    def _submit(self) -> None:
+        if self.pending is not None and not self.pending.done():
+            self.pending.set_result(self.entry.text())
+
+    async def process_qt_events(self) -> None:
+        while True:
+            self.app.processEvents()
+            await asyncio.sleep(0.01)
+
+    @override
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.closed_by_user = True
+        if self.owner_task is not None and not self.owner_task.done():
+            self.owner_task.cancel()
+        event.accept()
 
 
 class WebsiteInfo(TypedDict):
@@ -218,6 +299,9 @@ class CombinedFile:
 
         if QApplication.instance() is app and not app.parent():
             app.quit()
+
+    async def _add_userconfirm(self, name: str, feedback: _QtFeedbackWindow) -> None:
+        await feedback.ask(f"Review tabs for {name!r}.\nClose the bad tabs manually, keep the good ones open, then click Continue.")
 
     async def _add_get_tag_urls(
         self, tagname: str, website: str | None = None, dont_add_homepage: bool = False, must_have_posts: bool = False
@@ -491,21 +575,38 @@ class CombinedFile:
         )
 
     async def add_tags(self) -> None:
-        def get_new_tag_name() -> str:
-            result = input(f"Please enter the {self.tag_type} which you wanna add: ")
+        feedback = _QtFeedbackWindow()
+        qt_task = asyncio.create_task(feedback.process_qt_events())
+
+        try:
+            await self._add_tags_with_feedback(feedback)
+        except asyncio.CancelledError:
+            if not feedback.closed_by_user:
+                raise
+        finally:
+            qt_task.cancel()
+
+    async def _add_tags_with_feedback(self, feedback: _QtFeedbackWindow) -> None:
+        feedback.info(r""" /\_/\
+( o.o )
+ > ^ <
+
+Hello! Please wait until the web browser has finished initializing.""")
+        await asyncio.sleep(0)
+
+        async def get_new_tag_name() -> str:
+            result = await feedback.ask(f"Please enter the {self.tag_type} which you want to add:")
             if result in str(self.data):
-                pw = cf.id_generator(6)
-                print(
-                    f'The given {self.tag_type} "{result}" was found in your subscribed list. '
-                    "If this is not the case, please enter the following code:"
+                password = cf.id_generator(6)
+                feedback.info(
+                    f'The given {self.tag_type} "{result}" was found in your '
+                    "subscribed list. If this is not the case, enter the "
+                    "confirmation code shown in the next prompt."
                 )
-                if input(f"Enter {pw} :") != pw:
+                if await feedback.ask(f"Enter {password}:") != password:
                     return ""
-            while result.startswith(" "):
-                result = result[1:]
-            while result.endswith(" "):
-                result = result[:-1]
-            return result
+
+            return result.strip()
 
         await self._add_activate_dict(self.config)
         driver = cf.init_selenium(False)
@@ -519,18 +620,19 @@ class CombinedFile:
             ],
             fallback_handle,
         )
-        input("\nReview tabs that have opened.\n If all opened successfully, press Enter to continue...")  # noqa: ASYNC250
+        await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
         self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         while True:
-            print("=" * 20)
-            new_tag = get_new_tag_name()
-            if not new_tag or new_tag == "":
+            feedback.info("=" * 20)
+            new_tag = await get_new_tag_name()
+            if not new_tag:
                 continue
-            print(f"Gathering for {new_tag}")
+
+            feedback.info(f"Gathering links for '{new_tag}'")
             url_list = await self._add_get_tag_urls(new_tag)
             self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
-            self._add_userconfirm_console(new_tag)
+            await self._add_userconfirm(new_tag, feedback)
             confirmed_urls = self._add_get_confirmed_urls(driver, fallback_handle)
             await self.process_urls(new_tag, confirmed_urls)
             self._add_close_non_fallback_tabs(driver, fallback_handle)
