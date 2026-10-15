@@ -151,41 +151,34 @@ def init_logger(config: ConfigObject, level: str, log2file: bool) -> None:
     level = level.lower()
     match level:  # Matches the level argument to the words logging actually understands :)
         case "debug":
-            level = "DEBUG"
+            level2 = logging.DEBUG
         case "info":
-            level = "INFO"
+            level2 = logging.INFO
         case "warning":
-            level = "WARNING"
+            level2 = logging.WARNING
         case "error":
-            level = "ERROR"
+            level2 = logging.ERROR
         case "critical":
-            level = "CRITICAL"
+            level2 = logging.CRITICAL
 
         case _:
-            level = "DEBUG"
+            level2 = logging.DEBUG
 
     msg_format = "[%(asctime)s][%(levelname)s]%(message)s"
-
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
     if log2file:
         print(f"Logs will be logged into: {config.paths.errorpath()}")
-        logging.basicConfig(
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler(config.paths.errorpath(), encoding="utf-16"),
-            ],
-            level=level,
-            format=msg_format,
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-    else:
-        logging.basicConfig(
-            handlers=[
-                logging.StreamHandler(),
-            ],
-            level=level,
-            format=msg_format,
-        )
+        handlers.append(logging.FileHandler(config.paths.errorpath(), encoding="utf-16"))
 
+    basic_config = {
+        "handlers": handlers,
+        "force": True,
+        "level": level2,
+        "format": msg_format,
+    }
+    if log2file:
+        basic_config["datefmt"] = "%Y-%m-%d %H:%M:%S"
+    logging.basicConfig(**basic_config)  # type: ignore
     logging.critical(datetime.datetime.strftime(datetime.datetime.now(), format="%Y-%m-%d %H:%M:%S"))
 
 
