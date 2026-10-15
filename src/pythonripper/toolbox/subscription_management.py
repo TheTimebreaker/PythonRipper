@@ -48,6 +48,7 @@ from pythonripper.toolbox.config import ConfigObject, config
 STOP = object()
 
 additional_keys = [
+    "animepictures",
     "artist-websites",
     "asmhentai",
     "doujinscom",
