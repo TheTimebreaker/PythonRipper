@@ -16,6 +16,10 @@ async def update_deviantart_artists(config: ConfigObject) -> bool:
     return await scraper.update_stuff(config, deviantart.DeviantartArtistAPI, "artists")
 
 
+async def update_deviantart_tags(config: ConfigObject) -> bool:
+    return await scraper.update_stuff(config, deviantart.DeviantartTagAPI, "tags")
+
+
 async def update_deviantart_favorites(config: ConfigObject) -> bool | tuple[bool, str]:
     print("Updating local copy of deviantart favorites.")
     print("=" * 50)
