@@ -55,6 +55,7 @@ class DeviantartRootAPI(scraper.TaggableScraper):
     ME = "deviantart"
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
+    TOOMANYREQUESTSCOUNTER = 0
 
     REDIRECT_PORT = 3055
     REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
@@ -260,34 +261,35 @@ class DeviantartRootAPI(scraper.TaggableScraper):
         headers: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         follow_redirects: bool = False,
-        no_retry: bool = False,
     ) -> httpx.Response:
         if headers is None:
             headers = {}
         if params is None:
             params = {}
 
-        await self.LIMIT.wait()
+        while True:
+            await self.LIMIT.wait()
 
-        res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
-        if res.status_code == 429:
-            if no_retry is True:
-                raise cf.ExtractorStopError("Rate limited.")
-            await asyncio.sleep(60)
-            return await self.request(url=url, headers=headers, params=params, follow_redirects=follow_redirects, no_retry=True)
+            res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+            if res.status_code == 429:
+                self.TOOMANYREQUESTSCOUNTER += 1
+                timeout_seconds = min(2**self.TOOMANYREQUESTSCOUNTER, 300)
+                await asyncio.sleep(timeout_seconds)
+                continue
 
-        elif res.status_code == 401 and res.json().get("error", "") == "invalid_token":
-            if await self.init():
-                res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
-            else:
-                raise cf.ExtractorStopError("Could not regenerate tokens")
+            elif res.status_code == 401 and res.json().get("error", "") == "invalid_token":
+                if await self.init():
+                    res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+                else:
+                    raise cf.ExtractorStopError("Could not regenerate tokens")
 
-        elif res.status_code > 400:
-            msg = f"[{self.ME.upper()}] - Deviantart request {url} got invalid response code: {res.status_code} ."
-            logging.error(msg)
-            raise cf.ExtractorSkipError(msg)
+            elif res.status_code > 400:
+                msg = f"[{self.ME.upper()}] - Deviantart request {url} got invalid response code: {res.status_code} ."
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg)
 
-        return res
+            self.TOOMANYREQUESTSCOUNTER = max(self.TOOMANYREQUESTSCOUNTER - 1, 0)
+            return res
 
     async def _get_deviation_id(self, url: str | None = None, post_id: str | None = None) -> str:
         if url is None:
