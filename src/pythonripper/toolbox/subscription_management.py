@@ -145,7 +145,7 @@ class CombinedFile:
     websiteinfo: ClassVar[dict[str, WebsiteInfo]] = {
         "artstation": {"object": artstation.ArtstationAPI},
         "danbooru": {"object": danbooru.DanbooruAPI},
-        "deviantart": {"object": deviantart.DeviantartAPI},
+        "deviantart": {"object": deviantart.DeviantartArtistAPI},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
         "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},

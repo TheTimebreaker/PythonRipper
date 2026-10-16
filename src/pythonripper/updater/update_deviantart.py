@@ -13,7 +13,7 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_deviantart_artists(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, deviantart.DeviantartAPI, "artists")
+    return await scraper.update_stuff(config, deviantart.DeviantartArtistAPI, "artists")
 
 
 async def update_deviantart_favorites(config: ConfigObject) -> bool | tuple[bool, str]:
@@ -29,7 +29,7 @@ async def update_deviantart_favorites(config: ConfigObject) -> bool | tuple[bool
                 continue
             favorites.append(fav)
 
-    obj = deviantart.DeviantartAPI(config)
+    obj = deviantart.DeviantartArtistAPI(config)
     if not await obj.init():
         return False
 
