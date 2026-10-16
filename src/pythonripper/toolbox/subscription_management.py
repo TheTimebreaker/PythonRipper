@@ -342,7 +342,10 @@ class CombinedFile:
             logging.info("tagnames: %s", tagnames)
 
             for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
-                this_url = url_to_format.format(tagname=obj.format_tagname(local_tagname))
+                formatted_tagname = obj.format_tagname(local_tagname)
+                if not formatted_tagname:
+                    continue
+                this_url = url_to_format.format(tagname=formatted_tagname)
                 this_tagname = local_tagname
 
                 try:
@@ -480,7 +483,7 @@ class CombinedFile:
                 artist_aliases = kusowanka_aliases
 
             # Removes any alias that already exists for the website and artist
-            preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases}
+            preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases if obj.format_tagname(alias)}
             list_of_bypass_markers: list[str] = []
             for me in (
                 self.config.settings.general.allow_blacklist_bypass,
@@ -497,6 +500,8 @@ class CombinedFile:
                 artist_aliases.discard(existing_alias)
 
                 formatted_existing_alias = obj.format_tagname(existing_alias)
+                if not formatted_existing_alias:
+                    continue
                 artist_aliases.discard(formatted_existing_alias)
 
                 if formatted_existing_alias in preprocessed_artist_aliases:
