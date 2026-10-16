@@ -31,7 +31,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper import __icon__
 from pythonripper.extractor.artstation import ArtstationAPI
 from pythonripper.extractor.danbooru import DanbooruAPI
-from pythonripper.extractor.deviantart import DeviantartAPI
+from pythonripper.extractor.deviantart import DeviantartArtistAPI
 from pythonripper.extractor.gelbooru import GelbooruAPI
 from pythonripper.extractor.hypnohub import HypnohubAPI
 from pythonripper.extractor.kusowanka import KusowankaAPI
@@ -125,7 +125,7 @@ async def _verify(
     objects_by_module: dict[str, type[scraper.Scraper]] = {
         "artstation": ArtstationAPI,
         "danbooru": DanbooruAPI,
-        "deviantart": DeviantartAPI,
+        "deviantart": DeviantartArtistAPI,
         "gelbooru": GelbooruAPI,
         "hypnohub": HypnohubAPI,
         "kusowanka": KusowankaAPI,
