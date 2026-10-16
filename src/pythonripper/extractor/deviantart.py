@@ -585,7 +585,7 @@ class DeviantartTagAPI(DeviantartRootAPI):
         replace_dict: dict[str, str] = {
             " ": self.SPACE_REPLACE,
         }
-        remove_dict: set[str] = {"(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "&", "/", "-", "・"}
+        remove_dict: set[str] = {"(", ")", "[", "]", "{", "}", ":", ".", ",", "@", "|", "!", "?", '"', "'", "§", "$", "%", "&", "/", "-", "・"}
         for what, by in replace_dict.items():
             tagname = tagname.replace(what, by)
         for what in remove_dict:
