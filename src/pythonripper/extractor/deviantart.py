@@ -55,7 +55,7 @@ class DeviantartRootAPI(scraper.TaggableScraper):
     ME = "deviantart"
     WEBSITE_NAME = ME
     LIMIT = asynciolimiter.Limiter(1)
-    TOOMANYREQUESTSCOUNTER = 0
+    TOOMANYREQUESTSCOUNTER: int | float = 0
 
     REDIRECT_PORT = 3055
     REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
@@ -269,12 +269,12 @@ class DeviantartRootAPI(scraper.TaggableScraper):
 
         while True:
             await self.LIMIT.wait()
+            timeout_seconds = int(min(2**self.TOOMANYREQUESTSCOUNTER, 300) - 1)
+            await asyncio.sleep(timeout_seconds)
 
             res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
             if res.status_code == 429:
-                self.TOOMANYREQUESTSCOUNTER += 1
-                timeout_seconds = min(2**self.TOOMANYREQUESTSCOUNTER, 300)
-                await asyncio.sleep(timeout_seconds)
+                self.TOOMANYREQUESTSCOUNTER += 2
                 continue
 
             elif res.status_code == 401 and res.json().get("error", "") == "invalid_token":
@@ -288,7 +288,7 @@ class DeviantartRootAPI(scraper.TaggableScraper):
                 logging.error(msg)
                 raise cf.ExtractorSkipError(msg)
 
-            self.TOOMANYREQUESTSCOUNTER = max(self.TOOMANYREQUESTSCOUNTER - 1, 0)
+            self.TOOMANYREQUESTSCOUNTER = max(self.TOOMANYREQUESTSCOUNTER - 0.5, 0)
             return res
 
     async def _get_deviation_id(self, url: str | None = None, post_id: str | None = None) -> str:
