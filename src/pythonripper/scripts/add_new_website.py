@@ -40,6 +40,7 @@ async def main() -> None:
     layout.addWidget(QLabel("Search the new website's entries for:"))
     entry_type = QComboBox()
     entry_type.addItem("Artists", "artist")
+    entry_type.addItem("Favorites", "favorites")
     entry_type.addItem("Tags", "tag")
     layout.addWidget(entry_type)
 
@@ -83,7 +84,11 @@ async def main() -> None:
     ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
 
     def update_websites() -> None:
-        websites = sm.combined_artist_file.websites if entry_type.currentData() == "artist" else sm.combined_tags_file.websites
+        websites = (
+            sm.combined_artist_file.websites
+            if entry_type.currentData() == "artist"
+            else sm.combined_favorites_file.websites if entry_type.currentData() == "favorites" else sm.combined_tags_file.websites
+        )
         selected_website = website.currentText()
         website.clear()
         website.addItems(websites)
@@ -101,6 +106,8 @@ async def main() -> None:
     obj: sm.CombinedFile
     if entry_type.currentData() == "artist":
         obj = sm.combined_artist_file
+    elif entry_type.currentData() == "favorites":
+        obj = sm.combined_favorites_file
     else:
         obj = sm.combined_tags_file
 

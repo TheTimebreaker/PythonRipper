@@ -499,8 +499,11 @@ class _NewgroundsTagsRootAPI(NewgroundsRootAPI):
     SPACE_REPLACE = "-"
 
     def format_tagname(self, tagname: str) -> str:
+        replace_by_dict: dict[str, str] = {"é": "e"}
         replace_by_space_dict: set[str] = {" ", "_", "(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "/"}
         remove_dict: set[str] = {"&"}
+        for what, by in replace_by_dict.items():
+            tagname = tagname.replace(what, by)
         for what in replace_by_space_dict:
             tagname = tagname.replace(what, self.SPACE_REPLACE)
         for what in remove_dict:

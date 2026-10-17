@@ -487,10 +487,11 @@ class CombinedFile:
             # Removes any alias that already exists for the website and artist
             preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases if obj.format_tagname(alias)}
             list_of_bypass_markers: list[str] = []
-            for me in (
+            bypass_configs = [
                 self.config.settings.general.allow_blacklist_bypass,
                 self.config.settings.general.allow_contentfilter_bypass,
-            ):
+            ]
+            for me in bypass_configs:
                 if me:
                     list_of_bypass_markers.append(me)
             bypass_permutations = list(
@@ -498,23 +499,33 @@ class CombinedFile:
                     permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
                 )
             )
+            logging.info("artist_aliases before discarding=%s", artist_aliases)
+            discared_aliases: set[str] = set()
             for existing_alias in self.get_list(website=choice, artist=artist, remove_bypass_markers=True):
-                artist_aliases.discard(existing_alias)
+                # removes the literal existing alias
+                discared_aliases.add(existing_alias)
 
+                # formats existing alias and if that matches the preprocessed list, original gets removed
                 formatted_existing_alias = obj.format_tagname(existing_alias)
-                if not formatted_existing_alias:
-                    continue
-                artist_aliases.discard(formatted_existing_alias)
+                if formatted_existing_alias:
+                    discared_aliases.add(formatted_existing_alias)
 
-                if formatted_existing_alias in preprocessed_artist_aliases:
-                    artist_aliases.discard(preprocessed_artist_aliases[formatted_existing_alias])
+                    if formatted_existing_alias in preprocessed_artist_aliases:
+                        discared_aliases.add(preprocessed_artist_aliases[formatted_existing_alias])
 
+                # removes potential flag bypasses from the string
                 for combination in bypass_permutations:
                     target_tmp = existing_alias
                     if combination:
                         for element in combination:
                             target_tmp = f"{element}{target_tmp}{element}"
-                    artist_aliases.discard(target_tmp)
+                    discared_aliases.add(target_tmp)
+
+            logging.info("discared_aliases=%s", discared_aliases)
+            for discard in discared_aliases:
+                artist_aliases.discard(discard)
+
+            logging.info("artist_aliases after discarding=%s", artist_aliases)
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True, must_have_posts)}
             await q.put((i, artist, url_list))
