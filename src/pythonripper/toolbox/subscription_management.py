@@ -3,6 +3,7 @@ import itertools
 import json
 import logging
 import re
+import time
 import urllib.parse
 from collections.abc import Iterable
 from itertools import chain, combinations, permutations
@@ -222,7 +223,7 @@ class CombinedFile:
                 tasks.append(asyncio.create_task(task(key, self.websiteinfo[key]["object"])))
         await asyncio.gather(*tasks)
 
-    def _add_ensure_fallback_tab(self, driver: WebDriver, fallback_url: str = "about:blank") -> str:
+    async def _add_ensure_fallback_tab(self, driver: WebDriver, fallback_url: str = "about:blank") -> str:
         """
         Make sure there is a dedicated fallback tab and return its window handle.
 
@@ -234,38 +235,42 @@ class CombinedFile:
 
         # Reuse the current tab as fallback if possible.
         fallback_handle = driver.current_window_handle
-        driver.get(fallback_url)
+        await asyncio.to_thread(driver.get, fallback_url)
         return fallback_handle
 
-    def _add_open_urls_in_new_tabs(self, driver: WebDriver, urls: Iterable[str], fallback_handle: str) -> list[str]:
+    async def _add_open_urls_in_new_tabs(self, driver: WebDriver, urls: Iterable[str], fallback_handle: str) -> list[str]:
         """
         Open each URL in its own new tab and return the created tab handles.
         """
         created_handles: list[str] = []
 
         for url in urls:
-            driver.switch_to.window(fallback_handle)
-            driver.switch_to.new_window("tab")
+            await asyncio.to_thread(driver.switch_to.window, fallback_handle)
+            await asyncio.to_thread(driver.switch_to.new_window, "tab")
             new_handle = driver.current_window_handle
             created_handles.append(new_handle)
 
             try:
-                driver.get(url)
+                await asyncio.to_thread(driver.get, url)
+
+                # not good practise to use this, but this should prevent the other threads from firing more requests during the wait
+                # hopefully, this is enough to prevent all rate-limits
+                time.sleep(1)  # noqa: ASYNC251
             except WebDriverException as exc:
                 print(f"Failed to open {url!r}: {exc}")
                 # If opening fails, close that tab again.
                 try:
-                    driver.close()
+                    await asyncio.to_thread(driver.close)
                 except Exception:
                     pass
 
                 # Switch back to fallback so the driver stays in a sane state.
-                driver.switch_to.window(fallback_handle)
+                await asyncio.to_thread(driver.switch_to.window, fallback_handle)
                 created_handles.remove(new_handle)
 
         return created_handles
 
-    def _add_close_non_fallback_tabs(self, driver: WebDriver, fallback_handle: str) -> None:
+    async def _add_close_non_fallback_tabs(self, driver: WebDriver, fallback_handle: str) -> None:
         """
         Close every tab except the fallback tab.
         """
@@ -274,14 +279,14 @@ class CombinedFile:
                 continue
 
             try:
-                driver.switch_to.window(handle)
-                driver.close()
+                await asyncio.to_thread(driver.switch_to.window, handle)
+                await asyncio.to_thread(driver.close)
             except NoSuchWindowException:
                 continue
             except WebDriverException as exc:
                 print(f"Could not close tab {handle!r}: {exc}")
 
-        driver.switch_to.window(fallback_handle)
+        await asyncio.to_thread(driver.switch_to.window, fallback_handle)
 
     def _add_userconfirm_console(self, name: str) -> None:
         """
@@ -376,7 +381,7 @@ class CombinedFile:
         await asyncio.gather(*tasks)
         return list(result)
 
-    def _add_get_confirmed_urls(self, driver: WebDriver, fallback_handle: str) -> list[str]:
+    async def _add_get_confirmed_urls(self, driver: WebDriver, fallback_handle: str) -> list[str]:
         """
         Return the URLs of all currently open tabs except the fallback tab.
         """
@@ -388,7 +393,7 @@ class CombinedFile:
                 continue
 
             try:
-                driver.switch_to.window(handle)
+                await asyncio.to_thread(driver.switch_to.window, handle)
                 url = driver.current_url
                 confirmed_urls.append(url)
             except NoSuchWindowException:
@@ -398,7 +403,7 @@ class CombinedFile:
                 print(f"Could not read URL from tab {handle!r}: {exc}")
 
         # Restore focus to fallback at the end.
-        driver.switch_to.window(fallback_handle)
+        await asyncio.to_thread(driver.switch_to.window, fallback_handle)
         return confirmed_urls
 
     async def process_urls(self, new_tag: str, url_list: list[str], choice: str | None = None) -> None:
@@ -554,11 +559,11 @@ class CombinedFile:
                 continue
 
             logging.info("url_list: %s", url_list)
-            await asyncio.to_thread(self._add_open_urls_in_new_tabs, driver, url_list, fallback_handle)
+            await self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
             await feedback.ask(f"#{i+1} / {processing_length} - {artist} - Click Continue to confirm.")
-            confirmed_urls = await asyncio.to_thread(self._add_get_confirmed_urls, driver, fallback_handle)
+            confirmed_urls = await self._add_get_confirmed_urls(driver, fallback_handle)
             await self.process_urls(artist, confirmed_urls, choice)
-            await asyncio.to_thread(self._add_close_non_fallback_tabs, driver, fallback_handle)
+            await self._add_close_non_fallback_tabs(driver, fallback_handle)
 
     async def add_website(
         self, website_choice: str, skip_empty: bool = True, check_existing_again: bool = False, must_have_posts: bool = False, starting_index: int = 0
@@ -591,9 +596,9 @@ Hello! Please wait until the web browser has finished initializing.""")
 
         await self._add_activate_dict(self.config, choice=website_choice)
         driver = cf.init_selenium(False)
-        fallback_handle = self._add_ensure_fallback_tab(driver)
+        fallback_handle = await self._add_ensure_fallback_tab(driver)
         homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == website_choice]
-        self._add_open_urls_in_new_tabs(
+        await self._add_open_urls_in_new_tabs(
             driver,
             [
                 "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh",
@@ -602,7 +607,7 @@ Hello! Please wait until the web browser has finished initializing.""")
             fallback_handle,
         )
         await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
-        self._add_close_non_fallback_tabs(driver, fallback_handle)
+        await self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         self_data_len = len(self.data)
         artists: list[tuple[int, str]] = []
@@ -655,9 +660,9 @@ Hello! Please wait until the web browser has finished initializing.""")
 
         await self._add_activate_dict(self.config)
         driver = cf.init_selenium(False)
-        fallback_handle = self._add_ensure_fallback_tab(driver)
+        fallback_handle = await self._add_ensure_fallback_tab(driver)
         homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites]
-        self._add_open_urls_in_new_tabs(
+        await self._add_open_urls_in_new_tabs(
             driver,
             [
                 "https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh/",
@@ -666,7 +671,7 @@ Hello! Please wait until the web browser has finished initializing.""")
             fallback_handle,
         )
         await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
-        self._add_close_non_fallback_tabs(driver, fallback_handle)
+        await self._add_close_non_fallback_tabs(driver, fallback_handle)
 
         while True:
             feedback.info("=" * 20)
@@ -676,11 +681,11 @@ Hello! Please wait until the web browser has finished initializing.""")
 
             feedback.info(f"Gathering links for '{new_tag}'")
             url_list = await self._add_get_tag_urls(new_tag)
-            self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
+            await self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
             await self._add_userconfirm(new_tag, feedback)
-            confirmed_urls = self._add_get_confirmed_urls(driver, fallback_handle)
+            confirmed_urls = await self._add_get_confirmed_urls(driver, fallback_handle)
             await self.process_urls(new_tag, confirmed_urls)
-            self._add_close_non_fallback_tabs(driver, fallback_handle)
+            await self._add_close_non_fallback_tabs(driver, fallback_handle)
 
     def get_list(self, *, website: str | None = None, artist: str | None = None, remove_bypass_markers: bool = False) -> set[str]:
         """Returns sorted list of all entries from a given website or tag/artist."""
