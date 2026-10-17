@@ -8,7 +8,7 @@ import urllib.parse
 from collections.abc import Iterable
 from itertools import chain, combinations, permutations
 from pathlib import Path
-from typing import Any, ClassVar, NotRequired, TypedDict, cast, override
+from typing import Any, ClassVar, Literal, NotRequired, TypedDict, cast, override
 
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
@@ -458,6 +458,13 @@ class CombinedFile:
     async def worker_producer(
         self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str, must_have_posts: bool
     ) -> None:
+        def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> str | Literal[False]:
+            for artist_alias in artist_aliases:
+                formatted_artist_alias = obj.format_tagname(artist_alias)
+                if formatted_artist_alias and formatted_existing_alias == formatted_artist_alias:
+                    return artist_alias
+            return False
+
         obj = self.websiteinfo[choice]["object_active"]
         for i, artist in artists:
             is_case_sensitive = obj.IS_CASE_SENSITIVE
@@ -492,7 +499,6 @@ class CombinedFile:
                 artist_aliases = kusowanka_aliases
 
             # Removes any alias that already exists for the website and artist
-            preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases if obj.format_tagname(alias)}
             list_of_bypass_markers: list[str] = []
             bypass_configs = [
                 self.config.settings.general.allow_blacklist_bypass,
@@ -516,9 +522,9 @@ class CombinedFile:
                 formatted_existing_alias = obj.format_tagname(existing_alias)
                 if formatted_existing_alias:
                     discared_aliases.add(formatted_existing_alias)
-
-                    if formatted_existing_alias in preprocessed_artist_aliases:
-                        discared_aliases.add(preprocessed_artist_aliases[formatted_existing_alias])
+                    placeholder_ = is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias)
+                    if placeholder_:
+                        discared_aliases.add(placeholder_)
 
                 # removes potential flag bypasses from the string
                 for combination in bypass_permutations:
