@@ -127,8 +127,20 @@ class Scraper(ABC):
                     bonus_tags = {"ai art"}
                 case "kusowanka":
                     bonus_tags = {"ai-generated", "ai-generated background"}
-                case "newgrounds":
-                    bonus_tags = {"ai-generated", "ai-generated-pokemon", "ai-assisted", "dall-e", "midjourney", "stable-diffusion"}
+                case "newgrounds-artists" | "newgrounds-favorites" | "newgrounds-tags":
+                    bonus_tags = {
+                        "ai-generated",
+                        "ai-generated-pokemon",
+                        "ai-assisted",
+                        "dall-e",
+                        "midjourney",
+                        "stable-diffusion",
+                        "ai generated",
+                        "ai generated pokemon",
+                        "ai assisted",
+                        "dall e",
+                        "stable diffusion",
+                    }
                 case "patreon":
                     bonus_tags = set()
                 case "pixiv" | "pixiv-artists" | "pixiv-tags":
@@ -382,7 +394,7 @@ class Scraper(ABC):
         if not ignore_blacklist and self.blacklist_tag_found(data):
             logging.info("[%s] - Skipped download of %s: blacklisted tags found.", self.ME.upper(), post_id)
             return True
-        if not ignore_contentfilters and self.is_content_rating_allowed(data):
+        if not ignore_contentfilters and not self.is_content_rating_allowed(data):
             logging.info("[%s] - Skipped download of %s: content rating disallowed.", self.ME.upper(), post_id)
             return True
 
@@ -459,21 +471,6 @@ class TaggableScraper(Scraper):
         custom_mode: Literal["deviantart"] | None = None,
         fetch_favorites: bool = False,
     ) -> bool: ...
-    @overload
-    async def download_tag(
-        self,
-        tagname: str,
-        dpath: Path | None = None,
-        update: bool = False,
-        update_ids: list[str] | None = None,
-        ignore_download_history: bool = False,
-        ignore_blacklist: bool = False,
-        ignore_contentfilters: bool = False,
-        *,
-        custom_mode: Literal["newgrounds"] | None = None,
-        fetch_favorites: bool = False,
-        endpoint: Literal["art", "audio"] | None = None,
-    ) -> bool: ...
 
     @overload
     async def download_tag(
@@ -519,7 +516,7 @@ class TaggableScraper(Scraper):
         ignore_blacklist: bool = False,
         ignore_contentfilters: bool = False,
         *,
-        custom_mode: Literal["deviantart", "newgrounds", "reddit"] | None = None,
+        custom_mode: Literal["deviantart", "reddit"] | None = None,
         fetch_favorites: bool = False,
         endpoint: str | None = None,
     ) -> bool:
@@ -548,14 +545,6 @@ class TaggableScraper(Scraper):
             generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters, fetch_favorites=fetch_favorites)  # type: ignore
         elif custom_mode == "reddit":
             generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters, endpoint=endpoint)  # type: ignore
-        elif custom_mode == "newgrounds":
-            generator = self._fetch_posts(
-                tagname,
-                update_ids,
-                ignore_contentfilters=ignore_contentfilters,
-                endpoint=endpoint,
-                fetch_favorites=fetch_favorites,
-            )  # type: ignore
 
         try:
             async for i, post in asyncstdlib.enumerate(generator):
@@ -657,7 +646,7 @@ async def artist_website_updater(config: ConfigObject, obj_ref: type[ArtistWebsi
 
 
 async def update_stuff(
-    config: ConfigObject, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists"], *, tag_set: set[str] | None = None
+    config: ConfigObject, obj_ref: type[TaggableScraper], update_type: Literal["tags", "artists", "favorites"], *, tag_set: set[str] | None = None
 ) -> bool:
     obj = obj_ref(config)
     if not await obj.init():
@@ -677,6 +666,8 @@ async def update_stuff(
             tag_object = sm.combined_artist_file
         elif update_type == "tags":
             tag_object = sm.combined_tags_file
+        elif update_type == "favorites":
+            tag_object = sm.combined_favorites_file
         website = obj.ME
         tag_set = tag_object.get_list(website=website)
     tag_list = list(tag_set)

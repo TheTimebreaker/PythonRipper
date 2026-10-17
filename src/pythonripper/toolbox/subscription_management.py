@@ -149,7 +149,9 @@ class CombinedFile:
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
         "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
         "hypnohub": {"object": hypnohub.HypnohubAPI},
-        "newgrounds": {"object": newgrounds.NewgroundsAPI},
+        "newgrounds-artists": {"object": newgrounds.NewgroundsArtAPI},
+        "newgrounds-favorites": {"object": newgrounds.NewgroundsFavoriteArtAPI},
+        "newgrounds-tags": {"object": newgrounds.NewgroundsTagsArtAPI},
         "kusowanka": {"object": kusowanka.KusowankaAPI},
         "patreon": {"object": patreon.PatreonAPI},
         "pixiv-artists": {"object": pixiv.PixivArtistAPI},
@@ -485,10 +487,11 @@ class CombinedFile:
             # Removes any alias that already exists for the website and artist
             preprocessed_artist_aliases = {obj.format_tagname(alias): alias for alias in artist_aliases if obj.format_tagname(alias)}
             list_of_bypass_markers: list[str] = []
-            for me in (
+            bypass_configs = [
                 self.config.settings.general.allow_blacklist_bypass,
                 self.config.settings.general.allow_contentfilter_bypass,
-            ):
+            ]
+            for me in bypass_configs:
                 if me:
                     list_of_bypass_markers.append(me)
             bypass_permutations = list(
@@ -496,23 +499,33 @@ class CombinedFile:
                     permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
                 )
             )
+            logging.info("artist_aliases before discarding=%s", artist_aliases)
+            discared_aliases: set[str] = set()
             for existing_alias in self.get_list(website=choice, artist=artist, remove_bypass_markers=True):
-                artist_aliases.discard(existing_alias)
+                # removes the literal existing alias
+                discared_aliases.add(existing_alias)
 
+                # formats existing alias and if that matches the preprocessed list, original gets removed
                 formatted_existing_alias = obj.format_tagname(existing_alias)
-                if not formatted_existing_alias:
-                    continue
-                artist_aliases.discard(formatted_existing_alias)
+                if formatted_existing_alias:
+                    discared_aliases.add(formatted_existing_alias)
 
-                if formatted_existing_alias in preprocessed_artist_aliases:
-                    artist_aliases.discard(preprocessed_artist_aliases[formatted_existing_alias])
+                    if formatted_existing_alias in preprocessed_artist_aliases:
+                        discared_aliases.add(preprocessed_artist_aliases[formatted_existing_alias])
 
+                # removes potential flag bypasses from the string
                 for combination in bypass_permutations:
                     target_tmp = existing_alias
                     if combination:
                         for element in combination:
                             target_tmp = f"{element}{target_tmp}{element}"
-                    artist_aliases.discard(target_tmp)
+                    discared_aliases.add(target_tmp)
+
+            logging.info("discared_aliases=%s", discared_aliases)
+            for discard in discared_aliases:
+                artist_aliases.discard(discard)
+
+            logging.info("artist_aliases after discarding=%s", artist_aliases)
 
             url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True, must_have_posts)}
             await q.put((i, artist, url_list))
@@ -749,7 +762,7 @@ class _CombinedArtistFile(CombinedFile):
         "hypnohub",
         "hentaifoundry-artists",
         "kusowanka",
-        "newgrounds",
+        "newgrounds-artists",
         "patreon",
         "pixiv-artists",
         "rule34paheal",
@@ -773,6 +786,7 @@ class _CombinedBooruFile(CombinedFile):
         "hentaifoundry-tags",
         "hypnohub",
         "kusowanka",
+        "newgrounds-tags",
         "pixiv-tags",
         "rule34paheal",
         "rule34us",
@@ -786,5 +800,16 @@ class _CombinedBooruFile(CombinedFile):
         super().__init__(config)
 
 
+class _CombinedFavoritesFile(CombinedFile):
+    path: Path
+    websites: ClassVar[list[str]] = ["newgrounds-favorites"]
+    tag_type = "favorites"
+
+    def __init__(self, config: ConfigObject) -> None:
+        self.path = config.paths.favorites_path()
+        super().__init__(config)
+
+
 combined_artist_file = _CombinedArtistFile(config)
 combined_tags_file = _CombinedBooruFile(config)
+combined_favorites_file = _CombinedFavoritesFile(config)

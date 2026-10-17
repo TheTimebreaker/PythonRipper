@@ -117,7 +117,8 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
         scheduler.append((pythonripper.updater.update_kusowanka.update_kusowanka_tags, 7))
     if config.settings.extractor.newgrounds.enabled:
         scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_artists, 28))
-        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 7))
+        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 28))
+        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_tags, 28))
     if config.settings.extractor.patreon.enabled:
         scheduler.append((pythonripper.updater.update_patreon.update_patreon_artists, 28))
     if config.settings.extractor.pixiv.enabled:

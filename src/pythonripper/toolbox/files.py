@@ -25,7 +25,9 @@ from pythonripper.toolbox.config.model.shared_model_data import alternative_exte
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:
     """Matches a lot of known multi-media file extensions and returns if found (without the extension dot)."""
-    pattern = "\\" + before_symbol + r"""(jpg|jpeg|jfif|tiff|tif|webp|webm|gifv|gif|mp4|pdf|png|txt|swf|bmp|m4a|opus|mp3|aac|db|csv|bak|zip|psd)"""
+    pattern = (
+        "\\" + before_symbol + r"""(jpg|jpeg|jfif|tiff|tif|webp|webm|gifv|gif|mp4|pdf|png|txt|swf|bmp|m4a|opus|ogg|mp3|aac|db|csv|bak|zip|psd)"""
+    )
     string = string.lower()
     matched = re.search(pattern, string)
     if matched:

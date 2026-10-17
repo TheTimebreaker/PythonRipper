@@ -86,8 +86,9 @@ class Worker:
             "deviantart",
             "deviantart-favorites",
             "hentaifoundry-artists",
-            "newgrounds",
+            "newgrounds-artists",
             "newgrounds-favorites",
+            "newgrounds-tags",
             "patreon",
             "pixiv-artists",
             "tumblr",
@@ -229,8 +230,6 @@ class Worker:
                     if username:
                         if website == "deviantart":
                             website = "deviantart-artists"
-                        if website == "newgrounds":
-                            website = "newgrounds-artists"
                         if isinstance(username, (str, int)):
                             username = [username]
 
@@ -264,8 +263,6 @@ class Worker:
                     if username:
                         if website == "deviantart":
                             website = "deviantart-artists"
-                        if website == "newgrounds":
-                            website = "newgrounds-artists"
                         if isinstance(username, (str, int)):
                             username = [username]
 

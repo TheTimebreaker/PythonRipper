@@ -79,10 +79,6 @@ ignore = [
   "TD003", #Missing issue link for TODO
 ]
 
-[tool.pylint."MASTER"]
-disable = ["all"]
-
-
 [tool.black]
 line-length = 150
 target-version = ["py314"]
