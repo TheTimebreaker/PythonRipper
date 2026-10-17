@@ -39,7 +39,7 @@ class Credentials(TypedDict):
     valid_until: NotRequired[float]
 
 
-class _DeviantartRootAPI(scraper.TaggableScraper):
+class _DeviantartRootAPI(scraper.DownloadhistoryScraper):
     # endpoints
     #     placebo: Checks, if authorization token (header) is still valid
     #     deviation/download/{deviationId}: Endpoint for requesting download info on a single image post
