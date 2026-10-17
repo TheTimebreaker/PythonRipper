@@ -452,6 +452,7 @@ class _NewgroundsUserRootAPI(NewgroundsRootAPI):
     # https://ARTIST.newgrounds.com/playlists Not planned
 
 
+### artists
 class _NewgroundsUserpostsAPI(_NewgroundsUserRootAPI):
     # https://ARTIST.newgrounds.com
     # https://ARTIST.newgrounds.com/art
@@ -466,41 +467,11 @@ class _NewgroundsUserpostsAPI(_NewgroundsUserRootAPI):
 
 class NewgroundsArtAPI(_NewgroundsUserpostsAPI):
     # https://ARTIST.newgrounds.com/art
-    ME = "newgrounds-art"
+    ME = "newgrounds-artists"
     endpoint = "art"
 
 
-class NewgroundsAudioAPI(_NewgroundsUserpostsAPI):
-    # https://ARTIST.newgrounds.com/audio
-    ME = "newgrounds-audio"
-    endpoint = "audio"
-
-
-class NewgroundsGamesAPI(_NewgroundsUserpostsAPI):
-    # https://ARTIST.newgrounds.com/games
-    ME = "newgrounds-games"
-    endpoint = "games"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError
-
-
-class NewgroundsMoviesAPI(_NewgroundsUserpostsAPI):
-    # https://ARTIST.newgrounds.com/movies
-    ME = "newgrounds-movies"
-    endpoint = "movies"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError
-
-
-class NewgroundsNewsAPI(_NewgroundsUserpostsAPI):
-    # https://ARTIST.newgrounds.com/news
-    ME = "newgrounds-news"
-    endpoint = "news"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError
+### favs
 
 
 class _NewgroundsUserfavoritesAPI(_NewgroundsUserRootAPI):
@@ -510,44 +481,11 @@ class _NewgroundsUserfavoritesAPI(_NewgroundsUserRootAPI):
 
 class NewgroundsFavoriteArtAPI(_NewgroundsUserfavoritesAPI):
     # https://ARTIST.newgrounds.com/art
-    ME = "newgrounds-favorites-art"
+    ME = "newgrounds-favorites"
     endpoint = "art"
 
 
-class NewgroundsFavoriteAudioAPI(_NewgroundsUserfavoritesAPI):
-    # https://ARTIST.newgrounds.com/audio
-    ME = "newgrounds-favorites-audio"
-    endpoint = "audio"
-
-
-class NewgroundsFavoriteGamesAPI(_NewgroundsUserfavoritesAPI):
-    # https://ARTIST.newgrounds.com/games
-    ME = "newgrounds-favorites-games"
-    endpoint = "games"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError
-
-
-class NewgroundsFavoriteMoviesAPI(_NewgroundsUserfavoritesAPI):
-    # https://ARTIST.newgrounds.com/movies
-    ME = "newgrounds-favorites-movies"
-    endpoint = "movies"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError
-
-
-class NewgroundsFavoriteNewsAPI(_NewgroundsUserfavoritesAPI):
-    # https://ARTIST.newgrounds.com/news
-    ME = "newgrounds-favorites-news"
-    endpoint = "news"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError
-
-
-#####
+### tags
 
 
 class _NewgroundsTagsRootAPI(NewgroundsRootAPI):
@@ -629,29 +567,5 @@ class _NewgroundsTagsRootAPI(NewgroundsRootAPI):
 
 class NewgroundsTagsArtAPI(_NewgroundsTagsRootAPI):
     URL_TAG = "https://www.newgrounds.com/search/conduct/art?match=tags&tags={tagname}&sort=date-desc"
-    ME = "newgrounds-tags-art"
+    ME = "newgrounds-tags"
     endpoint = "art"
-
-
-class NewgroundsTagsAudioAPI(_NewgroundsTagsRootAPI):
-    URL_TAG = "https://www.newgrounds.com/search/conduct/audio?match=tags&tags={tagname}&sort=date-desc"
-    ME = "newgrounds-tags-audio"
-    endpoint = "audio"
-
-
-class NewgroundsTagsGamesAPI(_NewgroundsTagsRootAPI):
-    URL_TAG = "https://www.newgrounds.com/search/conduct/games?match=tags&tags={tagname}&sort=date-desc"
-    ME = "newgrounds-tags-games"
-    endpoint = "games"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError
-
-
-class NewgroundsTagsMoviesAPI(_NewgroundsTagsRootAPI):
-    URL_TAG = "https://www.newgrounds.com/search/conduct/movies?match=tags&tags={tagname}&sort=date-desc"
-    ME = "newgrounds-tags-movies"
-    endpoint = "movies"
-
-    def __init__(self, config: cf.ConfigObject) -> None:
-        raise NotImplementedError

@@ -144,12 +144,14 @@ class CombinedFile:
     websiteinfo: ClassVar[dict[str, WebsiteInfo]] = {
         "artstation": {"object": artstation.ArtstationAPI},
         "danbooru": {"object": danbooru.DanbooruAPI},
-        "deviantart": {"object": deviantart.DeviantartAPI},
+        "deviantart-artists": {"object": deviantart.DeviantartAPI},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
         "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
         "hypnohub": {"object": hypnohub.HypnohubAPI},
-        "newgrounds": {"object": newgrounds._NewgroundsUserpostsAPI},
+        "newgrounds-artists": {"object": newgrounds.NewgroundsArtAPI},
+        "newgrounds-favorites": {"object": newgrounds.NewgroundsFavoriteArtAPI},
+        "newgrounds-tags": {"object": newgrounds.NewgroundsTagsArtAPI},
         "kusowanka": {"object": kusowanka.KusowankaAPI},
         "patreon": {"object": patreon.PatreonAPI},
         "pixiv-artists": {"object": pixiv.PixivArtistAPI},
@@ -744,12 +746,12 @@ class _CombinedArtistFile(CombinedFile):
     websites: ClassVar[list[str]] = [
         "artstation",
         "danbooru",
-        "deviantart",
+        "deviantart-artists",
         "gelbooru",
         "hypnohub",
         "hentaifoundry-artists",
         "kusowanka",
-        "newgrounds",
+        "newgrounds-artists",
         "patreon",
         "pixiv-artists",
         "rule34paheal",
@@ -769,10 +771,12 @@ class _CombinedBooruFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
         "danbooru",
+        "deviantart-tags",
         "gelbooru",
         "hentaifoundry-tags",
         "hypnohub",
         "kusowanka",
+        "newgrounds-tags",
         "pixiv-tags",
         "rule34paheal",
         "rule34us",
@@ -786,5 +790,16 @@ class _CombinedBooruFile(CombinedFile):
         super().__init__(config)
 
 
+class _CombinedFavoritesFile(CombinedFile):
+    path: Path
+    websites: ClassVar[list[str]] = ["newgrounds-favorites"]
+    tag_type = "favorites"
+
+    def __init__(self, config: ConfigObject) -> None:
+        self.path = config.paths.favorites_path()
+        super().__init__(config)
+
+
 combined_artist_file = _CombinedArtistFile(config)
 combined_tags_file = _CombinedBooruFile(config)
+combined_favorites_file = _CombinedFavoritesFile(config)
