@@ -149,7 +149,7 @@ class CombinedFile:
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
         "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
         "hypnohub": {"object": hypnohub.HypnohubAPI},
-        "newgrounds": {"object": newgrounds.NewgroundsUserpostsAPI},
+        "newgrounds": {"object": newgrounds._NewgroundsUserpostsAPI},
         "kusowanka": {"object": kusowanka.KusowankaAPI},
         "patreon": {"object": patreon.PatreonAPI},
         "pixiv-artists": {"object": pixiv.PixivArtistAPI},

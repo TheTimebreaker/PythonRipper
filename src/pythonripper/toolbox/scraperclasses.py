@@ -134,11 +134,16 @@ class Scraper(ABC):
                     | "newgrounds-news"
                     | "newgrounds-playlists"
                     | "newgrounds-audio"
-                    | "newgrounds-favorite-art"
-                    | "newgrounds-favorite-movies"
-                    | "newgrounds-favorite-news"
-                    | "newgrounds-favorite-playlists"
-                    | "newgrounds-favorite-audio"
+                    | "newgrounds-favorites-art"
+                    | "newgrounds-favorites-movies"
+                    | "newgrounds-favorites-news"
+                    | "newgrounds-favorites-playlists"
+                    | "newgrounds-favorites-audio"
+                    | "newgrounds-tags-art"
+                    | "newgrounds-tags-movies"
+                    | "newgrounds-tags-news"
+                    | "newgrounds-tags-playlists"
+                    | "newgrounds-tags-audio"
                 ):
                     bonus_tags = {"ai-generated", "ai-generated-pokemon", "ai-assisted", "dall-e", "midjourney", "stable-diffusion"}
                 case "patreon":
