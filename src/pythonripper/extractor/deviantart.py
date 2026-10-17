@@ -39,7 +39,7 @@ class Credentials(TypedDict):
     valid_until: NotRequired[float]
 
 
-class DeviantartRootAPI(scraper.TaggableScraper):
+class _DeviantartRootAPI(scraper.TaggableScraper):
     # endpoints
     #     placebo: Checks, if authorization token (header) is still valid
     #     deviation/download/{deviationId}: Endpoint for requesting download info on a single image post
@@ -53,7 +53,7 @@ class DeviantartRootAPI(scraper.TaggableScraper):
     FILENAME_TO_ID_PATTERN = r"(?:deviantart|deviantart\-artists|deviantart\-tags)_[a-zA-Z\d\-\_ ]+_(\d+)_"
 
     ME = "deviantart"
-    WEBSITE_NAME = ME
+    WEBSITE_NAME = "deviantart"
     LIMIT = asynciolimiter.Limiter(1)
     TOOMANYREQUESTSCOUNTER: int | float = 0
 
@@ -451,15 +451,12 @@ class DeviantartRootAPI(scraper.TaggableScraper):
         return False
 
 
-@final
-class DeviantartArtistAPI(DeviantartRootAPI):
+class _DeviantartUserRootAPI(_DeviantartRootAPI):
     URL_TAG = "https://deviantart.com/{tagname}"
-
     TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
-
-    ME = "deviantart-artists"
-    WEBSITE_NAME = "deviantart"
     SPACE_REPLACE = "-"
+
+    fetch_favorites: bool
 
     def format_tagname(self, tagname: str) -> str:
         replace_dict: dict[str, str] = {
@@ -473,13 +470,6 @@ class DeviantartArtistAPI(DeviantartRootAPI):
         while self.SPACE_REPLACE * 2 in tagname:
             tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
         return tagname
-
-    async def does_this_have_posts(self, tagname: str) -> bool:
-        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True):
-            return True
-        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True, fetch_favorites=True):
-            return True
-        return False
 
     async def does_this_exist(self, tagname: str) -> bool:
         def contains_non_latin_letter(text: str) -> bool:
@@ -528,7 +518,7 @@ class DeviantartArtistAPI(DeviantartRootAPI):
             raise NotImplementedError("pagination needs to be verified")
             params["offset"] = res.json()["next_offset"]
 
-    async def _fetch_posts(
+    async def _unified_fetch_posts(
         self,
         tagname: str,
         update_ids: list[str] | None = None,
@@ -572,15 +562,38 @@ class DeviantartArtistAPI(DeviantartRootAPI):
             params["offset"] = res.json()["next_offset"]
             more_files = res.json()["has_more"]
 
+    def _fetch_posts(
+        self,
+        tagname: str,
+        update_ids: list[str] | None = None,
+        ignore_contentfilters: bool = False,
+    ) -> AsyncGenerator[scraper.PostData]:
+        return self._unified_fetch_posts(
+            tagname=tagname,
+            update_ids=update_ids,
+            ignore_contentfilters=ignore_contentfilters,
+            fetch_favorites=self.fetch_favorites,
+        )
+
 
 @final
-class DeviantartTagAPI(DeviantartRootAPI):
-    URL_TAG = "https://deviantart.com/tag/{tagname}"
+class DeviantartArtistAPI(_DeviantartUserRootAPI):
+    ME = "deviantart-artists"
+    fetch_favorites = False
 
+
+@final
+class DeviantartFavoritesAPI(_DeviantartUserRootAPI):
+    ME = "deviantart-favorites"
+    fetch_favorites = True
+
+
+@final
+class DeviantartTagAPI(_DeviantartRootAPI):
+    URL_TAG = "https://deviantart.com/tag/{tagname}"
     TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/tag/([^/&\?]+)"
 
     ME = "deviantart-tags"
-    WEBSITE_NAME = "deviantart"
     SPACE_REPLACE = "_"
 
     def format_tagname(self, tagname: str) -> str:
