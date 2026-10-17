@@ -622,8 +622,11 @@ class DeviantartTagAPI(_DeviantartRootAPI):
             "&",
             "/",
             "-",
+            "~",
+            "〜",
             "・",  # _some_ non-latin chars are disallowed; most are allowed; idk why
             "。",
+            "、",
             "♀",
             "×",  # noqa: RUF001
         }
@@ -668,6 +671,6 @@ class DeviantartTagAPI(_DeviantartRootAPI):
                 params["offset"] = res.json()["next_offset"]
                 more_files = res.json()["has_more"]
             except KeyError as error:
-                msg = f"[{self.ME.upper()}] - KeyError encountered when trying to fetch {tagname} . Please report the error on GitHub!"
+                msg = f"[{self.ME.upper()}] - KeyError encountered when trying to fetch '{tagname}' . Please report the error on GitHub!"
                 logging.error(msg)
                 raise cf.ExtractorSkipError(msg) from error
