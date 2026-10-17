@@ -643,11 +643,16 @@ class DeviantartTagAPI(DeviantartRootAPI):
         while more_files:
             res = await self.request(self.API_URL.format(endpoint="browse/tags"), params=params)
 
-            for entry in res.json()["results"]:
-                post_data = await self._get_post_data(json_data=entry)
-                if post_data["identifier"] in update_ids:
-                    return
-                yield post_data
+            try:
+                for entry in res.json()["results"]:
+                    post_data = await self._get_post_data(json_data=entry)
+                    if post_data["identifier"] in update_ids:
+                        return
+                    yield post_data
 
-            params["offset"] = res.json()["next_offset"]
-            more_files = res.json()["has_more"]
+                params["offset"] = res.json()["next_offset"]
+                more_files = res.json()["has_more"]
+            except KeyError as error:
+                msg = f"[{self.ME.upper()}] - KeyError encountered when trying to fetch {tagname} . Please report the error on GitHub!"
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg) from error
