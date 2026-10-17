@@ -610,7 +610,7 @@ class DeviantartTagAPI(DeviantartRootAPI):
             "/",
             "-",
             "・",  # _some_ non-latin chars are disallowed; most are allowed; idk why
-            "。",  # ^
+            "。",
             "♀",
             "×",  # noqa: RUF001
         }
