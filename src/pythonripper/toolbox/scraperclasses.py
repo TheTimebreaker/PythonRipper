@@ -127,7 +127,19 @@ class Scraper(ABC):
                     bonus_tags = {"ai art"}
                 case "kusowanka":
                     bonus_tags = {"ai-generated", "ai-generated background"}
-                case "newgrounds" | "newgrounds-art" | "newgrounds-movies" | "newgrounds-news" | "newgrounds-playlists" | "newgrounds-audio":
+                case (
+                    "newgrounds"
+                    | "newgrounds-art"
+                    | "newgrounds-movies"
+                    | "newgrounds-news"
+                    | "newgrounds-playlists"
+                    | "newgrounds-audio"
+                    | "newgrounds-favorite-art"
+                    | "newgrounds-favorite-movies"
+                    | "newgrounds-favorite-news"
+                    | "newgrounds-favorite-playlists"
+                    | "newgrounds-favorite-audio"
+                ):
                     bonus_tags = {"ai-generated", "ai-generated-pokemon", "ai-assisted", "dall-e", "midjourney", "stable-diffusion"}
                 case "patreon":
                     bonus_tags = set()

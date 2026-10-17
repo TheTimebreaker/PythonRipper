@@ -186,9 +186,11 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
             url = matched.group(1).replace("\\/", "/")
             yield url
 
-        async def _iter_over_audio_podcasts(audio_script_tag: bs4.Tag) -> AsyncGenerator[str]:
-            result = audio_script_tag.find("audio", {"src": True})["src"]  # type: ignore
-            yield str(result)
+        async def _iter_over_audio_podcasts(*args: bs4.Tag | None) -> AsyncGenerator[str]:
+            for arg in args:
+                if arg:
+                    result = arg["content"]
+                    yield str(result)
 
         res = await self.session.get(post_url)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
@@ -202,12 +204,12 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
 
         # get audio
         audio_script_tag = soup.find("script", string=re.compile("embedController"))
-        audio_listen_wrapper = soup.find("div", {"id": "audio-listen-wrapper"})  # podcasts??? # e.g. https://www.newgrounds.com/audio/listen/1484204
+        audio_meta_ogaudio = soup.find("meta", {"property": "og:audio"})  # podcasts??? # e.g. https://www.newgrounds.com/audio/listen/1484204
+        audio_meta_ogimage = soup.find("meta", {"property": "og:image"})
         if audio_script_tag:
             generator = _iter_over_audio(audio_script_tag)
-        elif audio_listen_wrapper:
-            print(audio_listen_wrapper)  # TODO
-            generator = _iter_over_audio_podcasts(audio_listen_wrapper)
+        elif audio_meta_ogaudio or audio_meta_ogimage:
+            generator = _iter_over_audio_podcasts(audio_meta_ogaudio, audio_meta_ogimage)
         else:
             raise NotImplementedError
         elements: list[scraper.PostElement] = []
@@ -371,6 +373,8 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
             return await self._get_audio_data(post_url)
         if "art/view" in post_url:
             return await self._get_art_data(post_url)
+        if "movies" in post_url:
+            raise NotImplementedError
         raise NotImplementedError
 
     def _fetch_posts(
@@ -392,7 +396,7 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
         tagname: str,
         update_ids: list[str] | None = None,
         ignore_contentfilters: bool = False,  # noqa: ARG002
-        endpoint: Literal["art", "audio", "games", "movies", "news", "playlists"] | None = None,  # TODO(TheTimebreaker): implement other endpoints
+        endpoint: Literal["art", "audio", "games", "movies", "news", "playlists"] | None = None,
         fetch_favorites: bool = False,
     ) -> AsyncGenerator[scraper.PostData]:
         def custom_selector(tag: bs4.element.Tag) -> bool:
@@ -476,11 +480,17 @@ class NewgroundsGamesAPI(NewgroundsUserpostsAPI):
     ME = "newgrounds-games"
     endpoint = "games"
 
+    def __init__(self, config: cf.ConfigObject) -> None:
+        raise NotImplementedError
+
 
 class NewgroundsMoviesAPI(NewgroundsUserpostsAPI):
     # https://ARTIST.newgrounds.com/movies
     ME = "newgrounds-movies"
     endpoint = "movies"
+
+    def __init__(self, config: cf.ConfigObject) -> None:
+        raise NotImplementedError
 
 
 class NewgroundsNewsAPI(NewgroundsUserpostsAPI):
@@ -488,13 +498,49 @@ class NewgroundsNewsAPI(NewgroundsUserpostsAPI):
     ME = "newgrounds-news"
     endpoint = "news"
 
+    def __init__(self, config: cf.ConfigObject) -> None:
+        raise NotImplementedError
 
-class NewgroundsUserfavoritesAPI(NewgroundsRootAPI):  # TODO(TheTimebreaker): children
-    # https://ARTIST.newgrounds.com/favorites/art DONE
-    # https://ARTIST.newgrounds.com/favorites/audio DONE
-    # https://ARTIST.newgrounds.com/favorites/games Not planned
-    # https://ARTIST.newgrounds.com/favorites/movies Not planned
-    # https://ARTIST.newgrounds.com/favorites/following Not planned
-    # fav news???
+
+class NewgroundsUserfavoritesAPI(NewgroundsRootAPI):
     ME = "newgrounds"
     fetch_favorites = True
+
+
+class NewgroundsFavoriteArtAPI(NewgroundsUserfavoritesAPI):
+    # https://ARTIST.newgrounds.com/art
+    ME = "newgrounds-favorite-art"
+    endpoint = "art"
+
+
+class NewgroundsFavoriteAudioAPI(NewgroundsUserfavoritesAPI):
+    # https://ARTIST.newgrounds.com/audio
+    ME = "newgrounds-favorite-audio"
+    endpoint = "audio"
+
+
+class NewgroundsFavoriteGamesAPI(NewgroundsUserfavoritesAPI):
+    # https://ARTIST.newgrounds.com/games
+    ME = "newgrounds-favorite-games"
+    endpoint = "games"
+
+    def __init__(self, config: cf.ConfigObject) -> None:
+        raise NotImplementedError
+
+
+class NewgroundsFavoriteMoviesAPI(NewgroundsUserfavoritesAPI):
+    # https://ARTIST.newgrounds.com/movies
+    ME = "newgrounds-favorite-movies"
+    endpoint = "movies"
+
+    def __init__(self, config: cf.ConfigObject) -> None:
+        raise NotImplementedError
+
+
+class NewgroundsFavoriteNewsAPI(NewgroundsUserfavoritesAPI):
+    # https://ARTIST.newgrounds.com/news
+    ME = "newgrounds-favorite-news"
+    endpoint = "news"
+
+    def __init__(self, config: cf.ConfigObject) -> None:
+        raise NotImplementedError
