@@ -13,7 +13,7 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_newgrounds_artists(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, newgrounds.NewgroundsAPI, "artists")
+    return await scraper.update_stuff(config, newgrounds.NewgroundsUserpostsAPI, "artists")
 
 
 async def update_newgrounds_favorites(config: ConfigObject) -> bool | tuple[bool, str]:
@@ -28,7 +28,7 @@ async def update_newgrounds_favorites(config: ConfigObject) -> bool | tuple[bool
                 continue
             favorites.append(favorite)
 
-    obj = newgrounds.NewgroundsAPI(config)
+    obj = newgrounds.NewgroundsUserpostsAPI(config)
     if not await obj.init():
         return False
 

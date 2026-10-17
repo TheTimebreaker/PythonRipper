@@ -17,17 +17,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.toolbox.config.model import NewgroundsRating
 
 
-class NewgroundsAPI(scraper.TaggableScraper):
-    # https://ARTIST.newgrounds.com
-    # https://ARTIST.newgrounds.com/art DONE
-    # https://ARTIST.newgrounds.com/audio DONE
-    # https://ARTIST.newgrounds.com/news Not planned
-    # https://ARTIST.newgrounds.com/favorites/art DONE
-    # https://ARTIST.newgrounds.com/favorites/audio DONE
-    # https://ARTIST.newgrounds.com/favorites/games Not planned
-    # https://ARTIST.newgrounds.com/favorites/movies Not planned
-    # https://ARTIST.newgrounds.com/favorites/following Not planned
-    # https://ARTIST.newgrounds.com/playlists Not planned
+class NewgroundsRootAPI(scraper.TaggableScraper):
     HOMEPAGE = "https://newgrounds.com"
     ARTIST_PAGE_BASE_URL = "https://{artist}.newgrounds.com/{sublink}"
     URL_TAG = "https://{tagname}.newgrounds.com"
@@ -40,11 +30,14 @@ class NewgroundsAPI(scraper.TaggableScraper):
     MOVIE_POST_PATTERN = r"(?:https?://)?(?:www\.)newgrounds\.com/portal/view/(\d+)"
 
     ME = "newgrounds"
-    WEBSITE_NAME = ME
+    WEBSITE_NAME = "newgrounds"
     LIMIT = asynciolimiter.Limiter(1)
     SPACE_REPLACE = ""
 
     session: httpx.AsyncClient
+
+    endpoint: Literal["art", "audio", "games", "movies", "news", "playlists"]
+    fetch_favorites: bool
 
     async def init(self) -> bool:
         self.jar_path = self.config.paths._credentials() / "newgrounds_cookies.txt"
@@ -158,9 +151,7 @@ class NewgroundsAPI(scraper.TaggableScraper):
         return res.status_code == 200
 
     async def does_this_have_posts(self, tagname: str) -> bool:
-        async for _ in self._fetch_posts(tagname, endpoint="art"):
-            return True
-        async for _ in self._fetch_posts(tagname, endpoint="audio"):
+        async for _ in self._fetch_posts(tagname):
             return True
         return False
 
@@ -193,8 +184,11 @@ class NewgroundsAPI(scraper.TaggableScraper):
                 raise cf.InterruptError
 
             url = matched.group(1).replace("\\/", "/")
-            print(url)
             yield url
+
+        async def _iter_over_audio_podcasts(audio_script_tag: bs4.Tag) -> AsyncGenerator[str]:
+            result = audio_script_tag.find("audio", {"src": True})["src"]  # type: ignore
+            yield str(result)
 
         res = await self.session.get(post_url)
         soup = bs4.BeautifulSoup(res.text, "html.parser")
@@ -208,8 +202,12 @@ class NewgroundsAPI(scraper.TaggableScraper):
 
         # get audio
         audio_script_tag = soup.find("script", string=re.compile("embedController"))
+        audio_listen_wrapper = soup.find("div", {"id": "audio-listen-wrapper"})  # podcasts??? # e.g. https://www.newgrounds.com/audio/listen/1484204
         if audio_script_tag:
             generator = _iter_over_audio(audio_script_tag)
+        elif audio_listen_wrapper:
+            print(audio_listen_wrapper)  # TODO
+            generator = _iter_over_audio_podcasts(audio_listen_wrapper)
         else:
             raise NotImplementedError
         elements: list[scraper.PostElement] = []
@@ -375,12 +373,26 @@ class NewgroundsAPI(scraper.TaggableScraper):
             return await self._get_art_data(post_url)
         raise NotImplementedError
 
-    async def _fetch_posts(
+    def _fetch_posts(
+        self,
+        tagname: str,
+        update_ids: list[str] | None = None,
+        ignore_contentfilters: bool = False,
+    ) -> AsyncGenerator[scraper.PostData]:
+        return self._unified_fetch_posts(
+            tagname=tagname,
+            update_ids=update_ids,
+            ignore_contentfilters=ignore_contentfilters,
+            endpoint=self.endpoint,
+            fetch_favorites=self.fetch_favorites,
+        )
+
+    async def _unified_fetch_posts(
         self,
         tagname: str,
         update_ids: list[str] | None = None,
         ignore_contentfilters: bool = False,  # noqa: ARG002
-        endpoint: Literal["art", "audio"] | None = None,
+        endpoint: Literal["art", "audio", "games", "movies", "news", "playlists"] | None = None,  # TODO(TheTimebreaker): implement other endpoints
         fetch_favorites: bool = False,
     ) -> AsyncGenerator[scraper.PostData]:
         def custom_selector(tag: bs4.element.Tag) -> bool:
@@ -431,3 +443,58 @@ class NewgroundsAPI(scraper.TaggableScraper):
 
             params["page"] += 1
             last_art_pieces = art_pieces
+
+    # https://ARTIST.newgrounds.com/playlists Not planned
+
+
+class NewgroundsUserpostsAPI(NewgroundsRootAPI):
+    # https://ARTIST.newgrounds.com
+    # https://ARTIST.newgrounds.com/art
+    # https://ARTIST.newgrounds.com/audio
+    # https://ARTIST.newgrounds.com/games
+    # https://ARTIST.newgrounds.com/movies
+    # https://ARTIST.newgrounds.com/news
+    # playlists
+    ME = "newgrounds"
+    fetch_favorites = False
+
+
+class NewgroundsArtAPI(NewgroundsUserpostsAPI):
+    # https://ARTIST.newgrounds.com/art
+    ME = "newgrounds-art"
+    endpoint = "art"
+
+
+class NewgroundsAudioAPI(NewgroundsUserpostsAPI):
+    # https://ARTIST.newgrounds.com/audio
+    ME = "newgrounds-audio"
+    endpoint = "audio"
+
+
+class NewgroundsGamesAPI(NewgroundsUserpostsAPI):
+    # https://ARTIST.newgrounds.com/games
+    ME = "newgrounds-games"
+    endpoint = "games"
+
+
+class NewgroundsMoviesAPI(NewgroundsUserpostsAPI):
+    # https://ARTIST.newgrounds.com/movies
+    ME = "newgrounds-movies"
+    endpoint = "movies"
+
+
+class NewgroundsNewsAPI(NewgroundsUserpostsAPI):
+    # https://ARTIST.newgrounds.com/news
+    ME = "newgrounds-news"
+    endpoint = "news"
+
+
+class NewgroundsUserfavoritesAPI(NewgroundsRootAPI):  # TODO(TheTimebreaker): children
+    # https://ARTIST.newgrounds.com/favorites/art DONE
+    # https://ARTIST.newgrounds.com/favorites/audio DONE
+    # https://ARTIST.newgrounds.com/favorites/games Not planned
+    # https://ARTIST.newgrounds.com/favorites/movies Not planned
+    # https://ARTIST.newgrounds.com/favorites/following Not planned
+    # fav news???
+    ME = "newgrounds"
+    fetch_favorites = True
