@@ -40,9 +40,6 @@ class Paths:
     def favorites_path(self) -> Path:
         return self._config() / "favorites.json"
 
-    def deviantart_favs_path(self) -> Path:
-        return self._config() / "deviantart_favorites.txt"
-
     def reddit_subs_path(self) -> Path:
         return self._config() / "reddit_subs.txt"
 

@@ -146,6 +146,7 @@ class CombinedFile:
         "artstation": {"object": artstation.ArtstationAPI},
         "danbooru": {"object": danbooru.DanbooruAPI},
         "deviantart-artists": {"object": deviantart.DeviantartArtistAPI},
+        "deviantart-favorites": {"object": deviantart.DeviantartFavoritesAPI},
         "deviantart-tags": {"object": deviantart.DeviantartTagAPI},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
@@ -809,7 +810,10 @@ class _CombinedBooruFile(CombinedFile):
 
 class _CombinedFavoritesFile(CombinedFile):
     path: Path
-    websites: ClassVar[list[str]] = ["newgrounds-favorites"]
+    websites: ClassVar[list[str]] = [
+        "deviantart-favorites",
+        "newgrounds-favorites",
+    ]
     tag_type = "favorites"
 
     def __init__(self, config: ConfigObject) -> None:

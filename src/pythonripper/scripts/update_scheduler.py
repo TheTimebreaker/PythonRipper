@@ -103,7 +103,7 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
     if config.settings.extractor.deviantart.enabled:
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_artists, 28))
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_tags, 28))
-        scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_favorites, 8))
+        scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_favorites, 28))
     if config.settings.extractor.gelbooru.enabled:
         scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_artists, 28))
         scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4))
