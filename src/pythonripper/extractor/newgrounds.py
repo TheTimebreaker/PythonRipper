@@ -1,5 +1,6 @@
 """Main module for interacting with https://www.newgrounds.com/ ."""
 
+import asyncio
 import json
 import logging
 import re
@@ -135,9 +136,14 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
         return True
 
     async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
-        await self.LIMIT.wait()
-        res = await self.session.get(url, params=params)
-        return res
+        for i in (1, 3, 5, 10, 10, 10, 30, 30, 30):
+            await self.LIMIT.wait()
+            res = await self.session.get(url, params=params)
+            if res.status_code == 429:
+                await asyncio.sleep(i)
+                continue
+            return res
+        raise cf.ExtractorStopError("Hit a hard rate-limit.") from ConnectionRefusedError
 
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
         allowed_ratings = self.config.settings.extractor.newgrounds.content_ratings
@@ -493,14 +499,19 @@ class _NewgroundsTagsRootAPI(NewgroundsRootAPI):
     SPACE_REPLACE = "-"
 
     def format_tagname(self, tagname: str) -> str:
-        replace_by_space_dict: set[str] = {" ", "(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "/"}
+        replace_by_space_dict: set[str] = {" ", "_", "(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "/"}
         remove_dict: set[str] = {"&"}
         for what in replace_by_space_dict:
             tagname = tagname.replace(what, self.SPACE_REPLACE)
         for what in remove_dict:
             tagname = tagname.replace(what, "")
+
         while self.SPACE_REPLACE * 2 in tagname:
             tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
+
+        while tagname.endswith(self.SPACE_REPLACE):
+            tagname = tagname[0:-1]
+
         return tagname
 
     async def does_this_exist(self, tagname: str) -> bool:
@@ -566,12 +577,17 @@ class _NewgroundsTagsRootAPI(NewgroundsRootAPI):
                     return
 
             # For each found image, yield
-            for art_piece in art_pieces:
-                post_url = str(art_piece["href"])
-                post_data = await self._get_post_data(post_url=post_url)
-                if post_data["identifier"] in update_ids:
-                    return
-                yield post_data
+            try:
+                for art_piece in art_pieces:
+                    post_url = str(art_piece["href"])
+                    post_data = await self._get_post_data(post_url=post_url)
+                    if post_data["identifier"] in update_ids:
+                        return
+                    yield post_data
+            except AttributeError as error:
+                msg = f"[{self.ME.upper()}] - There was an error iterating posts for {tagname} ."
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg) from error
 
             params["page"] += 1
 
