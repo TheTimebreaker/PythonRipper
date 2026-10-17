@@ -611,6 +611,8 @@ class DeviantartTagAPI(DeviantartRootAPI):
             "-",
             "・",  # _some_ non-latin chars are disallowed; most are allowed; idk why
             "。",  # ^
+            "♀",
+            "×",  # noqa: RUF001
         }
         for what, by in replace_dict.items():
             tagname = tagname.replace(what, by)
