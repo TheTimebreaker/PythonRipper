@@ -198,7 +198,7 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
         if tags_parent:
             tags_elems = tags_parent.find_all("a")
             for tag_elem in tags_elems:
-                tags.append(str(tag_elem.contents[0]))
+                tags.append(str(tag_elem.contents[0]).replace("-", " "))  # newgrounds tags have dashes as spaces
 
         # get rating
         rating_element = soup.find("dl", {"data-rating": True})
@@ -302,7 +302,7 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
         if tags_parent:
             tags_elems = tags_parent.find_all("a")
             for tag_elem in tags_elems:
-                tags.append(str(tag_elem.contents[0]))
+                tags.append(str(tag_elem.contents[0]).replace("-", " "))  # newgrounds tags have dashes as spaces
 
         # get rating
         rating_heading_adult = soup.find("h2", {"class": "rated-a"})
@@ -491,6 +491,17 @@ class NewgroundsFavoriteArtAPI(_NewgroundsUserfavoritesAPI):
 class _NewgroundsTagsRootAPI(NewgroundsRootAPI):
     TAG_PATTERN = r"https://(?:www\.)?newgrounds\.com.+(?:\&|\?)tags=([^/&\?=]+)"
     SPACE_REPLACE = "-"
+
+    def format_tagname(self, tagname: str) -> str:
+        replace_by_space_dict: set[str] = {" ", "(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "/"}
+        remove_dict: set[str] = {"&"}
+        for what in replace_by_space_dict:
+            tagname = tagname.replace(what, self.SPACE_REPLACE)
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
+        while self.SPACE_REPLACE * 2 in tagname:
+            tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
+        return tagname
 
     async def does_this_exist(self, tagname: str) -> bool:
         params: dict[str, str | int] = {
