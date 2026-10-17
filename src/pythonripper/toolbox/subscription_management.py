@@ -253,11 +253,11 @@ class CombinedFile:
             created_handles.append(new_handle)
 
             try:
-                await asyncio.to_thread(driver.get, url)
-
                 # not good practise to use this, but this should prevent the other threads from firing more requests during the wait
                 # hopefully, this is enough to prevent all rate-limits
                 time.sleep(1)  # noqa: ASYNC251
+
+                await asyncio.to_thread(driver.get, url)
             except WebDriverException as exc:
                 print(f"Failed to open {url!r}: {exc}")
                 # If opening fails, close that tab again.
