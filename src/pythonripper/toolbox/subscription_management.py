@@ -144,7 +144,7 @@ class CombinedFile:
     websiteinfo: ClassVar[dict[str, WebsiteInfo]] = {
         "artstation": {"object": artstation.ArtstationAPI},
         "danbooru": {"object": danbooru.DanbooruAPI},
-        "deviantart-artists": {"object": deviantart.DeviantartAPI},
+        "deviantart": {"object": deviantart.DeviantartAPI},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
         "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
@@ -757,7 +757,7 @@ class _CombinedArtistFile(CombinedFile):
     websites: ClassVar[list[str]] = [
         "artstation",
         "danbooru",
-        "deviantart-artists",
+        "deviantart",
         "gelbooru",
         "hypnohub",
         "hentaifoundry-artists",
@@ -782,7 +782,6 @@ class _CombinedBooruFile(CombinedFile):
     path: Path
     websites: ClassVar[list[str]] = [
         "danbooru",
-        "deviantart-tags",
         "gelbooru",
         "hentaifoundry-tags",
         "hypnohub",
