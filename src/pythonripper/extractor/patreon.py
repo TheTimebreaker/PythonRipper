@@ -125,7 +125,7 @@ class PatreonAPI(scraper.TaggableScraper):
         raise cf.ExtractorSkipError("Unable to get a response from url %s", url)
 
     async def does_this_exist(self, tagname: str) -> bool:
-        res = await self.request(f"https://www.patreon.com/c/{self.format_tagname(tagname)}", follow_redirects=True)
+        res = await self.request(f"https://www.patreon.com/cw/{self.format_tagname(tagname)}", follow_redirects=True)
         return res.status_code in (200, 307)
 
     def build_url(self, endpoint: str, campaign_id: str | int) -> str:
