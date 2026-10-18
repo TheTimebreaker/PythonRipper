@@ -192,10 +192,10 @@ class CombinedFile:
                 elif isinstance(value, list) and len(value) == 1:
                     temp[key] = value[0]
                 elif isinstance(value, list):
-                    temp[key] = sorted(list(dict.fromkeys(value)), key=lambda k: str(k))
+                    temp[key] = sorted(list(dict.fromkeys(value)), key=lambda k: cf.parse_markers(str(k).lower())["parsed"])
                 else:
                     temp[key] = value
-            return dict(sorted(temp.items(), key=lambda k: str(k[0])))
+            return dict(sorted(temp.items(), key=lambda k: cf.parse_markers(str(k[0]).lower())["parsed"]))
 
         # Cleanup
         for sort_tag in self.data:
