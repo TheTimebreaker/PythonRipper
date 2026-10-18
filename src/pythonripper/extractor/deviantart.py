@@ -632,6 +632,8 @@ class DeviantartTagAPI(_DeviantartRootAPI):
             "、",
             "♀",
             "×",  # noqa: RUF001
+            "☆",
+            "‼",
         }
         for what, by in replace_dict.items():
             tagname = tagname.replace(what, by)
