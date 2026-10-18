@@ -737,7 +737,6 @@ Hello! Please wait until the web browser has finished initializing.""")
                         if website_key not in [*self.websites, *additional_keys]:
                             logging.warning("[%s][%s] - Key for unsupported website.", tag, website_key)
 
-            # ...
             assert isinstance(tag_data, dict)
             for _website, _websitedata in tag_data.items():
                 assert isinstance(_website, str)
