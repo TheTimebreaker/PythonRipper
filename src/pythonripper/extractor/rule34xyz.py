@@ -132,11 +132,9 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         tagname = self.format_tagname(tagname)
         api_url = self.URL_TAG.format(tagname=tagname)
         params = {"page": 1}
-        if not isinstance(params["page"], int) or not isinstance(params["cursor"], str):
-            raise ValueError
-
         while True:
             res = await self.request(api_url, params=params)
+            print(res.status_code)
             soup = bs4.BeautifulSoup(res.text, "html.parser")
 
             # if not res.json()["data"]:  # type: ignore
@@ -155,12 +153,12 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
                 last_postid = identifier
 
             params["page"] += 1
-            params["cursor"] = last_postid
+            params["cursor"] = last_postid  # type: ignore
 
 
 @final
 class Rule34XYZ(_Rule34XyzWorldRoot):
-    HOMEPAGE = "https://rule34.xyz/"
+    HOMEPAGE = "https://rule34.xyz"
     URL_TAG = "https://rule34.xyz/{tagname}"
 
     ME = "rule34xyz"
@@ -169,8 +167,11 @@ class Rule34XYZ(_Rule34XyzWorldRoot):
 
 @final
 class Rule34World(_Rule34XyzWorldRoot):
-    HOMEPAGE = "https://rule34.world/"
+    HOMEPAGE = "https://rule34.world"
     URL_TAG = "https://rule34.world/{tagname}"
 
     ME = "rule34world"
     WEBSITE_NAME = "rule34world"
+
+
+# TODO: website search has AI toggle!
