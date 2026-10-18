@@ -696,34 +696,35 @@ Hello! Please wait until the web browser has finished initializing.""")
     def get_list(self, *, website: str | None = None, artist: str | None = None, remove_bypass_markers: bool = False) -> set[str]:
         """Returns sorted list of all entries from a given website or tag/artist."""
         taglist: set[str | int] = set()
+
+        # TOP LEVEL TAGNAMES
+        # these are the main names where the website specific tagnames are stored within
         for name, name_data in self.data.items():
-            if (artist is None or name == artist) and bool(name_data):
-                for website_name, is_there in name_data.items():
-                    if (website is None or website_name == website) and bool(is_there):
-                        if isinstance(is_there, str | int):
-                            taglist.add(is_there)
-                        elif isinstance(is_there, list):
-                            for sublink in is_there:
-                                taglist.add(sublink)
+            bypass_parsed = cf.parse_markers(name)
+
+            input_name_selector = artist is None or name == artist or bypass_parsed["parsed"] == artist
+            data_is_there = bool(name_data)
+            if not (input_name_selector and data_is_there):
+                continue
+            for website_name, is_there in name_data.items():
+                website_parsed = cf.parse_markers(website_name)
+
+                input_website_selector = website is None or website_name == website or website_parsed["parsed"] == website
+                websitedata_is_there = bool(is_there)
+                if not (input_website_selector and websitedata_is_there):
+                    continue
+
+                if isinstance(is_there, (str, int)):
+                    is_there = cf.apply_markers([bypass_parsed, website_parsed], str(is_there))
+                    taglist.add(is_there)
+                elif isinstance(is_there, list):
+                    for sublink in is_there:
+                        sublink = cf.apply_markers([bypass_parsed, website_parsed], str(sublink))
+                        taglist.add(sublink)
 
         if remove_bypass_markers:
             return {cf.parse_markers(str(x))["parsed"] for x in taglist}
         return {str(x) for x in taglist}
-
-    def get_all(self) -> dict[Any, Any]:
-        """Returns sorted list of all entries from all websites."""
-        taglist: dict[str, dict[str | int, str | bool]] = {}
-        for name, name_data in self.data.items():
-            taglist[name] = {}
-            for _, is_there in name_data.items():
-                if is_there:
-                    if isinstance(is_there, str | int):
-                        taglist[name][is_there] = True
-                    elif isinstance(is_there, list):
-                        for sublink in is_there:
-                            taglist[name][sublink] = True
-
-        return {name: list(value.keys()) for name, value in taglist.items()}
 
     def check_keys(self) -> None:
         tags_by_website: dict[str, list[str]] = {website: [] for website in (*self.websites, *additional_keys)}
@@ -738,9 +739,9 @@ Hello! Please wait until the web browser has finished initializing.""")
                         if website_key not in [*self.websites, *additional_keys]:
                             logging.warning("[%s][%s] - Key for unsupported website.", tag, website_key)
 
-            # ...
             assert isinstance(tag_data, dict)
             for _website, _websitedata in tag_data.items():
+                _website = cf.parse_markers(_website)["parsed"]
                 assert isinstance(_website, str)
                 assert isinstance(_websitedata, (list, bool, str, int))
 
@@ -753,6 +754,7 @@ Hello! Please wait until the web browser has finished initializing.""")
                     _websitedata = [_websitedata]
 
                 for _element in _websitedata:
+                    _element = cf.parse_markers(_element)["parsed"]
                     if _element in tags_by_website[_website]:
                         logging.warning(
                             "[%s] The tag \x1b[3m%s\x1b[0m from sorting tag \x1b[3m%s\x1b[0m appears multiple times in your json file!",

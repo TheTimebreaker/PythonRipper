@@ -223,6 +223,7 @@ class Worker:
             artists = combined_artists.data
 
             for artist, artist_dict in artists.items():
+                artist = cf.parse_markers(artist)["parsed"]
                 for website, username in artist_dict.items():
                     cm = f"Merging artist folders... currently working at {artist}/{website}.."
                     if len(cm) > longest_message:
@@ -233,7 +234,7 @@ class Worker:
                             username = [username]
 
                         for element in username:
-                            element = str(element)
+                            element = cf.parse_markers(str(element))["parsed"]
                             if website == "reddit" and element.startswith("u/"):
                                 element = f"u_{element[2:]}"
                             elif website == "reddit" and element.startswith("r/"):
@@ -254,6 +255,7 @@ class Worker:
             artists = combined_artists.data
 
             for artist, artist_dict in artists.items():
+                artist = cf.parse_markers(artist)["parsed"]
                 for website, username in artist_dict.items():
                     cm = f"Merging booru folders... currently working at {artist}/{website}.."
                     if len(cm) > longest_message:
@@ -264,8 +266,7 @@ class Worker:
                             username = [username]
 
                         for element in username:
-                            element = str(element)
-                            element = cf.parse_markers(element)["parsed"]
+                            element = cf.parse_markers(str(element))["parsed"]
 
                             if website == "reddit" and element.startswith("u/"):
                                 element = f"u_{element[2:]}"
@@ -302,7 +303,7 @@ class Worker:
         print("DONE! ")
         print("=" * 25)
 
-    def check_file_name_length(self, path: Path, char_limit: int = 100) -> None:
+    def check_file_name_length(self, path: Path, char_limit: int) -> None:
         print(f"Checking filename length in {path} ...")
 
         def single_check(file: Path, char_limit: int) -> None:

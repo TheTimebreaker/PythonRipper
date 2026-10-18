@@ -51,6 +51,29 @@ def get_markers() -> dict[str, str]:
     return markers
 
 
+def apply_markers(settings: BypassMarkers | list[BypassMarkers], s: str) -> str:
+    """Takes the parsed string in the given settings and apply markers based on these settings.\n
+    If multiple BypassMarker objects are given, apply any marker once that is set to TRUE in atleast one.\n
+    If the input string contains markers, all markers that are already in the string and those set to TRUE in the 'settings' arg will be applied."""
+    if not isinstance(settings, list):
+        settings = [settings]
+
+    s_markers = parse_markers(s)
+    s = s_markers["parsed"]
+    settings.append(s_markers)
+
+    blacklist_bypass: bool = any(setting["blacklist_bypass"] for setting in settings)
+    blacklist_bypass_str = config.settings.general.allow_blacklist_bypass
+    contentfilter_bypass: bool = any(setting["contentfilter_bypass"] for setting in settings)
+    contentfilter_bypass_str = config.settings.general.allow_contentfilter_bypass
+
+    if blacklist_bypass and blacklist_bypass_str:
+        s = f"{blacklist_bypass_str}{s}{blacklist_bypass_str}"
+    if contentfilter_bypass and contentfilter_bypass_str:
+        s = f"{contentfilter_bypass_str}{s}{contentfilter_bypass_str}"
+    return s
+
+
 class BypassMarkers(TypedDict):
     parsed: str
     """Input string, but all found bypass markers are removed"""
@@ -58,7 +81,8 @@ class BypassMarkers(TypedDict):
     contentfilter_bypass: bool
 
 
-def parse_markers(s: str) -> BypassMarkers:
+def parse_markers(s: str | int) -> BypassMarkers:
+    s = str(s)
     markers = get_markers()
     result: BypassMarkers = {
         "parsed": s,
