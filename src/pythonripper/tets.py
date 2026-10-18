@@ -2,6 +2,7 @@
 # ruff: noqa: F841
 
 import asyncio
+from collections.abc import Generator
 from itertools import chain, combinations, permutations
 from typing import Literal
 
@@ -12,12 +13,11 @@ from pythonripper.toolbox.config import config
 
 
 async def main() -> None:
-    def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> str | Literal[False]:
+    def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> Generator[str]:
         for artist_alias in artist_aliases:
             formatted_artist_alias = obj.format_tagname(artist_alias)
             if formatted_artist_alias and formatted_existing_alias == formatted_artist_alias:
-                return artist_alias
-        return False
+                yield artist_alias
 
     obj = NewgroundsTagsArtAPI(config)
     await obj.init()
@@ -79,8 +79,7 @@ async def main() -> None:
         formatted_existing_alias = obj.format_tagname(existing_alias)
         if formatted_existing_alias:
             discared_aliases.add(formatted_existing_alias)
-            placeholder_ = is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias)
-            if placeholder_:
+            for placeholder_ in is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias):
                 discared_aliases.add(placeholder_)
 
         # removes potential flag bypasses from the string

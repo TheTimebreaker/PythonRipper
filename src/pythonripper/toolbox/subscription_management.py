@@ -5,10 +5,10 @@ import logging
 import re
 import time
 import urllib.parse
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from itertools import chain, combinations, permutations
 from pathlib import Path
-from typing import Any, ClassVar, Literal, NotRequired, TypedDict, cast, override
+from typing import Any, ClassVar, NotRequired, TypedDict, cast, override
 
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
@@ -458,12 +458,11 @@ class CombinedFile:
     async def worker_producer(
         self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str, must_have_posts: bool
     ) -> None:
-        def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> str | Literal[False]:
+        def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> Generator[str]:
             for artist_alias in artist_aliases:
                 formatted_artist_alias = obj.format_tagname(artist_alias)
                 if formatted_artist_alias and formatted_existing_alias == formatted_artist_alias:
-                    return artist_alias
-            return False
+                    yield artist_alias
 
         obj = self.websiteinfo[choice]["object_active"]
         for i, artist in artists:
@@ -522,8 +521,7 @@ class CombinedFile:
                 formatted_existing_alias = obj.format_tagname(existing_alias)
                 if formatted_existing_alias:
                     discared_aliases.add(formatted_existing_alias)
-                    placeholder_ = is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias)
-                    if placeholder_:
+                    for placeholder_ in is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias):
                         discared_aliases.add(placeholder_)
 
                 # removes potential flag bypasses from the string
