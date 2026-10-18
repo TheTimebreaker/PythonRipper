@@ -5,7 +5,7 @@ import traceback
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, Literal, NotRequired, TypedDict, cast, final, overload
+from typing import Any, Literal, NotRequired, TypedDict, cast, final
 
 import asynciolimiter
 import asyncstdlib
@@ -108,7 +108,7 @@ class Scraper(ABC):
                         "stable diffusion",
                     }
                 # Deviantart blacklisting does not actually work, because there seemingly is no way of getting the tags from the API
-                case "deviantart":
+                case "deviantart-tags" | "deviantart-artists" | "deviantart-favorites":
                     bonus_tags = {"aiart", "generatedart", "aigenerated", "aigeneratedart"}
                 case "gelbooru":
                     bonus_tags = {
@@ -457,22 +457,6 @@ class TaggableScraper(Scraper):
             return True
         return False
 
-    @overload
-    async def download_tag(
-        self,
-        tagname: str,
-        dpath: Path | None = None,
-        update: bool = False,
-        update_ids: list[str] | None = None,
-        ignore_download_history: bool = False,
-        ignore_blacklist: bool = False,
-        ignore_contentfilters: bool = False,
-        *,
-        custom_mode: Literal["deviantart"] | None = None,
-        fetch_favorites: bool = False,
-    ) -> bool: ...
-
-    @overload
     async def download_tag(
         self,
         tagname: str,
@@ -484,40 +468,6 @@ class TaggableScraper(Scraper):
         ignore_contentfilters: bool = False,
         *,
         custom_mode: Literal["reddit"] | None = None,
-        endpoint: (
-            Literal[
-                "new",
-                "hot",
-                "top hour",
-                "top day",
-                "top week",
-                "top month",
-                "top year",
-                "top all",
-                "rising",
-                "controversial hour",
-                "controversial day",
-                "controversial week",
-                "controversial month",
-                "controversial year",
-                "controversial all",
-            ]
-            | None
-        ) = None,
-    ) -> bool: ...
-
-    async def download_tag(
-        self,
-        tagname: str,
-        dpath: Path | None = None,
-        update: bool = False,
-        update_ids: list[str] | None = None,
-        ignore_download_history: bool = False,
-        ignore_blacklist: bool = False,
-        ignore_contentfilters: bool = False,
-        *,
-        custom_mode: Literal["deviantart", "reddit"] | None = None,
-        fetch_favorites: bool = False,
         endpoint: str | None = None,
     ) -> bool:
         # Init arguments
@@ -541,8 +491,6 @@ class TaggableScraper(Scraper):
         posts: list[str] = []
         if not custom_mode:
             generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters)
-        elif custom_mode == "deviantart":
-            generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters, fetch_favorites=fetch_favorites)  # type: ignore
         elif custom_mode == "reddit":
             generator = self._fetch_posts(tagname, update_ids, ignore_contentfilters=ignore_contentfilters, endpoint=endpoint)  # type: ignore
 

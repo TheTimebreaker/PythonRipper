@@ -67,11 +67,13 @@ class Worker:
         self.boorus = [
             "booru",
             "danbooru",
+            "deviantart-tags",
             "gelbooru",
             "hypnohub",
             "kusowanka",
             "pixiv-tags",
             "hentaifoundry-tags",
+            "newgrounds-tags",
             "rule34paheal",
             "rule34us",
             "rule34xxx",
@@ -83,12 +85,11 @@ class Worker:
             "artists",
             "artist-websites",
             "artstation",
-            "deviantart",
+            "deviantart-artists",
             "deviantart-favorites",
             "hentaifoundry-artists",
             "newgrounds-artists",
             "newgrounds-favorites",
-            "newgrounds-tags",
             "patreon",
             "pixiv-artists",
             "tumblr",
@@ -228,8 +229,6 @@ class Worker:
                         longest_message = len(cm)
                     print(f'{cm}{"."*(longest_message - len(cm) + 2)}', end="\r")
                     if username:
-                        if website == "deviantart":
-                            website = "deviantart-artists"
                         if isinstance(username, (str, int)):
                             username = [username]
 
@@ -261,8 +260,6 @@ class Worker:
                         longest_message = len(cm)
                     print(f'{cm}{"."*(longest_message - len(cm) + 2)}', end="\r")
                     if username:
-                        if website == "deviantart":
-                            website = "deviantart-artists"
                         if isinstance(username, (str, int)):
                             username = [username]
 

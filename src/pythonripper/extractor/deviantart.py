@@ -39,32 +39,28 @@ class Credentials(TypedDict):
     valid_until: NotRequired[float]
 
 
-@final
-class DeviantartAPI(scraper.TaggableScraper):
+class _DeviantartRootAPI(scraper.DownloadhistoryScraper):
     # endpoints
     #     placebo: Checks, if authorization token (header) is still valid
     #     deviation/download/{deviationId}: Endpoint for requesting download info on a single image post
-
+    #     browser/tags: tag
     HOMEPAGE = "https://deviantart.com/"
     API_URL = "https://www.deviantart.com/api/v1/oauth2/{endpoint}"
     URL_POST = "https://www.deviantart.com/deviation/{post_id}"
-    URL_TAG = "https://deviantart.com/{tagname}"
 
-    POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/(?:art|journal)/(?:[\w\d\-\~\_]+\-|)|deviation/)(\d+)"
+    POST_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/(?:[\w\d\-_]+/(?:art|journal)/(?:[\w\d\.\(\)\%\-\~\_^]+\-|)|deviation/)(\d+)"
     FAVORITES_GALLERY_PATTERN = r"(?:https?://)?(?:www\.)?deviantart\.com/([\w\d\-_]+)/(favourites|gallery)/?([/\w\d\-_]*)?"
-    TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
-    FILENAME_TO_ID_PATTERN = r"deviantart_[a-zA-Z\d\-\_ ]+_(\d+)_"
+    FILENAME_TO_ID_PATTERN = r"(?:deviantart|deviantart\-artists|deviantart\-tags)_[a-zA-Z\d\-\_ ]+_(\d+)_"
 
     ME = "deviantart"
-    WEBSITE_NAME = ME
+    WEBSITE_NAME = "deviantart"
     LIMIT = asynciolimiter.Limiter(1)
-    SPACE_REPLACE = "-"
+    TOOMANYREQUESTSCOUNTER: int | float = 0
 
     REDIRECT_PORT = 3055
     REDIRECT_URI = f"http://127.0.0.1:{REDIRECT_PORT}/callback"
 
     session: httpx.AsyncClient
-    allow_mature_content: bool
 
     async def init(self) -> bool:
         self.refresh_token: str | int
@@ -232,19 +228,6 @@ class DeviantartAPI(scraper.TaggableScraper):
             self.session.headers = self.headers
             return True
 
-        def set_content_filters() -> bool:
-            try:
-                self.allow_mature_content = self.config.settings.extractor.deviantart.allow_mature_content
-            except KeyError, AssertionError:
-                logging.error(
-                    "[%s] - Settings for mature content not correctly set."
-                    "Setting at extractor/deviantart/allow_mature_content must be bool."
-                    "Defaulting to false.",
-                    self.ME.upper(),
-                )
-                self.allow_mature_content = False
-            return True
-
         # Reads credentials from file
         if not await read_credentials():
             return False
@@ -262,46 +245,7 @@ class DeviantartAPI(scraper.TaggableScraper):
         if not setup_header():
             return False
 
-        if not set_content_filters():
-            return False
-
         return True
-
-    def format_tagname(self, tagname: str) -> str:
-        replace_dict: dict[str, str] = {
-            " ": self.SPACE_REPLACE,
-        }
-        remove_dict: set[str] = {"(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "&", "/"}
-        for what, by in replace_dict.items():
-            tagname = tagname.replace(what, by)
-        for what in remove_dict:
-            tagname = tagname.replace(what, "")
-        while self.SPACE_REPLACE * 2 in tagname:
-            tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
-        return tagname
-
-    async def does_this_have_posts(self, tagname: str) -> bool:
-        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True):
-            return True
-        async for _ in self._fetch_posts(tagname, ignore_contentfilters=True, fetch_favorites=True):
-            return True
-        return False
-
-    async def does_this_exist(self, tagname: str) -> bool:
-        def contains_non_latin_letter(text: str) -> bool:
-            for char in text:
-                if unicodedata.category(char).startswith("L"):
-                    if "LATIN" not in unicodedata.name(char, ""):
-                        return True
-            return False
-
-        if len(tagname) > 20:  # tagnames arent allowed to be too long
-            return False
-        if contains_non_latin_letter(tagname):  # deviantart does not seem to allow non-latin letters
-            return False
-        url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
-        res = await self.request(url)
-        return res.status_code == 200
 
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
         setting = self.config.settings.extractor.deviantart.allow_mature_content
@@ -317,34 +261,35 @@ class DeviantartAPI(scraper.TaggableScraper):
         headers: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         follow_redirects: bool = False,
-        no_retry: bool = False,
     ) -> httpx.Response:
         if headers is None:
             headers = {}
         if params is None:
             params = {}
 
-        await self.LIMIT.wait()
+        while True:
+            await self.LIMIT.wait()
+            timeout_seconds = int(min(2**self.TOOMANYREQUESTSCOUNTER, 300) - 1)
+            await asyncio.sleep(timeout_seconds)
 
-        res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
-        if res.status_code == 429:
-            if no_retry is True:
-                raise cf.ExtractorStopError("Rate limited.")
-            await asyncio.sleep(60)
-            return await self.request(url=url, headers=headers, params=params, follow_redirects=follow_redirects, no_retry=True)
+            res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+            if res.status_code == 429:
+                self.TOOMANYREQUESTSCOUNTER += 2
+                continue
 
-        elif res.status_code == 401 and res.json().get("error", "") == "invalid_token":
-            if await self.init():
-                res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
-            else:
-                raise cf.ExtractorStopError("Could not regenerate tokens")
+            elif res.status_code == 401 and res.json().get("error", "") == "invalid_token":
+                if await self.init():
+                    res = await self.session.get(url, headers=headers, params=params, follow_redirects=follow_redirects)
+                else:
+                    raise cf.ExtractorStopError("Could not regenerate tokens")
 
-        elif res.status_code > 400:
-            msg = f"[{self.ME.upper()}] - Deviantart request {url} got invalid response code: {res.status_code} ."
-            logging.error(msg)
-            raise cf.ExtractorSkipError(msg)
+            elif res.status_code > 400:
+                msg = f"[{self.ME.upper()}] - Deviantart request {url} got invalid response code: {res.status_code} ."
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg)
 
-        return res
+            self.TOOMANYREQUESTSCOUNTER = max(self.TOOMANYREQUESTSCOUNTER - 0.5, 0)
+            return res
 
     async def _get_deviation_id(self, url: str | None = None, post_id: str | None = None) -> str:
         if url is None:
@@ -366,37 +311,6 @@ class DeviantartAPI(scraper.TaggableScraper):
 
         return result
 
-    async def _get_folder_id(
-        self, tagname: str, collection: str | None = None, endpoint: Literal["gallery", "favourites", "collections"] | None = None
-    ) -> str:
-        if collection is None:
-            collection = "all"
-        if collection.lower() == "all":
-            return "all"
-        if endpoint is None:
-            endpoint = "gallery"
-
-        tagname = self.format_tagname(tagname)
-        if endpoint == "favourites":
-            endpoint = "collections"
-
-        params: dict[str, str | int] = {"username": tagname, "limit": 50, "offset": 0}
-        assert isinstance(params["offset"], int)
-        assert isinstance(params["limit"], int)
-
-        while True:
-            res = await self.request(self.API_URL.format(endpoint=f"{endpoint}/folders"), params=params)
-
-            for entry in res.json()["results"]:
-                entry_name = str(entry["name"])
-                if collection.lower() == entry_name.lower():
-                    return str(entry["folderid"])
-
-            if res.json()["has_more"] is False:
-                raise ValueError
-            raise NotImplementedError("pagination needs to be verified")
-            params["offset"] = res.json()["next_offset"]
-
     async def _get_post_data(self, post_id: str | None = None, json_data: dict[str, Any] | None = None) -> scraper.PostData:
         """Post ID: the thing in your post url.
 
@@ -414,6 +328,9 @@ class DeviantartAPI(scraper.TaggableScraper):
 
         post_id_match = re.match(self.POST_PATTERN, str(json_data["url"]))
         if post_id_match is None:
+            print(self.POST_PATTERN)
+            print(str(json_data["url"]))
+            print(post_id_match)
             raise cf.ExtractorExitError from ValueError
         post_id = post_id_match.group(1)
         assert isinstance(post_id, str)
@@ -430,49 +347,6 @@ class DeviantartAPI(scraper.TaggableScraper):
             elements=scraper.PostElementData(data=json_data),
             rating="mature" if is_mature else "general",
         )
-
-    async def _fetch_posts(
-        self,
-        tagname: str,
-        update_ids: list[str] | None = None,
-        ignore_contentfilters: bool = False,  # noqa: ARG002
-        folder_id: str | None = None,
-        collection: str | None = None,
-        fetch_favorites: bool = False,
-    ) -> AsyncGenerator[scraper.PostData]:
-        if update_ids is None:
-            update_ids = []
-
-        tagname = self.format_tagname(tagname)
-
-        if collection is None:
-            collection = "all"
-
-        endpoint: Literal["gallery", "favourites", "collections"]
-        if fetch_favorites is True:
-            endpoint = "collections"  # idk why the endpoint isnt named "favourites" but i dont make the rules
-        else:
-            endpoint = "gallery"
-        if folder_id is None:
-            folder_id = await self._get_folder_id(tagname=tagname, collection=collection, endpoint=endpoint)
-
-        params: dict[str, str | int | bool] = {"username": tagname, "limit": 24, "mature_content": self.allow_mature_content}
-
-        more_files = True
-        fetch_counter = 0
-        while more_files:
-            res = await self.request(self.API_URL.format(endpoint=f"{endpoint}/{folder_id}"), params=params)
-
-            for entry in res.json()["results"]:
-                post_data = await self._get_post_data(json_data=entry)
-                if post_data["identifier"] in update_ids:
-                    return
-                yield post_data
-
-            params["offset"] = res.json()["next_offset"]
-            more_files = res.json()["has_more"]
-            fetch_counter += 1
-            return
 
     async def _download_post_from_postelem_perwebsite(self, data: scraper.PostElementData, dpath: Path, filename: str) -> bool:
         deviation_data = data["data"]
@@ -575,3 +449,233 @@ class DeviantartAPI(scraper.TaggableScraper):
         # If no suitable downloader was found
         logging.error("[%s] - Unsupported type of post. Skipping download. url %s.", self.ME.upper(), post_url)
         return False
+
+
+class _DeviantartUserRootAPI(_DeviantartRootAPI):
+    URL_TAG = "https://deviantart.com/{tagname}"
+    TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/([^/&\?]+)"
+    SPACE_REPLACE = "-"
+
+    fetch_favorites: bool
+
+    def format_tagname(self, tagname: str) -> str:
+        replace_dict: dict[str, str] = {
+            " ": self.SPACE_REPLACE,
+        }
+        remove_dict: set[str] = {"(", ")", "[", "]", "{", "}", ":", ".", "@", "|", "!", "?", '"', "'", "§", "$", "%", "&", "/"}
+        for what, by in replace_dict.items():
+            tagname = tagname.replace(what, by)
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
+        while self.SPACE_REPLACE * 2 in tagname:
+            tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
+        return tagname
+
+    async def does_this_exist(self, tagname: str) -> bool:
+        def contains_non_latin_letter(text: str) -> bool:
+            for char in text:
+                if unicodedata.category(char).startswith("L"):
+                    if "LATIN" not in unicodedata.name(char, ""):
+                        return True
+            return False
+
+        if len(tagname) > 20:  # tagnames arent allowed to be too long
+            return False
+        if contains_non_latin_letter(tagname):  # deviantart does not seem to allow non-latin letters
+            return False
+        url = f"https://www.deviantart.com/api/v1/oauth2/user/profile/{self.format_tagname(tagname)}"
+        res = await self.request(url)
+        return res.status_code == 200
+
+    async def _get_folder_id(
+        self, tagname: str, collection: str | None = None, endpoint: Literal["gallery", "favourites", "collections"] | None = None
+    ) -> str:
+        if collection is None:
+            collection = "all"
+        if collection.lower() == "all":
+            return "all"
+        if endpoint is None:
+            endpoint = "gallery"
+
+        tagname = self.format_tagname(tagname)
+        if endpoint == "favourites":
+            endpoint = "collections"
+
+        params: dict[str, str | int] = {"username": tagname, "limit": 50, "offset": 0}
+        assert isinstance(params["offset"], int)
+        assert isinstance(params["limit"], int)
+
+        while True:
+            res = await self.request(self.API_URL.format(endpoint=f"{endpoint}/folders"), params=params)
+
+            for entry in res.json()["results"]:
+                entry_name = str(entry["name"])
+                if collection.lower() == entry_name.lower():
+                    return str(entry["folderid"])
+
+            if res.json()["has_more"] is False:
+                raise ValueError
+            raise NotImplementedError("pagination needs to be verified")
+            params["offset"] = res.json()["next_offset"]
+
+    async def _unified_fetch_posts(
+        self,
+        tagname: str,
+        update_ids: list[str] | None = None,
+        ignore_contentfilters: bool = False,  # noqa: ARG002
+        folder_id: str | None = None,
+        collection: str | None = None,
+        fetch_favorites: bool = False,
+    ) -> AsyncGenerator[scraper.PostData]:
+        if update_ids is None:
+            update_ids = []
+
+        tagname = self.format_tagname(tagname)
+
+        if collection is None:
+            collection = "all"
+
+        endpoint: Literal["gallery", "favourites", "collections"]
+        if fetch_favorites is True:
+            endpoint = "collections"  # idk why the endpoint isnt named "favourites" but i dont make the rules
+        else:
+            endpoint = "gallery"
+        if folder_id is None:
+            folder_id = await self._get_folder_id(tagname=tagname, collection=collection, endpoint=endpoint)
+
+        params: dict[str, str | int | bool] = {
+            "username": tagname,
+            "limit": 24,
+            "mature_content": self.config.settings.extractor.deviantart.allow_mature_content,
+        }
+
+        more_files = True
+        while more_files:
+            res = await self.request(self.API_URL.format(endpoint=f"{endpoint}/{folder_id}"), params=params)
+
+            for entry in res.json()["results"]:
+                post_data = await self._get_post_data(json_data=entry)
+                if post_data["identifier"] in update_ids:
+                    return
+                yield post_data
+
+            params["offset"] = res.json()["next_offset"]
+            more_files = res.json()["has_more"]
+
+    def _fetch_posts(
+        self,
+        tagname: str,
+        update_ids: list[str] | None = None,
+        ignore_contentfilters: bool = False,
+    ) -> AsyncGenerator[scraper.PostData]:
+        return self._unified_fetch_posts(
+            tagname=tagname,
+            update_ids=update_ids,
+            ignore_contentfilters=ignore_contentfilters,
+            fetch_favorites=self.fetch_favorites,
+        )
+
+
+@final
+class DeviantartArtistAPI(_DeviantartUserRootAPI):
+    ME = "deviantart-artists"
+    fetch_favorites = False
+
+
+@final
+class DeviantartFavoritesAPI(_DeviantartUserRootAPI):
+    ME = "deviantart-favorites"
+    fetch_favorites = True
+
+
+@final
+class DeviantartTagAPI(_DeviantartRootAPI):
+    URL_TAG = "https://deviantart.com/tag/{tagname}"
+    TAG_PATTERN = r"https://(?:www\.)?deviantart\.com/tag/([^/&\?]+)"
+
+    ME = "deviantart-tags"
+    SPACE_REPLACE = "_"
+
+    def format_tagname(self, tagname: str) -> str:
+        replace_dict: dict[str, str] = {
+            " ": self.SPACE_REPLACE,
+        }
+        remove_dict: set[str] = {
+            "(",
+            ")",
+            "[",
+            "]",
+            "{",
+            "}",
+            ":",
+            ";",
+            ".",
+            ",",
+            "@",
+            "|",
+            "!",
+            "?",
+            '"',
+            "'",
+            "§",
+            "$",
+            "%",
+            "&",
+            "/",
+            "-",
+            "~",
+            "〜",
+            "【",
+            "】",
+            "・",
+            "。",
+            "、",
+            "♀",
+            "×",  # noqa: RUF001
+            "☆",
+            "‼",
+        }
+        for what, by in replace_dict.items():
+            tagname = tagname.replace(what, by)
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
+        while self.SPACE_REPLACE * 2 in tagname:
+            tagname = tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE, 1)
+        return tagname
+
+    async def does_this_exist(self, tagname: str) -> bool:  # noqa: ARG002
+        # There does not seem to be a way of detecting if a tag exists on deviantart
+        # the API just always seems to return something that the rest of this code can work with though
+        # So existance should be detected by does_this_have_posts calls
+        return True
+
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
+        if update_ids is None:
+            update_ids = []
+
+        tagname = self.format_tagname(tagname)
+        params: dict[str, str | int | bool] = {
+            "tag": tagname,
+            "limit": 24,
+            "mature_content": self.config.settings.extractor.deviantart.allow_mature_content,
+        }
+
+        more_files = True
+        while more_files:
+            res = await self.request(self.API_URL.format(endpoint="browse/tags"), params=params)
+
+            try:
+                for entry in res.json()["results"]:
+                    post_data = await self._get_post_data(json_data=entry)
+                    if post_data["identifier"] in update_ids:
+                        return
+                    yield post_data
+
+                params["offset"] = res.json()["next_offset"]
+                more_files = res.json()["has_more"]
+            except KeyError as error:
+                msg = f"[{self.ME.upper()}] - KeyError encountered when trying to fetch '{tagname}' . Please report the error on GitHub!"
+                logging.error(msg)
+                raise cf.ExtractorSkipError(msg) from error
