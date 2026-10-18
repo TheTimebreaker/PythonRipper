@@ -1,3 +1,6 @@
+# ruff: noqa: ERA001
+# ruff: noqa: F841
+
 import asyncio
 from itertools import chain, combinations, permutations
 from typing import Literal
@@ -66,9 +69,7 @@ async def main() -> None:
         chain.from_iterable(permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r))
     )
 
-    print(
-        f"artist_aliases before discarding={artist_aliases}",
-    )
+    print(f"artist_aliases before discarding={artist_aliases}")
     discared_aliases: set[str] = set()
     for existing_alias in sm.combined_tags_file.get_list(website=choice, artist=artist, remove_bypass_markers=True):
         # removes the literal existing alias
