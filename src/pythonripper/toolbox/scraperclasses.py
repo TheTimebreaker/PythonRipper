@@ -228,6 +228,8 @@ class Scraper(ABC):
                         "stable diffusion",
                         "midjourney",
                     }
+                case "rule34xyz":  # TODO(TheTimebreaker): add these
+                    bonus_tags = set()
                 case "shellvi":
                     bonus_tags = set()
                 case "supersatanson":
