@@ -608,6 +608,7 @@ class DeviantartTagAPI(_DeviantartRootAPI):
             "{",
             "}",
             ":",
+            ";",
             ".",
             ",",
             "@",
