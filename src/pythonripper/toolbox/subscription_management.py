@@ -724,21 +724,6 @@ Hello! Please wait until the web browser has finished initializing.""")
             return {cf.parse_markers(str(x))["parsed"] for x in taglist}
         return {str(x) for x in taglist}
 
-    def get_all(self) -> dict[Any, Any]:
-        """Returns sorted list of all entries from all websites."""
-        taglist: dict[str, dict[str | int, str | bool]] = {}
-        for name, name_data in self.data.items():
-            taglist[name] = {}
-            for _, is_there in name_data.items():
-                if is_there:
-                    if isinstance(is_there, str | int):
-                        taglist[name][is_there] = True
-                    elif isinstance(is_there, list):
-                        for sublink in is_there:
-                            taglist[name][sublink] = True
-
-        return {name: list(value.keys()) for name, value in taglist.items()}
-
     def check_keys(self) -> None:
         tags_by_website: dict[str, list[str]] = {website: [] for website in (*self.websites, *additional_keys)}
         for tag, tag_data in self.data.items():
