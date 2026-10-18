@@ -624,7 +624,9 @@ class DeviantartTagAPI(_DeviantartRootAPI):
             "-",
             "~",
             "〜",
-            "・",  # _some_ non-latin chars are disallowed; most are allowed; idk why
+            "【",
+            "】",
+            "・",
             "。",
             "、",
             "♀",
