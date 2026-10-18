@@ -696,15 +696,29 @@ Hello! Please wait until the web browser has finished initializing.""")
     def get_list(self, *, website: str | None = None, artist: str | None = None, remove_bypass_markers: bool = False) -> set[str]:
         """Returns sorted list of all entries from a given website or tag/artist."""
         taglist: set[str | int] = set()
+
+        # TOP LEVEL TAGNAMES
+        # these are the main names where the website specific tagnames are stored within
         for name, name_data in self.data.items():
-            if (artist is None or name == artist) and bool(name_data):
-                for website_name, is_there in name_data.items():
-                    if (website is None or website_name == website) and bool(is_there):
-                        if isinstance(is_there, str | int):
-                            taglist.add(is_there)
-                        elif isinstance(is_there, list):
-                            for sublink in is_there:
-                                taglist.add(sublink)
+            bypass_parsed = cf.parse_markers(name)
+
+            input_name_selector = artist is None or name == artist
+            data_is_there = bool(name_data)
+            if not (input_name_selector and data_is_there):
+                continue
+            for website_name, is_there in name_data.items():
+                input_website_selector = website is None or website_name == website
+                websitedata_is_there = bool(is_there)
+                if not (input_website_selector and websitedata_is_there):
+                    continue
+
+                if isinstance(is_there, (str, int)):
+                    is_there = cf.apply_markers(bypass_parsed, str(is_there))
+                    taglist.add(is_there)
+                elif isinstance(is_there, list):
+                    for sublink in is_there:
+                        sublink = cf.apply_markers(bypass_parsed, str(sublink))
+                        taglist.add(sublink)
 
         if remove_bypass_markers:
             return {cf.parse_markers(str(x))["parsed"] for x in taglist}

@@ -51,6 +51,24 @@ def get_markers() -> dict[str, str]:
     return markers
 
 
+def apply_markers(settings: BypassMarkers, s: str) -> str:
+    """Takes the parsed string in the given settings and apply markers based on these settings.
+    If the input string contains markers, all markers that are already in the string and those set to TRUE in the 'settings' arg will be applied."""
+    s_markers = parse_markers(s)
+    s = s_markers["parsed"]
+
+    blacklist_bypass: bool = settings["blacklist_bypass"] or s_markers["blacklist_bypass"]
+    blacklist_bypass_str = config.settings.general.allow_blacklist_bypass
+    contentfilter_bypass: bool = settings["contentfilter_bypass"] or s_markers["contentfilter_bypass"]
+    contentfilter_bypass_str = config.settings.general.allow_contentfilter_bypass
+
+    if blacklist_bypass and blacklist_bypass_str:
+        s = f"{blacklist_bypass_str}{s}{blacklist_bypass_str}"
+    if contentfilter_bypass and contentfilter_bypass_str:
+        s = f"{contentfilter_bypass_str}{s}{contentfilter_bypass_str}"
+    return s
+
+
 class BypassMarkers(TypedDict):
     parsed: str
     """Input string, but all found bypass markers are removed"""
