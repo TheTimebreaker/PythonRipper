@@ -228,9 +228,7 @@ class Scraper(ABC):
                         "stable diffusion",
                         "midjourney",
                     }
-                case "rule34xyz":
-                    bonus_tags = {"ai generated", "ai-generated", "ai generated art (topic)"}
-                case "rule34world":
+                case "rule34xyz" | "rule34world" | "rule34vault":
                     bonus_tags = {"ai generated", "ai-generated", "ai generated art (topic)"}
                 case "shellvi":
                     bonus_tags = set()

@@ -1,4 +1,4 @@
-"""Main module for interacting with https://www.rule34.xyz and https://www.rule34.world ."""
+"""Main module for interacting with https://www.rule34.xyz , https://www.rule34.world , https://www.rule34vault.com ."""
 
 import logging
 from collections.abc import AsyncGenerator, Mapping
@@ -240,3 +240,14 @@ class Rule34World(_Rule34XyzWorldRoot):
 
     ME = "rule34world"
     WEBSITE_NAME = "rule34world"
+
+
+@final
+class Rule34Vault(_Rule34XyzWorldRoot):
+    HOMEPAGE = "https://rule34vault.com"
+    CDN_HOMEPAGE = "https://r34xyz.b-cdn.net"
+    APIURL_TAG = "https://rule34vault.com/api/v2/post/search/root"
+    APIURL_POST = "https://rule34vault.com/api/v2/post/{postid}"
+
+    ME = "rule34vault"
+    WEBSITE_NAME = "rule34vault"
