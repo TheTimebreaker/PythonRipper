@@ -224,29 +224,18 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
 
 
 @final
-class Rule34XYZ(_Rule34XyzWorldRoot):
-    HOMEPAGE = "https://rule34.xyz"
-    CDN_HOMEPAGE = "https://rule34xyz.b-cdn.net"
-    APIURL_TAG = "https://rule34.xyz/api/v2/post/search/root"
-    APIURL_POST = "https://rule34.xyz/api/v2/post/{postid}"
+class Furry34API(_Rule34XyzWorldRoot):
+    HOMEPAGE = "https://furry34.com"
+    CDN_HOMEPAGE = "https://furry34com.b-cdn.net"
+    APIURL_TAG = "https://furry34.com/api/v2/post/search/root"
+    APIURL_POST = "https://furry34.com/api/v2/post/{postid}"
 
-    ME = "rule34xyz"
-    WEBSITE_NAME = "rule34xyz"
-
-
-@final
-class Rule34World(_Rule34XyzWorldRoot):
-    HOMEPAGE = "https://rule34.world"
-    CDN_HOMEPAGE = "https://rule34storage.b-cdn.net"
-    APIURL_TAG = "https://rule34.world/api/v2/post/search/root"
-    APIURL_POST = "https://rule34.world/api/v2/post/{postid}"
-
-    ME = "rule34world"
-    WEBSITE_NAME = "rule34world"
+    ME = "furry34"
+    WEBSITE_NAME = "furry34"
 
 
 @final
-class Rule34Vault(_Rule34XyzWorldRoot):
+class Rule34VaultAPI(_Rule34XyzWorldRoot):
     HOMEPAGE = "https://rule34vault.com"
     CDN_HOMEPAGE = "https://r34xyz.b-cdn.net"
     APIURL_TAG = "https://rule34vault.com/api/v2/post/search/root"
@@ -264,11 +253,22 @@ class Rule34Vault(_Rule34XyzWorldRoot):
 
 
 @final
-class Furry34(_Rule34XyzWorldRoot):
-    HOMEPAGE = "https://furry34.com"
-    CDN_HOMEPAGE = "https://furry34com.b-cdn.net"
-    APIURL_TAG = "https://furry34.com/api/v2/post/search/root"
-    APIURL_POST = "https://furry34.com/api/v2/post/{postid}"
+class Rule34WorldAPI(_Rule34XyzWorldRoot):
+    HOMEPAGE = "https://rule34.world"
+    CDN_HOMEPAGE = "https://rule34storage.b-cdn.net"
+    APIURL_TAG = "https://rule34.world/api/v2/post/search/root"
+    APIURL_POST = "https://rule34.world/api/v2/post/{postid}"
 
-    ME = "furry34"
-    WEBSITE_NAME = "furry34"
+    ME = "rule34world"
+    WEBSITE_NAME = "rule34world"
+
+
+@final
+class Rule34xyzAPI(_Rule34XyzWorldRoot):
+    HOMEPAGE = "https://rule34.xyz"
+    CDN_HOMEPAGE = "https://rule34xyz.b-cdn.net"
+    APIURL_TAG = "https://rule34.xyz/api/v2/post/search/root"
+    APIURL_POST = "https://rule34.xyz/api/v2/post/{postid}"
+
+    ME = "rule34xyz"
+    WEBSITE_NAME = "rule34xyz"

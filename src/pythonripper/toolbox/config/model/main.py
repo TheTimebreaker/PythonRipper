@@ -11,6 +11,7 @@ from . import (
     ExtractorArtstationSettings,
     ExtractorDanbooruSettings,
     ExtractorDeviantartSettings,
+    ExtractorFurry34Settings,
     ExtractorGelbooruSettings,
     ExtractorHentaifoundrySettings,
     ExtractorHypnohubSettings,
@@ -20,7 +21,10 @@ from . import (
     ExtractorPixivSettings,
     ExtractorRule34PahealSettings,
     ExtractorRule34usSettings,
+    ExtractorRule34VaultSettings,
+    ExtractorRule34WorldSettings,
     ExtractorRule34xxxSettings,
+    ExtractorRule34xyzSettings,
     ExtractorTumblrSettings,
     ExtractorYandereSettings,
     ImageConversionSettings,
@@ -130,6 +134,7 @@ class ExtractorSettings(StrictBaseModel):
     artstation: ExtractorArtstationSettings = Field(default_factory=ExtractorArtstationSettings)
     danbooru: ExtractorDanbooruSettings = Field(default_factory=ExtractorDanbooruSettings)
     deviantart: ExtractorDeviantartSettings = Field(default_factory=ExtractorDeviantartSettings)
+    furry34: ExtractorFurry34Settings = Field(default_factory=ExtractorFurry34Settings)
     gelbooru: ExtractorGelbooruSettings = Field(default_factory=ExtractorGelbooruSettings)
     hentaifoundry: ExtractorHentaifoundrySettings = Field(default_factory=ExtractorHentaifoundrySettings)
     hypnohub: ExtractorHypnohubSettings = Field(default_factory=ExtractorHypnohubSettings)
@@ -139,7 +144,10 @@ class ExtractorSettings(StrictBaseModel):
     pixiv: ExtractorPixivSettings = Field(default_factory=ExtractorPixivSettings)
     rule34paheal: ExtractorRule34PahealSettings = Field(default_factory=ExtractorRule34PahealSettings)
     rule34us: ExtractorRule34usSettings = Field(default_factory=ExtractorRule34usSettings)
+    rule34vault: ExtractorRule34VaultSettings = Field(default_factory=ExtractorRule34VaultSettings)
+    rule34world: ExtractorRule34WorldSettings = Field(default_factory=ExtractorRule34WorldSettings)
     rule34xxx: ExtractorRule34xxxSettings = Field(default_factory=ExtractorRule34xxxSettings)
+    rule34xyz: ExtractorRule34xyzSettings = Field(default_factory=ExtractorRule34xyzSettings)
     tumblr: ExtractorTumblrSettings = Field(default_factory=ExtractorTumblrSettings)
     yandere: ExtractorYandereSettings = Field(default_factory=ExtractorYandereSettings)
 

@@ -13,6 +13,7 @@ import pythonripper.updater.update_artist_websites
 import pythonripper.updater.update_artstation
 import pythonripper.updater.update_danbooru
 import pythonripper.updater.update_deviantart
+import pythonripper.updater.update_furry34
 import pythonripper.updater.update_gelbooru
 import pythonripper.updater.update_hentaifoundry
 import pythonripper.updater.update_hypnohub
@@ -22,7 +23,10 @@ import pythonripper.updater.update_patreon
 import pythonripper.updater.update_pixiv
 import pythonripper.updater.update_rule34paheal
 import pythonripper.updater.update_rule34us
+import pythonripper.updater.update_rule34vault
+import pythonripper.updater.update_rule34world
 import pythonripper.updater.update_rule34xxx
+import pythonripper.updater.update_rule34xyz
 import pythonripper.updater.update_tumblr
 import pythonripper.updater.update_yandere
 from pythonripper.toolbox.config import ConfigObject, config
@@ -104,6 +108,9 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_artists, 28))
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_tags, 28))
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_favorites, 28))
+    if config.settings.extractor.furry34.enabled:
+        scheduler.append((pythonripper.updater.update_furry34.update_furry34_artists, 28))
+        scheduler.append((pythonripper.updater.update_furry34.update_furry34_tags, 28))
     if config.settings.extractor.gelbooru.enabled:
         scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_artists, 28))
         scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4))
@@ -131,9 +138,18 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
     if config.settings.extractor.rule34us.enabled:
         scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_artists, 28))
         scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_tags, 7))
+    if config.settings.extractor.rule34vault.enabled:
+        scheduler.append((pythonripper.updater.update_rule34vault.update_rule34vault_artists, 28))
+        scheduler.append((pythonripper.updater.update_rule34vault.update_rule34vault_tags, 28))
+    if config.settings.extractor.rule34world.enabled:
+        scheduler.append((pythonripper.updater.update_rule34world.update_rule34world_artists, 28))
+        scheduler.append((pythonripper.updater.update_rule34world.update_rule34world_tags, 28))
     if config.settings.extractor.rule34xxx.enabled:
         scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_artists, 28))
         scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_tags, 4))
+    if config.settings.extractor.rule34xyz.enabled:
+        scheduler.append((pythonripper.updater.update_rule34xyz.update_rule34xyz_artists, 28))
+        scheduler.append((pythonripper.updater.update_rule34xyz.update_rule34xyz_tags, 28))
     if config.settings.extractor.tumblr.enabled:
         scheduler.append((pythonripper.updater.update_tumblr.update_tumblr_artists, 28))
     if config.settings.extractor.yandere.enabled:

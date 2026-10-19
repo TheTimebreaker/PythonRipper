@@ -77,6 +77,9 @@ class Worker:
             "rule34paheal",
             "rule34us",
             "rule34xxx",
+            "furry34",
+            "rule34world",
+            "rule34vault",
             "rule34xyz",
             "yandere",
         ]

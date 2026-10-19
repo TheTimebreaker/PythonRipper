@@ -39,6 +39,7 @@ from pythonripper.extractor.pixiv import PixivArtistAPI
 from pythonripper.extractor.rule34paheal import Rule34pahealAPI
 from pythonripper.extractor.rule34us import Rule34usAPI
 from pythonripper.extractor.rule34xxx import Rule34xxxAPI
+from pythonripper.extractor.rule34xyz import Furry34API, Rule34VaultAPI, Rule34WorldAPI, Rule34xyzAPI
 from pythonripper.extractor.yandere import YandereAPI
 from pythonripper.toolbox.config import AppSettings, ConfigObject, get_settingsmanager_object
 from pythonripper.toolbox.config.model import FileDeletionMode
@@ -126,13 +127,17 @@ async def _verify(
         "artstation": ArtstationAPI,
         "danbooru": DanbooruAPI,
         "deviantart": DeviantartArtistAPI,
+        "furry34": Furry34API,
         "gelbooru": GelbooruAPI,
         "hypnohub": HypnohubAPI,
         "kusowanka": KusowankaAPI,
         "pixiv": PixivArtistAPI,
         "rule34paheal": Rule34pahealAPI,
         "rule34us": Rule34usAPI,
+        "rule34vault": Rule34VaultAPI,
+        "rule34world": Rule34WorldAPI,
         "rule34xxx": Rule34xxxAPI,
+        "rule34xyz": Rule34xyzAPI,
         "yandere": YandereAPI,
     }
     files_by_module: dict[str, list[Path]] = {service: [] for service in objects_by_module}

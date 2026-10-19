@@ -7,11 +7,11 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_furry34_artists(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, rule34xyz.Furry34, "artists", tag_set=set(["alterkyon"]))
+    return await scraper.update_stuff(config, rule34xyz.Furry34API, "artists", tag_set=set(["alterkyon"]))
 
 
 async def update_furry34_tags(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, rule34xyz.Furry34, "tags")
+    return await scraper.update_stuff(config, rule34xyz.Furry34API, "tags")
 
 
 async def main(config: ConfigObject) -> None:

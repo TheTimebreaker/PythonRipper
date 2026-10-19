@@ -7,11 +7,11 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_rule34vault_artists(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, rule34xyz.Rule34Vault, "artists")
+    return await scraper.update_stuff(config, rule34xyz.Rule34VaultAPI, "artists")
 
 
 async def update_rule34vault_tags(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, rule34xyz.Rule34Vault, "tags")
+    return await scraper.update_stuff(config, rule34xyz.Rule34VaultAPI, "tags")
 
 
 async def main(config: ConfigObject) -> None:

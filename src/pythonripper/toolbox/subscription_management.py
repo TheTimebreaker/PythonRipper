@@ -40,6 +40,7 @@ from pythonripper.extractor import (
     rule34paheal,
     rule34us,
     rule34xxx,
+    rule34xyz,
     tumblr,
     yandere,
 )
@@ -148,6 +149,7 @@ class CombinedFile:
         "deviantart-artists": {"object": deviantart.DeviantartArtistAPI},
         "deviantart-favorites": {"object": deviantart.DeviantartFavoritesAPI},
         "deviantart-tags": {"object": deviantart.DeviantartTagAPI},
+        "furry34": {"object": rule34xyz.Furry34API},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
         "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
@@ -161,7 +163,10 @@ class CombinedFile:
         "pixiv-tags": {"object": pixiv.PixivTagAPI},
         "rule34paheal": {"object": rule34paheal.Rule34pahealAPI},
         "rule34us": {"object": rule34us.Rule34usAPI},
+        "rule34vault": {"object": rule34xyz.Rule34VaultAPI},
+        "rule34world": {"object": rule34xyz.Rule34WorldAPI},
         "rule34xxx": {"object": rule34xxx.Rule34xxxAPI},
+        "rule34xyz": {"object": rule34xyz.Rule34xyzAPI},
         "tumblr": {"object": tumblr.TumblrAPI},
         "yandere": {"object": yandere.YandereAPI},
     }
@@ -771,6 +776,7 @@ class _CombinedArtistFile(CombinedFile):
         "artstation",
         "danbooru",
         "deviantart-artists",
+        "furry34",
         "gelbooru",
         "hypnohub",
         "hentaifoundry-artists",
@@ -780,7 +786,10 @@ class _CombinedArtistFile(CombinedFile):
         "pixiv-artists",
         "rule34paheal",
         "rule34us",
+        "rule34vault",
+        "rule34world",
         "rule34xxx",
+        "rule34xyz",
         "tumblr",
         "yandere",
     ]
@@ -796,6 +805,7 @@ class _CombinedBooruFile(CombinedFile):
     websites: ClassVar[list[str]] = [
         "danbooru",
         "deviantart-tags",
+        "furry34",
         "gelbooru",
         "hentaifoundry-tags",
         "hypnohub",
@@ -804,7 +814,10 @@ class _CombinedBooruFile(CombinedFile):
         "pixiv-tags",
         "rule34paheal",
         "rule34us",
+        "rule34vault",
+        "rule34world",
         "rule34xxx",
+        "rule34xyz",
         "yandere",
     ]
     tag_type = "booru tag"
