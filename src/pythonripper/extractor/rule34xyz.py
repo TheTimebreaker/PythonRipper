@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import AsyncGenerator, Mapping
+from types import MappingProxyType
 from typing import Any, Literal, final, override
 
 import asynciolimiter
@@ -27,6 +28,14 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
     PER_PAGE = 60
+    FORMATS = MappingProxyType(
+        {
+            "100": "mov.mp4",
+            "101": "mov720.mp4",
+            "102": "mov480.mp4",
+            "10": "pic.jpg",
+        }
+    )
 
     session: httpx.AsyncClient
 
@@ -86,19 +95,13 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         self, post_id: str | None = None, _json_data: dict[str, Any] | None = None, post_url: str | None = None
     ) -> scraper.PostData:
         def _get_post_downloadelements() -> list[scraper.PostElement]:
-            formats = {
-                "100": "mov.mp4",
-                "101": "mov720.mp4",
-                "102": "mov480.mp4",
-                "10": "pic.jpg",
-            }
-
             try:
                 api_files = resjson.get("files", None)
                 if api_files is None:
                     raise cf.InterruptError
                 if not isinstance(api_files, dict):
                     raise cf.InterruptError
+                formats = self.FORMATS
 
                 for format in formats:
                     if format in api_files:
@@ -251,3 +254,10 @@ class Rule34Vault(_Rule34XyzWorldRoot):
 
     ME = "rule34vault"
     WEBSITE_NAME = "rule34vault"
+
+    FORMATS = MappingProxyType(
+        {
+            "100": "mp4",
+            "10": "jpg",
+        }
+    )
