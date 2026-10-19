@@ -7,7 +7,7 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_rule34vault_artists(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, rule34xyz.Rule34Vault, "artists", tag_set=set(["alterkyon"]))
+    return await scraper.update_stuff(config, rule34xyz.Rule34Vault, "artists")
 
 
 async def update_rule34vault_tags(config: ConfigObject) -> bool:

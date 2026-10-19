@@ -261,3 +261,14 @@ class Rule34Vault(_Rule34XyzWorldRoot):
             "10": "jpg",
         }
     )
+
+
+@final
+class Furry34(_Rule34XyzWorldRoot):
+    HOMEPAGE = "https://furry34.com"
+    CDN_HOMEPAGE = "https://furry34com.b-cdn.net"
+    APIURL_TAG = "https://furry34.com/api/v2/post/search/root"
+    APIURL_POST = "https://furry34.com/api/v2/post/{postid}"
+
+    ME = "furry34"
+    WEBSITE_NAME = "furry34"
