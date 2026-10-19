@@ -1,12 +1,11 @@
 """Main module for interacting with https://www.rule34.xyz and https://www.rule34.world ."""
 
 import logging
-import re
-from collections.abc import AsyncGenerator, Generator, Mapping
-from typing import Any, final, override
+from collections.abc import AsyncGenerator, Mapping
+from typing import Any, Literal, final, override
 
 import asynciolimiter
-import bs4
+import asyncstdlib
 import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
@@ -19,25 +18,65 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
     TAG_PATTERN = r"https://(?:www\.)?rule34\.(?:xyz|world)/([^/&\?]+)"
     FILENAME_TO_ID_PATTERN = r"rule34(?:xyz|world)_(\d+)_"
 
+    HOMEPAGE: str
+    CDN_HOMEPAGE: str
     URL_TAG: str
+    APIURL_TAG: str
+    APIURL_POST: str
 
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
+    PER_PAGE = 60
 
     session: httpx.AsyncClient
 
     async def init(self) -> bool:
+        self.headers = {"User-Agent": "PythonRipper", "Accept": "application/json", "Accept-Encoding": "gzip,deflate,br"}
         self.session = httpx.AsyncClient(headers=self.headers)
+
+        self.frontpage: set[str] = set()
+        async for i, post in asyncstdlib.enumerate(self._fetch_posts(cf.id_generator(32))):
+            self.frontpage.add(post["identifier"])
+            if i >= (self.PER_PAGE):
+                break
+
         return True
 
-    async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
+    def format_tagname(self, tagname: str) -> str:
+        return tagname
+
+    async def request(
+        self,
+        url: str,
+        params: Mapping[str, str | int] | None = None,
+        json: Mapping[str, list[str] | str | int | bool] | None = None,
+        method: Literal["get", "post"] = "get",
+    ) -> httpx.Response:
         await self.LIMIT.wait()
-        res = await self.session.get(url, params=params)
+        if method == "get":
+            res = await self.session.get(url, params=params)
+        elif method == "post":
+            res = await self.session.post(url, params=params, json=json)
+        else:
+            raise NotImplementedError(f"Unsupported method: {method}")
         return res
 
     @override
     async def does_this_exist(self, tagname: str) -> bool:
-        return True  # TODO(TheTimebreaker): implement this
+        thispage = set()
+        async for i, post in asyncstdlib.enumerate(self._fetch_posts(self.format_tagname(tagname))):
+            thispage.add(post["identifier"])
+            if i >= (self.PER_PAGE):
+                break
+
+        overlap = len(self.frontpage & thispage)
+        return overlap < self.PER_PAGE / 2
+
+    @override
+    async def does_this_have_posts(self, tagname: str) -> bool:
+        # this website will send back the frontpage if a tag does not exists
+        # meaning that a tag that passes the does_this_exist will ALWAYS have posts
+        return True
 
     @override
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
@@ -46,65 +85,99 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
     async def _get_post_data(
         self, post_id: str | None = None, _json_data: dict[str, Any] | None = None, post_url: str | None = None
     ) -> scraper.PostData:
-        def _get_post_postid(post_url: str) -> str:
-            post_id = re.match(self.POST_PATTERN, post_url)
-            if not post_id:
-                msg = f"Could not extract post ID from post URL: {post_url}"
+        def _get_post_downloadelements() -> list[scraper.PostElement]:
+            formats = {
+                "100": "mov.mp4",
+                "101": "mov720.mp4",
+                "102": "mov480.mp4",
+                "10": "pic.jpg",
+            }
+
+            try:
+                api_files = resjson.get("files", None)
+                if api_files is None:
+                    raise cf.InterruptError
+                if not isinstance(api_files, dict):
+                    raise cf.InterruptError
+
+                for format in formats:
+                    if format in api_files:
+                        root = self.CDN_HOMEPAGE if api_files[format][0] else self.HOMEPAGE
+                        extension = formats[format]
+                        if post_id is None:
+                            raise ValueError
+                        local_postid = int(post_id)
+
+                        download_url = f"{root}/posts/{local_postid // 1000}/{local_postid}/{local_postid}.{extension}"
+                        file_extension = f.match_extension(download_url)
+                        if not file_extension:
+                            raise cf.InterruptError
+                        return [scraper.PostElementLinks(download_url=download_url, extension=file_extension)]
+                raise cf.InterruptError
+            except cf.InterruptError as error:
+                logging.error("[%s] - Could not extract download URL from %s", self.ME.upper(), post_url)
+                raise cf.ExtractorSkipError(f"Could not extract download URL from {post_url}") from error
+
+        def _get_post_tags() -> scraper.TagsData:
+            try:
+                tags = resjson.get("tags", None)
+                if not tags:
+                    raise cf.InterruptError
+                _artists: list[str] = []
+                _characters: list[str] = []
+                _metatags: list[str] = []
+                _parodies: list[str] = []
+                _tags: list[str] = []
+
+                assert isinstance(tags, list)
+                for tag in tags:
+                    tagname = tag.get("value", None)
+                    tagtype = tag.get("type", None)
+                    if tagname is None:
+                        raise cf.InterruptError
+                    tagname = str(tagname)
+                    assert isinstance(tagtype, int) or tagtype is None
+
+                    match tagtype:
+                        case None | 0 | 1:
+                            _tags.append(tagname)
+                        case 2:
+                            _parodies.append(tagname)
+                        case 4:
+                            _characters.append(tagname)
+                        case 8:
+                            _artists.append(tagname)
+                        case 16 | 32:
+                            _metatags.append(tagname)
+                        case _:
+                            logging.error("[%s] - Unknown tag type %s", self.ME.upper(), tagtype)
+                            raise cf.InterruptError
+
+                return scraper.TagsData(artists=_artists, characters=_characters, metatags=_metatags, parodies=_parodies, tags=_tags)
+
+            except cf.InterruptError:
+                msg = f"Could not extract tags from {post_id}"
                 logging.error("[%s] - %s", self.ME.upper(), msg)
-                raise cf.ExtractorSkipError(msg)
-            return post_id.group(1)
+                raise cf.ExtractorSkipError(msg) from ValueError
 
-        def _get_post_downloadelements(soup: bs4.BeautifulSoup) -> list[scraper.PostElement]:
-            for element in soup.find_all("source", {"srcset": True}):
-                element_src = element.get("srcset", None)
-                if element_src and f"/{post_id}/" in element_src:
-                    element_src = str(element_src)
-                    extension = f.match_extension(element_src)
-                    if not extension:
-                        logging.error("[%s] - Could not extract file extension from %s", self.ME.upper(), post_url)
-                        raise cf.ExtractorSkipError
-                    return [scraper.PostElementLinks(download_url=element_src, extension=extension)]
-            logging.error("[%s] - Could not extract download URL from %s", self.ME.upper(), post_url)
-            raise cf.ExtractorSkipError
+        if post_id is None:
+            if _json_data is None:
+                raise ValueError("Post ID or json data must be given.")
+            post_id = _json_data.get("id")
+            if not post_id:
+                raise ValueError
+            if any(field not in _json_data for field in ("tags", "files")):  # Refetch data if tags or files missing
+                res = await self.request(self.APIURL_POST.format(postid=post_id))
+                resjson: dict[str, int | str | list[dict[str, int | str]] | dict[str, list[int]]] = res.json()
+        else:
+            res = await self.request(self.APIURL_POST.format(postid=post_id))
+            resjson = res.json()
 
-        def _get_post_tags(soup: bs4.BeautifulSoup) -> scraper.TagsData:  # TODO(TheTimebreaker): Show More button hides some tags
-            tag_element = soup.find("app-tag-list")
-            if not tag_element:
-                raise
-            _artists: list[str] = []
-            _characters: list[str] = []
-            _metatags: list[str] = []
-            _parodies: list[str] = []
-            _tags: list[str] = []
-            for tag in tag_element.find_all("app-tag-chip"):
-                tag_h4 = tag.find("h4")
-                if not tag_h4:
-                    raise
-                tagname = str(tag_h4.contents[0])
-                if tag.find("div", {"class": "chip--tag-artist"}):
-                    _artists.append(tagname)
-                elif tag.find("div", {"class": "chip--tag-character"}):
-                    _characters.append(tagname)
-                elif tag.find("div", {"class": "chip--tag-meta"}):
-                    _metatags.append(tagname)
-                elif tag.find("div", {"class": "chip--tag-copyright"}):
-                    _parodies.append(tagname)
-                elif tag.find("div", {"class": "chip--tag-general"}):
-                    _tags.append(tagname)
-            return scraper.TagsData(artists=_artists, characters=_characters, metatags=_metatags, parodies=_parodies, tags=_tags)
+        if not isinstance(resjson, dict):
+            raise ValueError
 
-        if post_url is None:
-            if post_id:
-                post_url = post_id
-            else:
-                raise ValueError("Post url must be given, all other parameters are irrelevant.")
-
-        res = await self.request(post_url)
-        soup = bs4.BeautifulSoup(res.text, "html.parser")
-
-        post_id = _get_post_postid(post_url)
-        elements = _get_post_downloadelements(soup)
-        tags = _get_post_tags(soup)
+        elements = _get_post_downloadelements()
+        tags = _get_post_tags()
 
         return scraper.PostData(
             identifier=post_id,
@@ -115,51 +188,44 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
     async def _fetch_posts(
         self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
     ) -> AsyncGenerator[scraper.PostData]:
-        def extract_posts_from_soup(soup: bs4.BeautifulSoup) -> Generator[str]:
-            div = soup.find("div", {"class": "box-grid"})
-            if not div:
-                raise
-            elements = div.find_all("a", {"class": "box"})
-            for element in elements:
-                href = element["href"]
-                if not href:
-                    raise
-                yield f"{self.HOMEPAGE}{href}"
-
         if update_ids is None:
             update_ids = []
 
         tagname = self.format_tagname(tagname)
-        api_url = self.URL_TAG.format(tagname=tagname)
-        params = {"page": 1}
+        api_url = self.APIURL_TAG
+        params: dict[str, list[str] | int | bool] = {
+            "includeTags": [tagname],
+            "Skip": 0,
+            "take": self.PER_PAGE,
+            "CountTotal": False,
+            "IncludeLinks": True,  # THIS DOES NOTHING BTW
+            "OrderBy": 0,
+        }
         while True:
-            res = await self.request(api_url, params=params)
-            print(res.status_code)
-            soup = bs4.BeautifulSoup(res.text, "html.parser")
-
-            # if not res.json()["data"]:  # type: ignore
-            #     more_files = False
-            #     return
-
-            last_postid: str = ""
-            posts = extract_posts_from_soup(soup)
-            for post_url in posts:
-                post_data = await self._get_post_data(post_url=post_url)
+            res = await self.request(api_url, json=params, method="post")
+            data = res.json()
+            items = data["items"]
+            for post in items:
+                post_data = await self._get_post_data(_json_data=post)
                 identifier = post_data["identifier"]
                 if str(identifier) in update_ids:
                     return
 
                 yield post_data
-                last_postid = identifier
 
-            params["page"] += 1
-            params["cursor"] = last_postid  # type: ignore
+            if len(items) < self.PER_PAGE:
+                break
+
+            params["Skip"] += self.PER_PAGE  # type: ignore # trust me its ok
+            params["cursor"] = data["cursor"]
 
 
 @final
 class Rule34XYZ(_Rule34XyzWorldRoot):
     HOMEPAGE = "https://rule34.xyz"
-    URL_TAG = "https://rule34.xyz/{tagname}"
+    CDN_HOMEPAGE = "https://rule34xyz.b-cdn.net"
+    APIURL_TAG = "https://rule34.xyz/api/v2/post/search/root"
+    APIURL_POST = "https://rule34.xyz/api/v2/post/{postid}"
 
     ME = "rule34xyz"
     WEBSITE_NAME = "rule34xyz"
@@ -168,10 +234,8 @@ class Rule34XYZ(_Rule34XyzWorldRoot):
 @final
 class Rule34World(_Rule34XyzWorldRoot):
     HOMEPAGE = "https://rule34.world"
-    URL_TAG = "https://rule34.world/{tagname}"
+    CDN_HOMEPAGE = "https://rule34storage.b-cdn.net"
+    URL_POST = "https://rule34.world/api/v2/post/{postid}"
 
     ME = "rule34world"
     WEBSITE_NAME = "rule34world"
-
-
-# TODO: website search has AI toggle!
