@@ -235,7 +235,8 @@ class Rule34XYZ(_Rule34XyzWorldRoot):
 class Rule34World(_Rule34XyzWorldRoot):
     HOMEPAGE = "https://rule34.world"
     CDN_HOMEPAGE = "https://rule34storage.b-cdn.net"
-    URL_POST = "https://rule34.world/api/v2/post/{postid}"
+    APIURL_TAG = "https://rule34.world/api/v2/post/search/root"
+    APIURL_POST = "https://rule34.world/api/v2/post/{postid}"
 
     ME = "rule34world"
     WEBSITE_NAME = "rule34world"

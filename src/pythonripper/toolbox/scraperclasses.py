@@ -230,6 +230,8 @@ class Scraper(ABC):
                     }
                 case "rule34xyz":
                     bonus_tags = {"ai generated", "ai-generated", "ai generated art (topic)"}
+                case "rule34world":
+                    bonus_tags = {"ai generated", "ai-generated", "ai generated art (topic)"}
                 case "shellvi":
                     bonus_tags = set()
                 case "supersatanson":
