@@ -47,9 +47,9 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         self.session = httpx.AsyncClient(headers=self.headers)
 
         self.frontpage: set[str] = set()
-        async for i, post in asyncstdlib.enumerate(self._fetch_posts(cf.id_generator(32))):
+        async for i, post in asyncstdlib.enumerate(self._fetch_posts(cf.id_generator(32), yield_ids_only=True)):
             self.frontpage.add(post["identifier"])
-            if i >= (self.PER_PAGE):
+            if i >= (self.PER_PAGE - 2):
                 break
 
         return True
@@ -69,6 +69,7 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         method: Literal["get", "post"] = "get",
     ) -> httpx.Response:
         await self.LIMIT.wait()
+        logging.info("[%s] - Sending %s request to url %s - params: %s - json: %s", self.ME.upper(), method, url, params, json)
         if method == "get":
             res = await self.session.get(url, params=params)
         elif method == "post":
@@ -80,9 +81,9 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
     @override
     async def does_this_exist(self, tagname: str) -> bool:
         thispage = set()
-        async for i, post in asyncstdlib.enumerate(self._fetch_posts(self.format_tagname(tagname))):
+        async for i, post in asyncstdlib.enumerate(self._fetch_posts(self.format_tagname(tagname), yield_ids_only=True)):
             thispage.add(post["identifier"])
-            if i >= (self.PER_PAGE):
+            if i >= (self.PER_PAGE - 2):
                 break
 
         overlap = len(self.frontpage & thispage)
@@ -196,7 +197,7 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         )
 
     async def _fetch_posts(
-        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False, yield_ids_only: bool = False  # noqa: ARG002
     ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
@@ -216,8 +217,13 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
             data = res.json()
             items = data["items"]
             for post in items:
-                post_data = await self._get_post_data(_json_data=post)
-                identifier = post_data["identifier"]
+                if yield_ids_only:
+                    identifier = post.get("id")
+                    post_data = scraper.PostData(identifier=identifier, elements=[])
+                else:
+                    post_data = await self._get_post_data(_json_data=post)
+                    identifier = post_data["identifier"]
+
                 if str(identifier) in update_ids:
                     return
 
