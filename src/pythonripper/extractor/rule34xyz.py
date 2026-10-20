@@ -15,9 +15,12 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 
 class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
-    POST_PATTERN = r"(?:https?://)?(?:www\.)?rule34\.(?:xyz|world)/post/(\d+)"
-    TAG_PATTERN = r"https://(?:www\.)?rule34\.(?:xyz|world)/([^/&\?]+)"
-    FILENAME_TO_ID_PATTERN = r"rule34(?:xyz|world)_(\d+)_"
+    WEBSITE_PATTERN = r"(?:rule34\.(?:xyz|world)|(?:furry34|rule34vault)\.com)"
+    WEBSITE_FILENAME_PATTERN = r"(?:rule34(?:xyz|world)|furry34|rule34vault)"
+
+    POST_PATTERN = r"(?:https?://)?(?:www\.)?" + WEBSITE_PATTERN + r"/post/(\d+)"
+    TAG_PATTERN = r"https://(?:www\.)?" + WEBSITE_PATTERN + r"/([^/&\?]+)"
+    FILENAME_TO_ID_PATTERN = WEBSITE_FILENAME_PATTERN + r"_(\d+)_"
 
     HOMEPAGE: str
     CDN_HOMEPAGE: str
@@ -230,6 +233,8 @@ class Furry34API(_Rule34XyzWorldRoot):
     APIURL_TAG = "https://furry34.com/api/v2/post/search/root"
     APIURL_POST = "https://furry34.com/api/v2/post/{postid}"
 
+    URL_TAG = "https://furry34.com/{tagname}"
+
     ME = "furry34"
     WEBSITE_NAME = "furry34"
 
@@ -240,6 +245,8 @@ class Rule34VaultAPI(_Rule34XyzWorldRoot):
     CDN_HOMEPAGE = "https://r34xyz.b-cdn.net"
     APIURL_TAG = "https://rule34vault.com/api/v2/post/search/root"
     APIURL_POST = "https://rule34vault.com/api/v2/post/{postid}"
+
+    URL_TAG = "https://rule34vault.com/{tagname}"
 
     ME = "rule34vault"
     WEBSITE_NAME = "rule34vault"
@@ -259,6 +266,8 @@ class Rule34WorldAPI(_Rule34XyzWorldRoot):
     APIURL_TAG = "https://rule34.world/api/v2/post/search/root"
     APIURL_POST = "https://rule34.world/api/v2/post/{postid}"
 
+    URL_TAG = "https://rule34.world/{tagname}"
+
     ME = "rule34world"
     WEBSITE_NAME = "rule34world"
 
@@ -269,6 +278,8 @@ class Rule34xyzAPI(_Rule34XyzWorldRoot):
     CDN_HOMEPAGE = "https://rule34xyz.b-cdn.net"
     APIURL_TAG = "https://rule34.xyz/api/v2/post/search/root"
     APIURL_POST = "https://rule34.xyz/api/v2/post/{postid}"
+
+    URL_TAG = "https://rule34.xyz/{tagname}"
 
     ME = "rule34xyz"
     WEBSITE_NAME = "rule34xyz"
