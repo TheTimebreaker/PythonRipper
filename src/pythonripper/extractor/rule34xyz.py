@@ -69,7 +69,7 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         method: Literal["get", "post"] = "get",
     ) -> httpx.Response:
         await self.LIMIT.wait()
-        logging.info("[%s] - Sending %s request to url %s - params: %s - json: %s", self.ME.upper(), method, url, params, json)
+        logging.debug("[%s] - Sending %s request to url %s - params: %s - json: %s", self.ME.upper(), method, url, params, json)
         if method == "get":
             res = await self.session.get(url, params=params)
         elif method == "post":
