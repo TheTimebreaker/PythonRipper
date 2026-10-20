@@ -1,6 +1,7 @@
 """Main module for interacting with https://www.rule34.xyz , https://www.rule34.world , https://www.rule34vault.com ."""
 
 import logging
+import time
 from collections.abc import AsyncGenerator, Mapping
 from types import MappingProxyType
 from typing import Any, Literal, final, override
@@ -45,19 +46,27 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
     async def init(self) -> bool:
         self.headers = {"User-Agent": "PythonRipper", "Accept": "application/json", "Accept-Encoding": "gzip,deflate,br"}
         self.session = httpx.AsyncClient(headers=self.headers)
+        self.frontpage: set[str] | None = None
+        self.frontpage_time: float | None = None
 
-        self.frontpage: set[str] = set()
+        return True
+
+    async def __fetch_frontpage(self) -> None:
+        self.frontpage = set()
+        self.frontpage_time = time.time()
         async for i, post in asyncstdlib.enumerate(self._fetch_posts(cf.id_generator(32), yield_ids_only=True)):
             self.frontpage.add(post["identifier"])
             if i >= (self.PER_PAGE - 2):
                 break
 
-        return True
-
     def format_tagname(self, tagname: str) -> str:
-        while tagname.startswith(" "):
+        remove_dict: set[str] = {"."}
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
+
+        while tagname.startswith((" ", self.SPACE_REPLACE)):
             tagname = tagname[1:]
-        while tagname.endswith(" "):
+        while tagname.endswith((" ", self.SPACE_REPLACE)):
             tagname = tagname[:-1]
         return tagname.replace(" ", self.SPACE_REPLACE)
 
@@ -80,6 +89,12 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
 
     @override
     async def does_this_exist(self, tagname: str) -> bool:
+        now = time.time()
+        five_minutes = 60 * 5
+        if self.frontpage is None or self.frontpage_time is None or now - self.frontpage_time > five_minutes:
+            await self.__fetch_frontpage()
+        assert self.frontpage
+
         thispage = set()
         async for i, post in asyncstdlib.enumerate(self._fetch_posts(self.format_tagname(tagname), yield_ids_only=True)):
             thispage.add(post["identifier"])
@@ -269,12 +284,6 @@ class Rule34VaultAPI(_Rule34XyzWorldRoot):
             "10": "jpg",
         }
     )
-
-    def format_tagname(self, tagname: str) -> str:
-        remove_dict: set[str] = {"."}
-        for what in remove_dict:
-            tagname = tagname.replace(what, "")
-        return super().format_tagname(tagname)
 
 
 @final
