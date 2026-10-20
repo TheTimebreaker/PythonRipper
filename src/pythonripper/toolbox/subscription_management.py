@@ -464,97 +464,90 @@ class CombinedFile:
         await self.write()
 
     async def worker_producer(
-        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: list[str], must_have_posts: bool
+        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str, must_have_posts: bool
     ) -> None:
-        async def task(this_choice: str) -> None:
-            def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> Generator[str]:
-                for artist_alias in artist_aliases:
-                    formatted_artist_alias = obj.format_tagname(artist_alias)
-                    if formatted_artist_alias and formatted_existing_alias == formatted_artist_alias:
-                        yield artist_alias
+        def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> Generator[str]:
+            for artist_alias in artist_aliases:
+                formatted_artist_alias = obj.format_tagname(artist_alias)
+                if formatted_artist_alias and formatted_existing_alias == formatted_artist_alias:
+                    yield artist_alias
 
-            obj = self.websiteinfo[this_choice]["object_active"]
-            for i, artist in artists:
-                is_case_sensitive = obj.IS_CASE_SENSITIVE
-                artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist, remove_bypass_markers=True)}
-                artist_aliases: set[str] = {
-                    artist_alias.replace("artist/", "")
-                    .replace("tag/", "")
-                    .replace("character/", "")
-                    .replace("parody/", "")
-                    .replace("metadata/", "")
-                    .replace("u/", "")
-                    .replace("r/", "")
-                    for artist_alias in artist_aliases_tmp
-                }
-                # Case sensitive check
-                if not is_case_sensitive:
-                    artist_aliases = {x.lower() for x in artist_aliases}
+        obj = self.websiteinfo[choice]["object_active"]
+        for i, artist in artists:
+            is_case_sensitive = obj.IS_CASE_SENSITIVE
+            artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist, remove_bypass_markers=True)}
+            artist_aliases: set[str] = {
+                artist_alias.replace("artist/", "")
+                .replace("tag/", "")
+                .replace("character/", "")
+                .replace("parody/", "")
+                .replace("metadata/", "")
+                .replace("u/", "")
+                .replace("r/", "")
+                for artist_alias in artist_aliases_tmp
+            }
+            # Case sensitive check
+            if not is_case_sensitive:
+                artist_aliases = {x.lower() for x in artist_aliases}
 
-                # kusowanka special case because they use the category in the url
-                if isinstance(obj, kusowanka.KusowankaAPI):
-                    kusowanka_aliases: set[str] = set()
-                    for tn in artist_aliases:
-                        kusowanka_aliases.update(
-                            (
-                                f"artist/{tn}",
-                                f"character/{tn}",
-                                f"metadata/{tn}",
-                                f"parody/{tn}",
-                                f"tag/{tn}",
-                            )
+            # kusowanka special case because they use the category in the url
+            if isinstance(obj, kusowanka.KusowankaAPI):
+                kusowanka_aliases: set[str] = set()
+                for tn in artist_aliases:
+                    kusowanka_aliases.update(
+                        (
+                            f"artist/{tn}",
+                            f"character/{tn}",
+                            f"metadata/{tn}",
+                            f"parody/{tn}",
+                            f"tag/{tn}",
                         )
-                    artist_aliases = kusowanka_aliases
-
-                # Removes any alias that already exists for the website and artist
-                list_of_bypass_markers: list[str] = []
-                bypass_configs = [
-                    self.config.settings.general.allow_blacklist_bypass,
-                    self.config.settings.general.allow_contentfilter_bypass,
-                ]
-                for me in bypass_configs:
-                    if me:
-                        list_of_bypass_markers.append(me)
-                bypass_permutations = list(
-                    chain.from_iterable(
-                        permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
                     )
+                artist_aliases = kusowanka_aliases
+
+            # Removes any alias that already exists for the website and artist
+            list_of_bypass_markers: list[str] = []
+            bypass_configs = [
+                self.config.settings.general.allow_blacklist_bypass,
+                self.config.settings.general.allow_contentfilter_bypass,
+            ]
+            for me in bypass_configs:
+                if me:
+                    list_of_bypass_markers.append(me)
+            bypass_permutations = list(
+                chain.from_iterable(
+                    permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
                 )
-                logging.info("artist_aliases before discarding=%s", artist_aliases)
-                discared_aliases: set[str] = set()
-                for existing_alias in self.get_list(website=this_choice, artist=artist, remove_bypass_markers=True):
-                    # removes the literal existing alias
-                    discared_aliases.add(existing_alias)
+            )
+            logging.info("artist_aliases before discarding=%s", artist_aliases)
+            discared_aliases: set[str] = set()
+            for existing_alias in self.get_list(website=choice, artist=artist, remove_bypass_markers=True):
+                # removes the literal existing alias
+                discared_aliases.add(existing_alias)
 
-                    # formats existing alias and if that matches the preprocessed list, original gets removed
-                    formatted_existing_alias = obj.format_tagname(existing_alias)
-                    if formatted_existing_alias:
-                        discared_aliases.add(formatted_existing_alias)
-                        for placeholder_ in is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias):
-                            discared_aliases.add(placeholder_)
+                # formats existing alias and if that matches the preprocessed list, original gets removed
+                formatted_existing_alias = obj.format_tagname(existing_alias)
+                if formatted_existing_alias:
+                    discared_aliases.add(formatted_existing_alias)
+                    for placeholder_ in is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias):
+                        discared_aliases.add(placeholder_)
 
-                    # removes potential flag bypasses from the string
-                    for combination in bypass_permutations:
-                        target_tmp = existing_alias
-                        if combination:
-                            for element in combination:
-                                target_tmp = f"{element}{target_tmp}{element}"
-                        discared_aliases.add(target_tmp)
+                # removes potential flag bypasses from the string
+                for combination in bypass_permutations:
+                    target_tmp = existing_alias
+                    if combination:
+                        for element in combination:
+                            target_tmp = f"{element}{target_tmp}{element}"
+                    discared_aliases.add(target_tmp)
 
-                logging.info("discared_aliases=%s", discared_aliases)
-                for discard in discared_aliases:
-                    artist_aliases.discard(discard)
+            logging.info("discared_aliases=%s", discared_aliases)
+            for discard in discared_aliases:
+                artist_aliases.discard(discard)
 
-                logging.info("artist_aliases after discarding=%s", artist_aliases)
+            logging.info("artist_aliases after discarding=%s", artist_aliases)
 
-                url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, this_choice, True, must_have_posts)}
-                await q.put((i, artist, url_list))
-
-        tasks: list[asyncio.Task[None]] = []
-        for key in self.websites:
-            if choice is None or key in choice:
-                tasks.append(asyncio.create_task(task(key)))
-        await asyncio.gather(*tasks)
+            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True, must_have_posts)}
+            await q.put((i, artist, url_list))
         await q.put(STOP)
 
     async def worker_consumer(
