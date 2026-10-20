@@ -359,6 +359,8 @@ class CombinedFile:
                 formatted_tagname = obj.format_tagname(local_tagname)
                 if not formatted_tagname:
                     continue
+                if obj.ENCODE_URLS:
+                    formatted_tagname = urllib.parse.quote(formatted_tagname)
                 this_url = url_to_format.format(tagname=formatted_tagname)
                 this_tagname = local_tagname
 
@@ -372,6 +374,7 @@ class CombinedFile:
                         continue
                 except json.decoder.JSONDecodeError, ConnectionAbortedError, ConnectionRefusedError, cf.ExtractorExitError, cf.ExtractorStopError:
                     pass
+            logging.info("resulted urls: %s", result)
 
             if found_some is False:
                 if dont_add_homepage is False:

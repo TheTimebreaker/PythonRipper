@@ -63,6 +63,7 @@ class Scraper(ABC):
     LIMIT: asynciolimiter._BaseLimiter
     SPACE_REPLACE: str
     IS_CASE_SENSITIVE: bool = False
+    ENCODE_URLS: bool = False
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
     def __init__(self, config: ConfigObject) -> None:

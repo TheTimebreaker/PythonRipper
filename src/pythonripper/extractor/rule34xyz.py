@@ -55,7 +55,11 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         return True
 
     def format_tagname(self, tagname: str) -> str:
-        return tagname
+        while tagname.startswith(" "):
+            tagname = tagname[1:]
+        while tagname.endswith(" "):
+            tagname = tagname[:-1]
+        return tagname.replace(" ", self.SPACE_REPLACE)
 
     async def request(
         self,
@@ -251,12 +255,20 @@ class Rule34VaultAPI(_Rule34XyzWorldRoot):
     ME = "rule34vault"
     WEBSITE_NAME = "rule34vault"
 
+    ENCODE_URLS = True
+
     FORMATS = MappingProxyType(
         {
             "100": "mp4",
             "10": "jpg",
         }
     )
+
+    def format_tagname(self, tagname: str) -> str:
+        remove_dict: set[str] = {"."}
+        for what in remove_dict:
+            tagname = tagname.replace(what, "")
+        return super().format_tagname(tagname)
 
 
 @final
