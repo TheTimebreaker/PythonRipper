@@ -105,12 +105,6 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
         return overlap < self.PER_PAGE / 2
 
     @override
-    async def does_this_have_posts(self, tagname: str) -> bool:
-        # this website will send back the frontpage if a tag does not exists
-        # meaning that a tag that passes the does_this_exist will ALWAYS have posts
-        return True
-
-    @override
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
         return True  # website exposes nothing in that regard
 
