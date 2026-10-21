@@ -576,14 +576,15 @@ class CombinedFile:
             item = cast(tuple[int, str, str, list[str]], item)
             i, artist, choice, url_list = item
 
+            base_msg = f"#{i+1} / {processing_length} - {choice}:{artist}"
             if len(url_list) == 0 and skip_empty:
-                feedback.info(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
+                feedback.info(f"{base_msg} - Nothing found...")
                 await self.process_urls(artist, [], choice)
                 continue
 
             logging.info("url_list: %s", url_list)
             await self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
-            await feedback.ask(f"#{i+1} / {processing_length} - {artist} - Click Continue to confirm.")
+            await feedback.ask(f"{base_msg} - Click Continue to confirm.")
             confirmed_urls = await self._add_get_confirmed_urls(driver, fallback_handle)
             await self.process_urls(artist, confirmed_urls, choice)
             await self._add_close_non_fallback_tabs(driver, fallback_handle)
