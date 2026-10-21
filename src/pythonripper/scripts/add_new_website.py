@@ -79,6 +79,12 @@ async def main() -> None:
 
     layout.addWidget(create_divider())
 
+    layout.addWidget(QLabel("Add tab-opening delay (in ms):"))
+    delay_ms_spinbox = QSpinBox(maximum=5000)
+    layout.addWidget(delay_ms_spinbox)
+
+    layout.addWidget(create_divider())
+
     buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
     buttons.accepted.connect(dialog.accept)
     buttons.rejected.connect(dialog.reject)
@@ -122,13 +128,20 @@ async def main() -> None:
     check_existing_again = check_existing_checkbox.isChecked()
     must_have_posts = must_have_posts_checkbox.isChecked()
     starting_index: int = starting_index_spinbox.value()
-    await add_website_to_object(obj, website_choices, skip_empty, check_existing_again, must_have_posts, starting_index)
+    tab_opening_delay_ms: int = delay_ms_spinbox.value()
+    await add_website_to_object(obj, website_choices, skip_empty, check_existing_again, must_have_posts, starting_index, tab_opening_delay_ms)
 
 
 async def add_website_to_object(
-    obj: sm.CombinedFile, choice: list[str] | str, skip_empty: bool, check_existing_again: bool, must_have_posts: bool, starting_index: int
+    obj: sm.CombinedFile,
+    choice: list[str] | str,
+    skip_empty: bool,
+    check_existing_again: bool,
+    must_have_posts: bool,
+    starting_index: int,
+    tab_opening_delay_ms: int,
 ) -> None:
-    await obj.add_website(choice, skip_empty, check_existing_again, must_have_posts, starting_index)
+    await obj.add_website(choice, skip_empty, check_existing_again, must_have_posts, starting_index, tab_opening_delay_ms)
 
 
 if __name__ == "__main__":

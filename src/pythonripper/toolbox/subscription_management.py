@@ -244,7 +244,9 @@ class CombinedFile:
         await asyncio.to_thread(driver.get, fallback_url)
         return fallback_handle
 
-    async def _add_open_urls_in_new_tabs(self, driver: WebDriver, urls: Iterable[str], fallback_handle: str) -> list[str]:
+    async def _add_open_urls_in_new_tabs(
+        self, driver: WebDriver, urls: Iterable[str], fallback_handle: str, tab_opening_delay_ms: int = 0
+    ) -> list[str]:
         """
         Open each URL in its own new tab and return the created tab handles.
         """
@@ -257,9 +259,8 @@ class CombinedFile:
             created_handles.append(new_handle)
 
             try:
-                # not good practise to use this, but this should prevent the other threads from firing more requests during the wait
-                # hopefully, this is enough to prevent all rate-limits
-                await asyncio.sleep(1)
+                if tab_opening_delay_ms > 0:
+                    await asyncio.sleep(tab_opening_delay_ms / 1000)
 
                 await asyncio.to_thread(driver.get, url)
             except WebDriverException as exc:
@@ -568,6 +569,7 @@ class CombinedFile:
         fallback_handle: str,
         feedback: _QtFeedbackWindow,
         skip_empty: bool = False,
+        tab_opening_delay_ms: int = 0,
     ) -> None:
         while True:
             item = await q.get()
@@ -583,7 +585,7 @@ class CombinedFile:
                 continue
 
             logging.info("url_list: %s", url_list)
-            await self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
+            await self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle, tab_opening_delay_ms)
             await feedback.ask(f"{base_msg} - Click Continue to confirm.")
             confirmed_urls = await self._add_get_confirmed_urls(driver, fallback_handle)
             await self.process_urls(artist, confirmed_urls, choice)
@@ -596,6 +598,7 @@ class CombinedFile:
         check_existing_again: bool = False,
         must_have_posts: bool = False,
         starting_index: int = 0,
+        tab_opening_delay_ms: int = 0,
     ) -> None:
         feedback = _QtFeedbackWindow()
         qt_task = asyncio.create_task(feedback.process_qt_events())
@@ -603,7 +606,9 @@ class CombinedFile:
         if not isinstance(website_choices, list):
             website_choices = [website_choices]
         try:
-            await self._add_website_with_feedback(website_choices, skip_empty, check_existing_again, must_have_posts, starting_index, feedback)
+            await self._add_website_with_feedback(
+                website_choices, skip_empty, check_existing_again, must_have_posts, starting_index, tab_opening_delay_ms, feedback
+            )
         except asyncio.CancelledError:
             if not feedback.closed_by_user:
                 raise
@@ -617,6 +622,7 @@ class CombinedFile:
         check_existing_again: bool,
         must_have_posts: bool,
         starting_index: int,
+        tab_opening_delay_ms: int,
         feedback: _QtFeedbackWindow,
     ) -> None:
         feedback.info(r""" /\_/\
@@ -636,6 +642,7 @@ Hello! Please wait until the web browser has finished initializing.""")
                 *homepages,
             ],
             fallback_handle,
+            tab_opening_delay_ms,
         )
         await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
         await self._add_close_non_fallback_tabs(driver, fallback_handle)
@@ -652,7 +659,7 @@ Hello! Please wait until the web browser has finished initializing.""")
 
         q: asyncio.Queue[tuple[int, str, str, set[str]] | object] = asyncio.Queue(maxsize=200)
         await asyncio.gather(
-            self.worker_consumer(q, self_data_len, driver, fallback_handle, feedback, skip_empty),
+            self.worker_consumer(q, self_data_len, driver, fallback_handle, feedback, skip_empty, tab_opening_delay_ms),
             self.worker_producer(artists, q, website_choices, must_have_posts),
         )
 
