@@ -576,7 +576,7 @@ class CombinedFile:
             item = cast(tuple[int, str, str, list[str]], item)
             i, artist, choice, url_list = item
 
-            base_msg = f"#{i+1} / {processing_length} - {choice}:{artist}"
+            base_msg = f"#{i+1} / {processing_length} - {choice} - {artist}"
             if len(url_list) == 0 and skip_empty:
                 feedback.info(f"{base_msg} - Nothing found...")
                 await self.process_urls(artist, [], choice)
