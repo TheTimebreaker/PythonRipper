@@ -29,6 +29,8 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
     APIURL_TAG: str
     APIURL_POST: str
 
+    ENCODE_URLS = True
+
     LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "_"
     PER_PAGE = 60
@@ -269,8 +271,6 @@ class Rule34VaultAPI(_Rule34XyzWorldRoot):
 
     ME = "rule34vault"
     WEBSITE_NAME = "rule34vault"
-
-    ENCODE_URLS = True
 
     FORMATS = MappingProxyType(
         {
