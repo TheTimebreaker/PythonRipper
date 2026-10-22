@@ -47,7 +47,7 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
 
     async def init(self) -> bool:
         self.headers = {"User-Agent": "PythonRipper", "Accept": "application/json", "Accept-Encoding": "gzip,deflate,br"}
-        self.session = httpx.AsyncClient(headers=self.headers)
+        self.session = httpx.AsyncClient(headers=self.headers, timeout=60)
         self.frontpage: set[str] | None = None
         self.frontpage_time: float | None = None
 
@@ -63,14 +63,18 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
 
     def format_tagname(self, tagname: str) -> str:
         remove_dict: set[str] = {"."}
+        replace_dict: dict[str, str] = {"/": self.SPACE_REPLACE}
         for what in remove_dict:
             tagname = tagname.replace(what, "")
+        for what, by in replace_dict.items():
+            tagname = tagname.replace(what, by)
 
-        while tagname.startswith((" ", self.SPACE_REPLACE)):
+        tagname = tagname.replace(" ", self.SPACE_REPLACE)
+        while tagname.startswith(self.SPACE_REPLACE):
             tagname = tagname[1:]
-        while tagname.endswith((" ", self.SPACE_REPLACE)):
+        while tagname.endswith(self.SPACE_REPLACE):
             tagname = tagname[:-1]
-        return tagname.replace(" ", self.SPACE_REPLACE)
+        return tagname.replace(self.SPACE_REPLACE * 2, self.SPACE_REPLACE)
 
     async def request(
         self,
