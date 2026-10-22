@@ -186,6 +186,14 @@ class CombinedFile:
             return result
 
     def sort(self) -> None:
+        def format_tagname(s: str | int) -> str:
+            s = cf.unquote_tagnames(str(s))
+            while s.startswith((" ", "/")):
+                s = s[1:]
+            while s.endswith((" ", "/")):
+                s = s[:-1]
+            return s
+
         def recursive_sort(d: dict[Any, Any]) -> dict[Any, Any]:
             temp: dict[Any, dict[Any, Any] | list[Any] | bool] = {}
             for key, value in d.items():
@@ -205,9 +213,9 @@ class CombinedFile:
         for sort_tag in self.data:
             for website in self.data[sort_tag]:
                 if isinstance(self.data[sort_tag][website], str):
-                    self.data[sort_tag][website] = cf.unquote_tagnames(str(self.data[sort_tag][website]))
+                    self.data[sort_tag][website] = format_tagname(self.data[sort_tag][website])
                 elif isinstance(self.data[sort_tag][website], list) and all(isinstance(test, str) for test in self.data[sort_tag][website]):
-                    self.data[sort_tag][website] = [cf.unquote_tagnames(str(text)) for text in self.data[sort_tag][website]]
+                    self.data[sort_tag][website] = [format_tagname(text) for text in self.data[sort_tag][website]]
 
         # Recursively sorts dictionary
         self.data = recursive_sort(self.data)
