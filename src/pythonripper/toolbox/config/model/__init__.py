@@ -2,6 +2,7 @@ from .extractor_artists import ExtractorArtistwebsitesSettings
 from .extractor_artstation import ExtractorArtstationSettings
 from .extractor_danbooru import ExtractorDanbooruSettings, DanbooruRatings
 from .extractor_deviantart import ExtractorDeviantartSettings
+from .extractor_furry34 import ExtractorFurry34Settings
 from .extractor_gelbooru import ExtractorGelbooruSettings, GelbooruRatings
 from .extractor_hypnohub import ExtractorHypnohubSettings, HypnohubRatings
 from .extractor_hentaifoundry import ExtractorHentaifoundrySettings
@@ -12,6 +13,9 @@ from .extractor_pixiv import ExtractorPixivSettings
 from .extractor_rule34paheal import ExtractorRule34PahealSettings
 from .extractor_rule34us import ExtractorRule34usSettings
 from .extractor_rule34xxx import ExtractorRule34xxxSettings, Rule34xxxRatings
+from .extractor_rule34xyz import ExtractorRule34xyzSettings
+from .extractor_rule34world import ExtractorRule34WorldSettings
+from .extractor_rule34vault import ExtractorRule34VaultSettings
 from .extractor_tumblr import ExtractorTumblrSettings
 from .extractor_yandere import ExtractorYandereSettings, YandereRatings
 

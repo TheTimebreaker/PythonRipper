@@ -3,7 +3,6 @@ import itertools
 import json
 import logging
 import re
-import time
 import urllib.parse
 from collections.abc import Generator, Iterable
 from itertools import chain, combinations, permutations
@@ -40,6 +39,7 @@ from pythonripper.extractor import (
     rule34paheal,
     rule34us,
     rule34xxx,
+    rule34xyz,
     tumblr,
     yandere,
 )
@@ -148,6 +148,7 @@ class CombinedFile:
         "deviantart-artists": {"object": deviantart.DeviantartArtistAPI},
         "deviantart-favorites": {"object": deviantart.DeviantartFavoritesAPI},
         "deviantart-tags": {"object": deviantart.DeviantartTagAPI},
+        "furry34": {"object": rule34xyz.Furry34API},
         "gelbooru": {"object": gelbooru.GelbooruAPI},
         "hentaifoundry-artists": {"object": hentaifoundry.HentaiFoundryArtist},
         "hentaifoundry-tags": {"object": hentaifoundry.HentaiFoundryTag},
@@ -161,7 +162,10 @@ class CombinedFile:
         "pixiv-tags": {"object": pixiv.PixivTagAPI},
         "rule34paheal": {"object": rule34paheal.Rule34pahealAPI},
         "rule34us": {"object": rule34us.Rule34usAPI},
+        "rule34vault": {"object": rule34xyz.Rule34VaultAPI},
+        "rule34world": {"object": rule34xyz.Rule34WorldAPI},
         "rule34xxx": {"object": rule34xxx.Rule34xxxAPI},
+        "rule34xyz": {"object": rule34xyz.Rule34xyzAPI},
         "tumblr": {"object": tumblr.TumblrAPI},
         "yandere": {"object": yandere.YandereAPI},
     }
@@ -182,6 +186,14 @@ class CombinedFile:
             return result
 
     def sort(self) -> None:
+        def format_tagname(s: str | int) -> str:
+            s = cf.unquote_tagnames(str(s))
+            while s.startswith((" ", "/")):
+                s = s[1:]
+            while s.endswith((" ", "/")):
+                s = s[:-1]
+            return s
+
         def recursive_sort(d: dict[Any, Any]) -> dict[Any, Any]:
             temp: dict[Any, dict[Any, Any] | list[Any] | bool] = {}
             for key, value in d.items():
@@ -201,9 +213,9 @@ class CombinedFile:
         for sort_tag in self.data:
             for website in self.data[sort_tag]:
                 if isinstance(self.data[sort_tag][website], str):
-                    self.data[sort_tag][website] = cf.unquote_tagnames(str(self.data[sort_tag][website]))
+                    self.data[sort_tag][website] = format_tagname(self.data[sort_tag][website])
                 elif isinstance(self.data[sort_tag][website], list) and all(isinstance(test, str) for test in self.data[sort_tag][website]):
-                    self.data[sort_tag][website] = [cf.unquote_tagnames(str(text)) for text in self.data[sort_tag][website]]
+                    self.data[sort_tag][website] = [format_tagname(text) for text in self.data[sort_tag][website]]
 
         # Recursively sorts dictionary
         self.data = recursive_sort(self.data)
@@ -212,7 +224,7 @@ class CombinedFile:
         self.sort()
         await f.atomic_write(filepath=self.path, data=self.data, encoding=self.encoding)
 
-    async def _add_activate_dict(self, config: ConfigObject, choice: str | None = None) -> None:
+    async def _add_activate_dict(self, config: ConfigObject, choice: list[str] | None = None) -> None:
         async def task(key: str, obj_type: type[scraper.TaggableScraper]) -> None:
             obj = obj_type(config)
             if not await obj.init():
@@ -221,7 +233,7 @@ class CombinedFile:
 
         tasks = []
         for key in self.websites:
-            if not choice or choice == key:
+            if not choice or key in choice:
                 tasks.append(asyncio.create_task(task(key, self.websiteinfo[key]["object"])))
         await asyncio.gather(*tasks)
 
@@ -240,7 +252,9 @@ class CombinedFile:
         await asyncio.to_thread(driver.get, fallback_url)
         return fallback_handle
 
-    async def _add_open_urls_in_new_tabs(self, driver: WebDriver, urls: Iterable[str], fallback_handle: str) -> list[str]:
+    async def _add_open_urls_in_new_tabs(
+        self, driver: WebDriver, urls: Iterable[str], fallback_handle: str, tab_opening_delay_ms: int = 0
+    ) -> list[str]:
         """
         Open each URL in its own new tab and return the created tab handles.
         """
@@ -253,9 +267,8 @@ class CombinedFile:
             created_handles.append(new_handle)
 
             try:
-                # not good practise to use this, but this should prevent the other threads from firing more requests during the wait
-                # hopefully, this is enough to prevent all rate-limits
-                time.sleep(1)  # noqa: ASYNC251
+                if tab_opening_delay_ms > 0:
+                    await asyncio.sleep(tab_opening_delay_ms / 1000)
 
                 await asyncio.to_thread(driver.get, url)
             except WebDriverException as exc:
@@ -354,6 +367,8 @@ class CombinedFile:
                 formatted_tagname = obj.format_tagname(local_tagname)
                 if not formatted_tagname:
                     continue
+                if obj.ENCODE_URLS:
+                    formatted_tagname = urllib.parse.quote(formatted_tagname)
                 this_url = url_to_format.format(tagname=formatted_tagname)
                 this_tagname = local_tagname
 
@@ -367,6 +382,7 @@ class CombinedFile:
                         continue
                 except json.decoder.JSONDecodeError, ConnectionAbortedError, ConnectionRefusedError, cf.ExtractorExitError, cf.ExtractorStopError:
                     pass
+            logging.info("resulted urls: %s", result)
 
             if found_some is False:
                 if dont_add_homepage is False:
@@ -408,7 +424,7 @@ class CombinedFile:
         await asyncio.to_thread(driver.switch_to.window, fallback_handle)
         return confirmed_urls
 
-    async def process_urls(self, new_tag: str, url_list: list[str], choice: str | None = None) -> None:
+    async def process_urls(self, new_tag: str, url_list: list[str], website_choice: str | None = None) -> None:
         if new_tag in self.data:
             new_tag_obj = self.data[new_tag]
         else:
@@ -420,7 +436,7 @@ class CombinedFile:
         for url in url_list:
             url = urllib.parse.unquote(url)
             for key in self.websites:
-                if not choice or choice == key:
+                if not website_choice or key == website_choice:
                     obj = self.websiteinfo[key]["object_active"]
                     try:
                         matched = re.match(obj.TAG_PATTERN, url)
@@ -428,10 +444,12 @@ class CombinedFile:
                             raise AttributeError
                         tag_formatted = matched.group(1)
                         tag = obj.invert_formatting(tag_formatted)
-                        while tag.startswith((" ", "+")):
+                        while tag.startswith((" ", "+", obj.SPACE_REPLACE, "/")):
                             tag = tag[1:]
-                        while tag.endswith((" ", "+")):
+                        while tag.endswith((" ", "+", obj.SPACE_REPLACE, "/")):
                             tag = tag[:-1]
+                        if not obj.IS_CASE_SENSITIVE:
+                            tag = tag.lower()
 
                         if re.match(r"^(?:\s?[A-Za-z]\s)+$", tag):
                             raise ValueError("Tag %s was detected with spaces from url %s and pattern %s", tag, url, obj.TAG_PATTERN)
@@ -456,129 +474,154 @@ class CombinedFile:
         await self.write()
 
     async def worker_producer(
-        self, artists: list[tuple[int, str]], q: asyncio.Queue[tuple[int, str, set[str]] | object], choice: str, must_have_posts: bool
+        self,
+        artists: list[tuple[int, str]],
+        q: asyncio.Queue[tuple[int, str, str, set[str]] | object],
+        website_choices: list[str],
+        must_have_posts: bool,
     ) -> None:
-        def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> Generator[str]:
-            for artist_alias in artist_aliases:
-                formatted_artist_alias = obj.format_tagname(artist_alias)
-                if formatted_artist_alias and formatted_existing_alias == formatted_artist_alias:
-                    yield artist_alias
+        async def task(website_choice: str) -> None:
+            def is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias: str) -> Generator[str]:
+                for artist_alias in artist_aliases:
+                    formatted_artist_alias = obj.format_tagname(artist_alias)
+                    if formatted_artist_alias and formatted_existing_alias == formatted_artist_alias:
+                        yield artist_alias
 
-        obj = self.websiteinfo[choice]["object_active"]
-        for i, artist in artists:
-            is_case_sensitive = obj.IS_CASE_SENSITIVE
-            artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist, remove_bypass_markers=True)}
-            artist_aliases: set[str] = {
-                artist_alias.replace("artist/", "")
-                .replace("tag/", "")
-                .replace("character/", "")
-                .replace("parody/", "")
-                .replace("metadata/", "")
-                .replace("u/", "")
-                .replace("r/", "")
-                for artist_alias in artist_aliases_tmp
-            }
-            # Case sensitive check
-            if not is_case_sensitive:
-                artist_aliases = {x.lower() for x in artist_aliases}
+            obj = self.websiteinfo[website_choice]["object_active"]
+            for i, artist in artists:
+                is_case_sensitive = obj.IS_CASE_SENSITIVE
+                artist_aliases_tmp: set[str] = {cf.parse_markers(artist)["parsed"], *self.get_list(artist=artist, remove_bypass_markers=True)}
+                artist_aliases: set[str] = {
+                    artist_alias.replace("artist/", "")
+                    .replace("tag/", "")
+                    .replace("character/", "")
+                    .replace("parody/", "")
+                    .replace("metadata/", "")
+                    .replace("u/", "")
+                    .replace("r/", "")
+                    for artist_alias in artist_aliases_tmp
+                }
+                # Case sensitive check
+                if not is_case_sensitive:
+                    artist_aliases = {x.lower() for x in artist_aliases}
 
-            # kusowanka special case because they use the category in the url
-            if isinstance(obj, kusowanka.KusowankaAPI):
-                kusowanka_aliases: set[str] = set()
-                for tn in artist_aliases:
-                    kusowanka_aliases.update(
-                        (
-                            f"artist/{tn}",
-                            f"character/{tn}",
-                            f"metadata/{tn}",
-                            f"parody/{tn}",
-                            f"tag/{tn}",
+                # kusowanka special case because they use the category in the url
+                if isinstance(obj, kusowanka.KusowankaAPI):
+                    kusowanka_aliases: set[str] = set()
+                    for tn in artist_aliases:
+                        kusowanka_aliases.update(
+                            (
+                                f"artist/{tn}",
+                                f"character/{tn}",
+                                f"metadata/{tn}",
+                                f"parody/{tn}",
+                                f"tag/{tn}",
+                            )
                         )
+                    artist_aliases = kusowanka_aliases
+
+                # Removes any alias that already exists for the website and artist
+                list_of_bypass_markers: list[str] = []
+                bypass_configs = [
+                    self.config.settings.general.allow_blacklist_bypass,
+                    self.config.settings.general.allow_contentfilter_bypass,
+                ]
+                for me in bypass_configs:
+                    if me:
+                        list_of_bypass_markers.append(me)
+                bypass_permutations = list(
+                    chain.from_iterable(
+                        permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
                     )
-                artist_aliases = kusowanka_aliases
-
-            # Removes any alias that already exists for the website and artist
-            list_of_bypass_markers: list[str] = []
-            bypass_configs = [
-                self.config.settings.general.allow_blacklist_bypass,
-                self.config.settings.general.allow_contentfilter_bypass,
-            ]
-            for me in bypass_configs:
-                if me:
-                    list_of_bypass_markers.append(me)
-            bypass_permutations = list(
-                chain.from_iterable(
-                    permutations(combo) for r in range(len(list_of_bypass_markers) + 1) for combo in combinations(list_of_bypass_markers, r)
                 )
-            )
-            logging.info("artist_aliases before discarding=%s", artist_aliases)
-            discared_aliases: set[str] = set()
-            for existing_alias in self.get_list(website=choice, artist=artist, remove_bypass_markers=True):
-                # removes the literal existing alias
-                discared_aliases.add(existing_alias)
+                logging.info("artist_aliases before discarding=%s", artist_aliases)
+                discared_aliases: set[str] = set()
+                for existing_alias in self.get_list(website=website_choice, artist=artist, remove_bypass_markers=True):
+                    # removes the literal existing alias
+                    discared_aliases.add(existing_alias)
 
-                # formats existing alias and if that matches the preprocessed list, original gets removed
-                formatted_existing_alias = obj.format_tagname(existing_alias)
-                if formatted_existing_alias:
-                    discared_aliases.add(formatted_existing_alias)
-                    for placeholder_ in is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias):
-                        discared_aliases.add(placeholder_)
+                    # formats existing alias and if that matches the preprocessed list, original gets removed
+                    formatted_existing_alias = obj.format_tagname(existing_alias)
+                    if formatted_existing_alias:
+                        discared_aliases.add(formatted_existing_alias)
+                        for placeholder_ in is_formatted_existing_alias_in_formatted_artist_aliases(formatted_existing_alias):
+                            discared_aliases.add(placeholder_)
 
-                # removes potential flag bypasses from the string
-                for combination in bypass_permutations:
-                    target_tmp = existing_alias
-                    if combination:
-                        for element in combination:
-                            target_tmp = f"{element}{target_tmp}{element}"
-                    discared_aliases.add(target_tmp)
+                    # removes potential flag bypasses from the string
+                    for combination in bypass_permutations:
+                        target_tmp = existing_alias
+                        if combination:
+                            for element in combination:
+                                target_tmp = f"{element}{target_tmp}{element}"
+                        discared_aliases.add(target_tmp)
 
-            logging.info("discared_aliases=%s", discared_aliases)
-            for discard in discared_aliases:
-                artist_aliases.discard(discard)
+                logging.info("discared_aliases=%s", discared_aliases)
+                for discard in discared_aliases:
+                    artist_aliases.discard(discard)
+                    if not obj.IS_CASE_SENSITIVE:
+                        artist_aliases.discard(discard.lower())
+                        artist_aliases.discard(discard.upper())
 
-            logging.info("artist_aliases after discarding=%s", artist_aliases)
+                logging.info("artist_aliases after discarding=%s", artist_aliases)
 
-            url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, choice, True, must_have_posts)}
-            await q.put((i, artist, url_list))
+                url_list = {link for a in artist_aliases for link in await self._add_get_tag_urls(a, website_choice, True, must_have_posts)}
+                await q.put((i, artist, website_choice, url_list))
+
+        tasks = []
+        for website in website_choices:
+            tasks.append(asyncio.create_task(task(website)))
+
+        await asyncio.gather(*tasks)
         await q.put(STOP)
 
     async def worker_consumer(
         self,
-        q: asyncio.Queue[tuple[int, str, list[str]] | object],
+        q: asyncio.Queue[tuple[int, str, str, list[str]] | object],
         processing_length: int,
         driver: WebDriver,
         fallback_handle: str,
         feedback: _QtFeedbackWindow,
-        choice: str | None = None,
         skip_empty: bool = False,
+        tab_opening_delay_ms: int = 0,
     ) -> None:
         while True:
             item = await q.get()
             if item is STOP:
                 return
-            item = cast(tuple[int, str, list[str]], item)
-            i, artist, url_list = item
+            item = cast(tuple[int, str, str, list[str]], item)
+            i, artist, choice, url_list = item
 
+            base_msg = f"#{i+1} / {processing_length} - {choice} - {artist}"
             if len(url_list) == 0 and skip_empty:
-                feedback.info(f"#{i+1} / {processing_length} - {artist} - Nothing found...")
+                feedback.info(f"{base_msg} - Nothing found...")
                 await self.process_urls(artist, [], choice)
                 continue
 
             logging.info("url_list: %s", url_list)
-            await self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle)
-            await feedback.ask(f"#{i+1} / {processing_length} - {artist} - Click Continue to confirm.")
+            await self._add_open_urls_in_new_tabs(driver, url_list, fallback_handle, tab_opening_delay_ms)
+            await feedback.ask(f"{base_msg} - Click Continue to confirm.")
             confirmed_urls = await self._add_get_confirmed_urls(driver, fallback_handle)
             await self.process_urls(artist, confirmed_urls, choice)
             await self._add_close_non_fallback_tabs(driver, fallback_handle)
 
     async def add_website(
-        self, website_choice: str, skip_empty: bool = True, check_existing_again: bool = False, must_have_posts: bool = False, starting_index: int = 0
+        self,
+        website_choices: str | list[str],
+        skip_empty: bool = True,
+        check_existing_again: bool = False,
+        must_have_posts: bool = False,
+        starting_index: int = 0,
+        tab_opening_delay_ms: int = 0,
     ) -> None:
         feedback = _QtFeedbackWindow()
         qt_task = asyncio.create_task(feedback.process_qt_events())
 
+        if not isinstance(website_choices, list):
+            website_choices = [website_choices]
         try:
-            await self._add_website_with_feedback(website_choice, skip_empty, check_existing_again, must_have_posts, starting_index, feedback)
+            await self._add_website_with_feedback(
+                website_choices, skip_empty, check_existing_again, must_have_posts, starting_index, tab_opening_delay_ms, feedback
+            )
         except asyncio.CancelledError:
             if not feedback.closed_by_user:
                 raise
@@ -587,11 +630,12 @@ class CombinedFile:
 
     async def _add_website_with_feedback(
         self,
-        website_choice: str,
+        website_choices: list[str],
         skip_empty: bool,
         check_existing_again: bool,
         must_have_posts: bool,
         starting_index: int,
+        tab_opening_delay_ms: int,
         feedback: _QtFeedbackWindow,
     ) -> None:
         feedback.info(r""" /\_/\
@@ -600,10 +644,10 @@ class CombinedFile:
 Hello! Please wait until the web browser has finished initializing.""")
         await asyncio.sleep(0)
 
-        await self._add_activate_dict(self.config, choice=website_choice)
+        await self._add_activate_dict(self.config, choice=website_choices)
         driver = cf.init_selenium(False)
         fallback_handle = await self._add_ensure_fallback_tab(driver)
-        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key == website_choice]
+        homepages = [self.websiteinfo[key]["object_active"].HOMEPAGE for key in self.websites if key in website_choices]
         await self._add_open_urls_in_new_tabs(
             driver,
             [
@@ -611,6 +655,7 @@ Hello! Please wait until the web browser has finished initializing.""")
                 *homepages,
             ],
             fallback_handle,
+            tab_opening_delay_ms,
         )
         await feedback.ask("Review the tabs that have opened. If they opened successfully, click Continue.")
         await self._add_close_non_fallback_tabs(driver, fallback_handle)
@@ -620,15 +665,15 @@ Hello! Please wait until the web browser has finished initializing.""")
         for i, (artist_name, artist_data) in enumerate(self.data.items()):
             if i < starting_index:
                 continue
-            if website_choice in artist_data and not check_existing_again:
+            if all(this_choice in artist_data for this_choice in website_choices) and not check_existing_again:
                 feedback.info(f"#{i+1} / {self_data_len} - {artist_name} - Already exists...")
                 continue
             artists.append((i, artist_name))
 
-        q: asyncio.Queue[tuple[int, str, set[str]] | object] = asyncio.Queue(maxsize=200)
+        q: asyncio.Queue[tuple[int, str, str, set[str]] | object] = asyncio.Queue(maxsize=200)
         await asyncio.gather(
-            self.worker_consumer(q, self_data_len, driver, fallback_handle, feedback, website_choice, skip_empty),
-            self.worker_producer(artists, q, website_choice, must_have_posts),
+            self.worker_consumer(q, self_data_len, driver, fallback_handle, feedback, skip_empty, tab_opening_delay_ms),
+            self.worker_producer(artists, q, website_choices, must_have_posts),
         )
 
     async def add_tags(self) -> None:
@@ -771,6 +816,7 @@ class _CombinedArtistFile(CombinedFile):
         "artstation",
         "danbooru",
         "deviantart-artists",
+        "furry34",
         "gelbooru",
         "hypnohub",
         "hentaifoundry-artists",
@@ -780,7 +826,10 @@ class _CombinedArtistFile(CombinedFile):
         "pixiv-artists",
         "rule34paheal",
         "rule34us",
+        "rule34vault",
+        "rule34world",
         "rule34xxx",
+        "rule34xyz",
         "tumblr",
         "yandere",
     ]
@@ -796,6 +845,7 @@ class _CombinedBooruFile(CombinedFile):
     websites: ClassVar[list[str]] = [
         "danbooru",
         "deviantart-tags",
+        "furry34",
         "gelbooru",
         "hentaifoundry-tags",
         "hypnohub",
@@ -804,7 +854,10 @@ class _CombinedBooruFile(CombinedFile):
         "pixiv-tags",
         "rule34paheal",
         "rule34us",
+        "rule34vault",
+        "rule34world",
         "rule34xxx",
+        "rule34xyz",
         "yandere",
     ]
     tag_type = "booru tag"

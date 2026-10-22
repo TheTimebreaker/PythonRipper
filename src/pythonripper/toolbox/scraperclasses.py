@@ -63,6 +63,7 @@ class Scraper(ABC):
     LIMIT: asynciolimiter._BaseLimiter
     SPACE_REPLACE: str
     IS_CASE_SENSITIVE: bool = False
+    ENCODE_URLS: bool = False
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
     def __init__(self, config: ConfigObject) -> None:
@@ -228,6 +229,8 @@ class Scraper(ABC):
                         "stable diffusion",
                         "midjourney",
                     }
+                case "rule34xyz" | "rule34world" | "rule34vault" | "furry34":
+                    bonus_tags = {"ai generated", "ai-generated", "ai generated art (topic)"}
                 case "shellvi":
                     bonus_tags = set()
                 case "supersatanson":
