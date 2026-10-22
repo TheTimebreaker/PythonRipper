@@ -480,7 +480,7 @@ class CombinedFile:
             obj = self.websiteinfo[website_choice]["object_active"]
             for i, artist in artists:
                 is_case_sensitive = obj.IS_CASE_SENSITIVE
-                artist_aliases_tmp: set[str] = {artist, *self.get_list(artist=artist, remove_bypass_markers=True)}
+                artist_aliases_tmp: set[str] = {cf.parse_markers(artist)["parsed"], *self.get_list(artist=artist, remove_bypass_markers=True)}
                 artist_aliases: set[str] = {
                     artist_alias.replace("artist/", "")
                     .replace("tag/", "")
