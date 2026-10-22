@@ -548,6 +548,9 @@ class CombinedFile:
                 logging.info("discared_aliases=%s", discared_aliases)
                 for discard in discared_aliases:
                     artist_aliases.discard(discard)
+                    if not obj.IS_CASE_SENSITIVE:
+                        artist_aliases.discard(discard.lower())
+                        artist_aliases.discard(discard.upper())
 
                 logging.info("artist_aliases after discarding=%s", artist_aliases)
 
