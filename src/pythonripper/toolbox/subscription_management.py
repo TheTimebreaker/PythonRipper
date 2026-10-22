@@ -436,10 +436,12 @@ class CombinedFile:
                             raise AttributeError
                         tag_formatted = matched.group(1)
                         tag = obj.invert_formatting(tag_formatted)
-                        while tag.startswith((" ", "+")):
+                        while tag.startswith((" ", "+", obj.SPACE_REPLACE, "/")):
                             tag = tag[1:]
-                        while tag.endswith((" ", "+")):
+                        while tag.endswith((" ", "+", obj.SPACE_REPLACE, "/")):
                             tag = tag[:-1]
+                        if not obj.IS_CASE_SENSITIVE:
+                            tag = tag.lower()
 
                         if re.match(r"^(?:\s?[A-Za-z]\s)+$", tag):
                             raise ValueError("Tag %s was detected with spaces from url %s and pattern %s", tag, url, obj.TAG_PATTERN)
