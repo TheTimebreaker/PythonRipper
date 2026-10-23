@@ -26,6 +26,7 @@ import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
 from pythonripper.extractor import (
+    animepictures,
     artstation,
     danbooru,
     deviantart,
@@ -48,7 +49,6 @@ from pythonripper.toolbox.config import ConfigObject, config
 STOP = object()
 
 additional_keys = [
-    "animepictures",
     "artist-websites",
     "asmhentai",
     "doujinscom",
@@ -143,6 +143,7 @@ class WebsiteInfo(TypedDict):
 class CombinedFile:
     space_default = "_"
     websiteinfo: ClassVar[dict[str, WebsiteInfo]] = {
+        "animepictures": {"object": animepictures.AnimepicturesAPI},
         "artstation": {"object": artstation.ArtstationAPI},
         "danbooru": {"object": danbooru.DanbooruAPI},
         "deviantart-artists": {"object": deviantart.DeviantartArtistAPI},

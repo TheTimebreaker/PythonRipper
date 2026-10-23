@@ -17,7 +17,7 @@ import pythonripper.toolbox.scraperclasses as scraper
 
 
 @final
-class Animepictures(scraper.DownloadhistoryScraper):
+class AnimepicturesAPI(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://anime-pictures.net"
     API_URL = "https://api.anime-pictures.net/api"
     URL_TAG = "https://anime-pictures.net/posts?search_tag={tagname}&lang=en"

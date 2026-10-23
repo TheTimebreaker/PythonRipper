@@ -7,11 +7,11 @@ from pythonripper.toolbox.config import ConfigObject, config
 
 
 async def update_animepictures_artists(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, animepictures.Animepictures, "artists")
+    return await scraper.update_stuff(config, animepictures.AnimepicturesAPI, "artists")
 
 
 async def update_animepictures_tags(config: ConfigObject) -> bool:
-    return await scraper.update_stuff(config, animepictures.Animepictures, "tags")
+    return await scraper.update_stuff(config, animepictures.AnimepicturesAPI, "tags")
 
 
 async def main(config: ConfigObject) -> None:
