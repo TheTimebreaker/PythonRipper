@@ -1,15 +1,14 @@
 """Main module for interacting with https://anime-pictures.net/ ."""
 
+import asyncio
 import itertools
 import json
 import logging
-import re
 from collections.abc import AsyncGenerator
-from typing import Any, final
+from typing import Any, Literal, final, override
 
 import aiofiles
 import asynciolimiter
-import bs4
 import curl_cffi
 
 import pythonripper.toolbox.centralfunctions as cf
@@ -20,21 +19,24 @@ import pythonripper.toolbox.scraperclasses as scraper
 @final
 class Animepictures(scraper.DownloadhistoryScraper):
     HOMEPAGE = "https://anime-pictures.net"
-    API_URL = "https://anime-pictures.net/posts"
+    API_URL = "https://api.anime-pictures.net/api"
     URL_TAG = "https://anime-pictures.net/posts?search_tag={tagname}&lang=en"
     POST_PATTERN = r"(?:https?://)?(?:www\.)?anime-pictures\.net/posts/(\d+)"
     TAG_PATTERN = r"https://(?:www\.)?anime\-pictures\.net/posts\?(?:.+)?search_tag=([^/&\?]+)"
 
     ME = "animepictures"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.Limiter(0.5, max_burst=10)
+    LIMIT = asynciolimiter.Limiter(100)
     SPACE_REPLACE = "+"
+    page_start = 0
+
+    session: curl_cffi.AsyncSession
 
     async def init(self) -> bool:
         self.credentials_path = self.config.paths._credentials() / "animepictures_credentials.json"
         self.page_start = 0
-        self.download_headers = {"Cookie": "sitelang=en; kira=6"}
         self.session = curl_cffi.requests.AsyncSession(timeout=cf.asynctimeoutseconds(), impersonate="chrome142")
+        self.session.cookies.set("kira", "2", domain=".anime-pictures.net")
 
         async def _login() -> bool:
             try:
@@ -89,120 +91,165 @@ class Animepictures(scraper.DownloadhistoryScraper):
             return False
         return True
 
+    @override
     async def does_this_exist(self, tagname: str) -> bool:
-        await self.LIMIT.wait()
-        res = await self.session.get(self.API_URL, params={"page": 0, "search_tag": self.format_tagname(tagname), "lang": "en"})
-        return "in request 0 pictures" not in res.text
+        tagname = self.format_tagname(tagname)
+        api_url = self.API_URL + "/v3/posts"
+        params: dict[str, str | int] = {
+            "search_tag": tagname,
+            "lang": "en",
+        }
 
+        params["page"] = str(self.page_start)
+        res = await self.request(api_url, params=params)
+        resjson: dict[str, Any] = res.json()  # type: ignore
+        return bool(resjson.get("posts_count", 0) > 0)
+
+    @override
     async def does_this_have_posts(self, tagname: str) -> bool:
-        raise NotImplementedError()
+        # does_this_exist() already checks existance by checking post count.
+        # if it exists, it will have posts, because thats what defines "existing" it here
+        return True
+
+    async def request(self, url: str, params: dict[str, str | int] | None = None) -> curl_cffi.Response:
+        for i in (30, 30, 30, 30, 60, 60, 60, 60):
+            await self.LIMIT.wait()
+            res = await self.session.get(url, params=params)
+            if res.status_code == 429:
+                logging.warning("[%s] - Rate limited, waiting %s seconds", self.ME.upper(), i)
+                await asyncio.sleep(i)
+                continue
+            return res
+        raise cf.ExtractorStopError("Probably hit a hard rate limit")
 
     def format_tagname(self, tagname: str) -> str:
-        return tagname.replace(" ", self.SPACE_REPLACE).replace("/", "%2F")
+        return tagname.replace(" ", self.SPACE_REPLACE)
 
-    async def _get_post_data(self, post_id: str | None = None, _json_data: dict[Any, Any] | None = None) -> scraper.PostData:
-        async def _get_post_html(post_id: str) -> str:
-            url = f"{self.API_URL}/{post_id}"
-            await self.LIMIT.wait()
-            res = await self.session.get(url)
-            if res.status_code != 200:
-                logging.error("[%s] - Request to %s return status code %s", self.ME.upper(), url, res.status_code)
-                raise ConnectionRefusedError
-            logging.info("[%s] - Request to %s return status code %s", self.ME.upper(), url, res.status_code)
-            return str(res.text)
+    async def _get_post_data(self, post_id: str | None = None, json_data: dict[Any, Any] | None = None) -> scraper.PostData:
+        def _get_filehash(data: dict[Any, Any]) -> str:
+            try:
+                md5 = data.get("md5", None)
+                if not isinstance(md5, str):
+                    raise cf.InterruptError
+                return md5
 
-        def _filter_tags_by_type(
-            alltags: list[bs4.BeautifulSoup] | bs4.element.ResultSet,  # type: ignore
-            keys: str | list[str],
-        ) -> list[bs4.BeautifulSoup]:
-            """Filters a bs4 elements list of all tag <li>s by the <a>.child class key,
-            which determines the kind of tag (e.g. artist, character, etc)"""
-            if isinstance(keys, str):
-                keys = [keys]
-            return [item for item in alltags if any(item.find("a", {"class": key}) for key in keys)]
+            except cf.InterruptError as error:
+                msg = f"Could not get the md5 hash of post {post_id}"
+                logging.error("[%s] - %s", self.ME.upper(), msg)
+                raise cf.ExtractorSkipError(msg) from error
 
-        def _extract_tags_from_html(
-            tags_html: list[bs4.BeautifulSoup] | bs4.element.ResultSet,  # type: ignore
-        ) -> list[str]:
-            """Extracts tagnames as str from a list of tag <li>s"""
-            return [tag_html.find("a").contents[0] for tag_html in tags_html]  # type: ignore
+        def get_elements(data: dict[Any, Any], filehash: str) -> scraper.PostElementLinks:
+            try:
+                data_extension = data.get("ext", None)
+                if not isinstance(data_extension, str):
+                    raise cf.InterruptError
 
-        if post_id is None:
-            raise ValueError("No post id given. Other fetching methods are impossible.")
+                download_url = f"https://oimages.anime-pictures.net/{filehash[:3]}/{filehash}{data_extension}"
+                ext = f.match_extension(download_url)
+                if not ext:
+                    raise cf.InterruptError
+                return scraper.PostElementLinks(download_url=download_url, extension=ext)
 
-        soup = bs4.BeautifulSoup(await _get_post_html(post_id), "lxml")
-        all_tags_outer_html = soup.find("ul", {"class": "tags"})
-        all_tags_html = all_tags_outer_html.find_all("li")  # type: ignore
+            except cf.InterruptError as error:
+                msg = f"Could not extract download URL from post {post_id}"
+                logging.error("[%s] - %s", self.ME.upper(), msg)
+                raise cf.ExtractorSkipError(msg) from error
 
-        tagdata = scraper.TagsData(
-            artists=_extract_tags_from_html(_filter_tags_by_type(all_tags_html, "artist")),
-            characters=_extract_tags_from_html(_filter_tags_by_type(all_tags_html, "character")),
-            metatags=[],
-            parodies=_extract_tags_from_html(_filter_tags_by_type(all_tags_html, "copyright")),
-            tags=_extract_tags_from_html(_filter_tags_by_type(all_tags_html, ["reference", "object"])),
-        )
+        def _get_tags(data: dict[Any, Any]) -> scraper.TagsData:
+            try:
+                tags_data: list[dict[str, dict[str, str | int | None | Literal[False]]]] | None = data.get("tags", None)
+                if not isinstance(tags_data, list):
+                    raise cf.InterruptError
+                _artists: list[str] = []
+                _characters: list[str] = []
+                _meta: list[str] = []
+                _parodies: list[str] = []
+                _tags: list[str] = []
 
-        download_url_tmp = soup.find("a", {"class": "icon-download"})
-        if not download_url_tmp:
-            msg = f"[{self.ME.upper()}] - Post {post_id}: no download-url html element found ."
-            logging.error(msg)
-            raise cf.ExtractorSkipError(msg) from AttributeError
-        download_url = str(download_url_tmp["href"])
-        extension = f.match_extension(download_url)
-        if not extension:
-            msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
-            logging.error(msg)
-            raise cf.ExtractorSkipError(msg) from AttributeError
+                for tag in tags_data:
+                    tag_name: str | None = tag.get("tag", {}).get("tag", None)  # type: ignore
+                    tag_type: int | None = tag.get("tag", {}).get("type", None)  # type: ignore
+                    if tag_name is None or tag_type is None:
+                        raise cf.InterruptError
+                    match tag_type:
+                        case 1:
+                            _characters.append(tag_name)
+                        case 2 | 5 | 7:
+                            _tags.append(tag_name)
+                        case 3 | 6:
+                            _parodies.append(tag_name)
+                        case 4:
+                            _artists.append(tag_name)
+                        case _:
+                            logging.error(
+                                "[%s] - Could not determine tag type %s of tag %s for post %s", self.ME.upper(), tag_type, tag_name, post_id
+                            )
+
+                return scraper.TagsData(
+                    artists=_artists,
+                    characters=_characters,
+                    metatags=_meta,
+                    parodies=_parodies,
+                    tags=_tags,
+                )
+            except cf.InterruptError as error:
+                if self.config.settings.extractor.animepictures.always_fetch_tags is True:
+                    msg = f"Could not extract tags from post {post_id}"
+                    logging.error("[%s] - %s", self.ME.upper(), msg)
+                    raise cf.ExtractorSkipError(msg) from error
+                return scraper.TagsData(tags=[])
+
+        if json_data is None:
+            if post_id is None:
+                raise ValueError("Neither postid nor jsondata were given (one is required).")
+            res = await self.request(f"{self.API_URL}/v3/posts/{post_id}")
+            json_data = res.json().get("post")  # type: ignore
+            tag_data = res.json().get("tags")  # type: ignore
+            json_data["tags"] = tag_data
+        else:
+            post_id = str(json_data.get("id"))
+            if self.config.settings.extractor.animepictures.always_fetch_tags is True and not json_data.get("tags", False):
+                return await self._get_post_data(post_id)
+
+        filehash = _get_filehash(json_data)
+        elements = get_elements(json_data, filehash)
+        tags = _get_tags(json_data)
+
+        is_mature = json_data.get("erotics", 1) == 2
 
         return scraper.PostData(
             identifier=post_id,
-            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
-            tags=tagdata,
+            filehash=filehash,
+            elements=elements,
+            tags=tags,
+            rating="mature" if is_mature else "general",
         )
 
     async def _fetch_posts(
         self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
     ) -> AsyncGenerator[scraper.PostData]:
-        async def get_tag_html(tag_name: str, page: int) -> str:
-            params: dict[str, str | int] = {"page": page, "search_tag": tag_name, "lang": "en"}
-            logging.info("[%s] - %s  %s", self.ME.upper(), self.API_URL, params)
-            await self.LIMIT.wait()
-            res = await self.session.get(self.API_URL, params=params)
-            if res.status_code != 200:
-                logging.error("[%s] - Request to tag %s return status code %s", self.ME.upper(), tag_name, res.status_code)
-                raise ConnectionRefusedError
-            logging.info("[%s] - Request to tag %s return status code %s", self.ME.upper(), tag_name, res.status_code)
-            return str(res.text)
-
-        def _extract_postids_from_html(html: str) -> list[str]:
-            """Extracts post IDs as ints from html of tag page"""
-            soup = bs4.BeautifulSoup(html, "lxml")
-            all_imgs_outer_html = soup.find("div", {"class": "central-block"})
-            all_imgs_html = all_imgs_outer_html.find_all("div", {"class": "img-block"})  # type: ignore
-
-            postids: list[str] = []
-            for img_html in all_imgs_html:
-                tmp = img_html.find("a")
-                if tmp is None:
-                    raise ValueError("HTML element evaluated to None")
-                href = str(tmp["href"])
-                postid = re.search(r"/posts/(\d+)", href)
-                assert postid
-                postids.append(str(postid.group(1)))
-            return postids
-
         if update_ids is None:
             update_ids = []
 
         tagname = self.format_tagname(tagname)
+        api_url = self.API_URL + "/v3/posts"
+        params: dict[str, str | int] = {
+            "search_tag": tagname,
+            "lang": "en",
+        }
+
         for page in itertools.count(start=self.page_start):
-            post_ids = _extract_postids_from_html(await get_tag_html(tagname, page))
-            if len(post_ids) == 0:
-                logging.info("[%s] - End of tag %s reached; no more files reported.", self.ME.upper(), tagname)
+            params["page"] = str(page)
+            res = await self.request(api_url, params=params)
+            resjson: dict[str, Any] = res.json()  # type: ignore
+            posts: list[dict[str, Any]] = resjson.get("posts")  # type: ignore
+
+            if not posts:
                 return
 
-            for post_id in post_ids:
+            for post in posts:
+                post_id = str(post.get("id"))
                 if str(post_id) in update_ids:
                     logging.info("[%s] - Update ID encountered in tag %s .", self.ME.upper(), tagname)
                     return
-                yield await self._get_post_data(post_id)
+                yield await self._get_post_data(post_id=post_id, json_data=post)
