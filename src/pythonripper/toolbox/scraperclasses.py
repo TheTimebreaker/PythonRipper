@@ -68,8 +68,12 @@ class Scraper(ABC):
 
     def __init__(self, config: ConfigObject) -> None:
         self.config = config
+
         self.headers: dict[str, str] = {}
-        self.download_headers: dict[str, str] = {}
+        self.download_headers: dict[str, str] | None = None
+        self.cookies: list[dict[str, str]] | None = None
+        self.download_cookies: list[dict[str, str]] | None = None
+
         self.history: f.SqlDownloadHistory | None = None
         self.blacklist_tags: set[str] = set()
         self.init_blacklist()
@@ -330,6 +334,7 @@ class Scraper(ABC):
                 config=self.config,
                 url=download_url,
                 headers=self.download_headers,
+                cookies=self.download_cookies,
                 path=dpath,
                 filename=f"{filename}.{extension}",
             )

@@ -36,7 +36,9 @@ class Animepictures(scraper.DownloadhistoryScraper):
         self.credentials_path = self.config.paths._credentials() / "animepictures_credentials.json"
         self.page_start = 0
         self.session = curl_cffi.requests.AsyncSession(timeout=cf.asynctimeoutseconds(), impersonate="chrome142")
-        self.session.cookies.set("kira", "2", domain=".anime-pictures.net")
+        self.cookies = self.download_cookies = [{"name": "kira", "value": "2", "domain": ".anime-pictures.net"}]
+        for cookie in self.cookies:
+            self.session.cookies.set(**cookie)
 
         async def _login() -> bool:
             try:
