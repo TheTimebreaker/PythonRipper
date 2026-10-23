@@ -1,3 +1,4 @@
+from .extractor_animepictures import ExtractorAnimepicturesSettings
 from .extractor_artists import ExtractorArtistwebsitesSettings
 from .extractor_artstation import ExtractorArtstationSettings
 from .extractor_danbooru import ExtractorDanbooruSettings, DanbooruRatings

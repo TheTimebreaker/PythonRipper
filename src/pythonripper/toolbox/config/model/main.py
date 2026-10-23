@@ -7,6 +7,7 @@ from pydantic_gui_settings_editor import ConfigCollapeNestedSettings, SettingsMa
 
 from . import (
     ExclusionSettings,
+    ExtractorAnimepicturesSettings,
     ExtractorArtistwebsitesSettings,
     ExtractorArtstationSettings,
     ExtractorDanbooruSettings,
@@ -131,6 +132,7 @@ class GeneralSettings(StrictBaseModel):
 
 class ExtractorSettings(StrictBaseModel):
     artistwebsites: ExtractorArtistwebsitesSettings = Field(default_factory=ExtractorArtistwebsitesSettings)
+    animepictures: ExtractorAnimepicturesSettings = Field(default_factory=ExtractorAnimepicturesSettings)
     artstation: ExtractorArtstationSettings = Field(default_factory=ExtractorArtstationSettings)
     danbooru: ExtractorDanbooruSettings = Field(default_factory=ExtractorDanbooruSettings)
     deviantart: ExtractorDeviantartSettings = Field(default_factory=ExtractorDeviantartSettings)

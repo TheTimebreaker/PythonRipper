@@ -196,6 +196,7 @@ async def download_file(
     config: ConfigObject | None = None,
     url: str | None = None,
     headers: dict[str, str] | None = None,
+    cookies: list[dict[str, str]] | None = None,
     path: Path | None = None,
     filename: str = cf.id_generator(20),
     force_overwrite: bool = False,
@@ -233,8 +234,11 @@ async def download_file(
             elif url:
                 try:
                     logging.info("[DOWNLOAD_FILE] - no_impersonation flag set to: %s", no_impersonation)
-                    logging.info("[DOWNLOAD_FILE] - Impersonate: %s", None if no_impersonation else "chrome101")
-                    async with curl_cffi.requests.AsyncSession(impersonate=None if no_impersonation else "chrome101", headers=headers) as session:
+                    logging.info("[DOWNLOAD_FILE] - Impersonate: %s", None if no_impersonation else "chrome142")
+                    async with curl_cffi.requests.AsyncSession(impersonate=None if no_impersonation else "chrome142", headers=headers) as session:
+                        if cookies:
+                            for cookie in cookies:
+                                session.cookies.set(**cookie)
                         res = await session.get(url, timeout=cf.asynctimeoutseconds(), allow_redirects=True, http_version=1)
                 except curl_cffi.requests.exceptions.Timeout:
                     await asyncio.sleep(i)
