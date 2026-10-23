@@ -96,7 +96,7 @@ class Scraper(ABC):
             match self.ME:
                 case "akairiot":
                     bonus_tags = set()
-                case "animepictures":  # TODO
+                case "animepictures":
                     bonus_tags = set()
                 case "artstation":
                     bonus_tags = {"ai", "aigenerated", "midjourney", "createdwithaI"}
