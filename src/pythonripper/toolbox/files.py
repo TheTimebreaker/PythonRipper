@@ -198,7 +198,7 @@ async def atomic_write(
 
 
 async def download_file(
-    config: ConfigObject | None = None,
+    config: ConfigObject,
     url: str | None = None,
     headers: dict[str, str] | None = None,
     cookies: list[dict[str, str]] | None = None,
@@ -209,6 +209,21 @@ async def download_file(
     no_impersonation: bool = False,
 ) -> bool:  # Return True/False, depending on whether request was successful or not
     """Function, that downloads FILENAME to PATH/FILENAME found at URL using HEADERS/COOKIES in it's HTML request. Returns bool for success/failure"""
+
+    async def on_the_fly_convert(path: Path) -> None:
+        sett = config.settings.general.image_conversion_settings
+        if not sett.convert_while_downloading:
+            return
+        await image_converter_async(
+            file=path,
+            goal_format=sett.target_format,
+            delete_source=True,
+            file_deletion_mode=config.settings.general.file_deletion_mode,
+            quality_setting=sett.target_quality,
+            dimension_limiter=sett.limit_dimensions,
+            dimension_limiter_value=sett.limit_dimensions_value,
+        )
+
     if config is None:
         raise ValueError
     if headers is None:
@@ -234,6 +249,7 @@ async def download_file(
         for i in range(5, 60, 5):
             if request_content:
                 await atomic_write(path_to_filename, request_content)
+                await on_the_fly_convert(path_to_filename)
                 logging.debug("Download of file url %s successful.", url)
                 return True
             elif url:
@@ -258,6 +274,7 @@ async def download_file(
                     return False
                 if res and res.status_code == 200:
                     await atomic_write(path_to_filename, res.content)
+                    await on_the_fly_convert(path_to_filename)
                     logging.debug("Download of file url %s successful.", url)
                     return True
                 elif res.status_code in (403, 404):  # these codes are important enough for an ERROR msg
@@ -363,11 +380,11 @@ def image_converter_sync(
             img = img.convert("RGB")
             img.save(file_converted, quality=quality_setting)
         elif goal_format == ".jxl":
-            lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
             if file_suffix == ".jpg":
+                lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
                 img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps, effort=10)
             else:
-                img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps)
+                img.save(file_converted, quality=quality_setting)
 
         else:
             raise NotImplementedError("This code branch should be impossible to reach!")

@@ -43,7 +43,7 @@ class ImageConversionSettings(StrictBaseModel):
         title="Convert files during processing of downloads",
         description="Choose whether the application should convert any downloaded image files according to the below settings.",
     )
-    process_while_downloading: bool = Field(
+    convert_while_downloading: bool = Field(
         default=True,
         title="Convert files during the downloading",
         description=(
