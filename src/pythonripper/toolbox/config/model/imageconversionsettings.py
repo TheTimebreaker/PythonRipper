@@ -40,13 +40,21 @@ class DimensionLimit(StrEnum):
 class ImageConversionSettings(StrictBaseModel):
     enabled: bool = Field(
         default=True,
-        title="Enable file conversion during processing of downloads.",
+        title="Convert files during processing of downloads",
         description="Choose whether the application should convert any downloaded image files according to the below settings.",
     )
+    convert_while_downloading: bool = Field(
+        default=True,
+        title="Convert files during the downloading",
+        description=(
+            "Will convert files according to these settings as soon as the files are downloaded. "
+            "Will significantly reduce disk size at the cost of downloads taking longer."
+        ),
+    )
     target_format: ImageFormat = Field(
-        default=Format.JPEG,
+        default=Format.JPEGXL,
         title="Set target file format",
-        description="Set the target format for image file conversions. This does not affect downloads.",
+        description="Set the target format for image file conversions. This does not affect which files are downloaded.",
     )
     target_quality: int = Field(
         default=90,
@@ -54,8 +62,18 @@ class ImageConversionSettings(StrictBaseModel):
         le=100,
         title="Set target file quality",
         description=(
-            "Set the target file quality for image file conversions. This does not affect downloads. "
+            "Set the target file quality for image file conversions. This does not affect which files are downloaded. "
             "This is only relevant if the target format supports a quality setting for conversions."
+        ),
+    )
+    lossless_container_swaps: bool = Field(
+        default=True,
+        title="Enable lossless container swapping",
+        description=(
+            "Some file conversions between lossy formats (e.g. jpeg <-> jxl) allow lossless transposing."
+            "This will prevent recompressing an already compressed file again, greatly reducing perceived quality."
+            "It is NOT storing an uncompressed file in any way. "
+            "This just prevents reducing the quality further by compressing the same file again and again"
         ),
     )
     limit_dimensions: DimensionLimit = Field(

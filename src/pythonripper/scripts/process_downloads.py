@@ -8,16 +8,13 @@ from pathlib import Path
 from typing import Any, Self
 
 import duplicate_image_finder as dif
-import imagesize
-from PIL import Image, UnidentifiedImageError
-from psd_tools import PSDImage
 from send2trash import send2trash
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.subscription_management as sm
 from pythonripper.toolbox.config import ConfigObject, config
-from pythonripper.toolbox.config.model import DimensionLimit, FileDeletionMode, alternative_extensions
+from pythonripper.toolbox.config.model import FileDeletionMode
 
 
 class ExitError(Exception):
@@ -200,9 +197,10 @@ class Worker:
                 for i, file in enumerate(list_files):
                     if cf.progress_bar_timed(lasttime, timing_seconds, i + 1, len_list_files, "Converting files"):
                         lasttime = time.time()
-                    image_converter(
+                    f.image_converter_sync(
                         file,
                         goal_format=settings.target_format,
+                        file_deletion_mode=self.config.settings.general.file_deletion_mode,
                         delete_source=True,
                         quality_setting=settings.target_quality,
                         dimension_limiter=settings.limit_dimensions,
@@ -341,135 +339,6 @@ class Worker:
         print(f"Checking for duplicates in {paths}.")
         dif.find_and_delete_duplicates(paths, "rm", ("pixel_count", "descending"), ("is_file", "descending"), ("filesize", "descending"))
         print("=" * 25)
-
-
-def image_converter(
-    file: Path,
-    goal_format: str,
-    delete_source: bool,
-    quality_setting: int,
-    dimension_limiter: DimensionLimit,
-    dimension_limiter_value: int = 65535,
-) -> None:
-    Image.MAX_IMAGE_PIXELS = None
-
-    def resize_if_needed(img: Image.Image) -> Image.Image:
-        width, height = img.size
-        shortest_side = min(width, height)
-        longest_side = max(width, height)
-
-        if dimension_limiter == DimensionLimit.LIMIT_HEIGHT:
-            scale = dimension_limiter_value / height
-        elif dimension_limiter == DimensionLimit.LIMIT_WIDTH:
-            scale = dimension_limiter_value / width
-        elif dimension_limiter == DimensionLimit.LIMIT_LONGER_SIDE:
-            scale = dimension_limiter_value / longest_side
-        elif dimension_limiter == DimensionLimit.LIMIT_SHORTER_SIDE:
-            scale = dimension_limiter_value / shortest_side
-
-        if scale > 1:  # Only downscaling allowed!
-            logging.info("Not downscaling %s , because its dimensions are too small.", file)
-            return img
-
-        new_width = round(width * scale)
-        new_height = round(height * scale)
-
-        logging.info("Downscaling '%s': %sx%s -> %sx%s", file, width, height, new_width, new_height)
-
-        return img.resize(
-            (new_width, new_height),
-            Image.Resampling.LANCZOS,
-        )
-
-    def funnel(
-        img: Image.Image,
-    ) -> Path:
-        file_converted = file.with_name(f"{file.stem}{goal_format}")
-        if file_converted.is_file():
-            if file == file_converted and delete_source:
-                pass
-            else:
-                file_converted = file_converted.with_name(f"{file.stem}-{cf.id_generator()}.{goal_format}")
-
-        img = resize_if_needed(img)
-
-        if goal_format == ".png":
-            img.save(file_converted)
-        elif goal_format == ".jpg":
-            img = img.convert("RGB")
-            img.save(file_converted, quality=quality_setting)
-        else:
-            raise NotImplementedError("This code branch should be impossible to reach!")
-        return file_converted
-
-    def swap_alt_extensions(original_extension: str) -> str:
-        for extension, mapped in alternative_extensions.items():
-            if original_extension == extension:
-                return mapped
-        return original_extension
-
-    def is_conversion_needed() -> bool:
-        if not file_is_goalformat:
-            return True
-        if dimension_limiter == DimensionLimit.UNLIMITED:
-            return False
-
-        width, height = imagesize.get(file)
-        if dimension_limiter == DimensionLimit.LIMIT_HEIGHT:
-            return bool(height > dimension_limiter_value)
-        elif dimension_limiter == DimensionLimit.LIMIT_WIDTH:
-            return bool(width > dimension_limiter_value)
-        elif dimension_limiter == DimensionLimit.LIMIT_LONGER_SIDE:
-            return bool(max(width, height) > dimension_limiter_value)
-        elif dimension_limiter == DimensionLimit.LIMIT_SHORTER_SIDE:
-            return bool(min(width, height) > dimension_limiter_value)
-        else:
-            return False
-
-    supported_formats = {".png", ".jpg", ".bmp", ".webp", ".tiff", ".gif", ".psd"}
-    file_suffix = swap_alt_extensions(file.suffix.lower())
-    goal_format = swap_alt_extensions(goal_format)
-    file_is_goalformat = file_suffix == goal_format
-
-    if file_suffix not in supported_formats:
-        logging.warning("No image conversion supported for %s files. Skipping file %s", file_suffix, file)
-        return
-
-    try:
-        conversion = is_conversion_needed()
-        logging.info(conversion)
-        if not conversion:
-            return
-
-        new_file: Path
-        if file_suffix == ".psd":
-            psd = PSDImage.open(file)
-            new_file = funnel(psd.composite())
-        elif file_suffix in supported_formats:
-            with Image.open(file) as img:
-                new_file = funnel(img)
-        else:
-            raise NotImplementedError("This code branch should be impossible to reach!")
-
-        if file == new_file:
-            return
-        elif delete_source and config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
-            send2trash(file)
-        elif delete_source and config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
-            file.unlink(missing_ok=True)
-
-    except BrokenPipeError:
-        logging.error("BrokenPipeError: '%s'", file)
-    except UnidentifiedImageError:
-        logging.error("UnidentifiedImageError: '%s'", file)
-    except PermissionError:
-        logging.error("PermissionError: '%s'", file)
-    except SyntaxError:
-        logging.error("SyntaxError: '%s'", file)
-    except ValueError:
-        logging.error("ValueError: '%s'", file)
-    except OSError:
-        logging.error("OSError: '%s'", file)
 
 
 async def main() -> None:

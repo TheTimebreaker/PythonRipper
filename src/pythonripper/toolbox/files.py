@@ -17,10 +17,15 @@ import aiofiles
 import aiofiles.ospath as aiopath
 import aioshutil
 import curl_cffi
+import imagesize
+import pillow_jxl  # noqa: F401
+from PIL import Image, UnidentifiedImageError
+from psd_tools import PSDImage
+from send2trash import send2trash
 
 import pythonripper.toolbox.centralfunctions as cf
-from pythonripper.toolbox.config import ConfigObject
-from pythonripper.toolbox.config.model.shared_model_data import alternative_extensions
+from pythonripper.toolbox.config import ConfigObject, config
+from pythonripper.toolbox.config.model import DimensionLimit, FileDeletionMode, alternative_extensions
 
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:
@@ -193,7 +198,7 @@ async def atomic_write(
 
 
 async def download_file(
-    config: ConfigObject | None = None,
+    config: ConfigObject,
     url: str | None = None,
     headers: dict[str, str] | None = None,
     cookies: list[dict[str, str]] | None = None,
@@ -203,7 +208,22 @@ async def download_file(
     request_content: bytes | None = None,
     no_impersonation: bool = False,
 ) -> bool:  # Return True/False, depending on whether request was successful or not
-    """Function, that downloads FILENAME to PATH/FILENAME found at URL using HEADERS in it's HTML request. Returns bool for success/failure"""
+    """Function, that downloads FILENAME to PATH/FILENAME found at URL using HEADERS/COOKIES in it's HTML request. Returns bool for success/failure"""
+
+    async def on_the_fly_convert(path: Path) -> None:
+        sett = config.settings.general.image_conversion_settings
+        if not sett.convert_while_downloading:
+            return
+        await image_converter_async(
+            file=path,
+            goal_format=sett.target_format,
+            delete_source=True,
+            file_deletion_mode=config.settings.general.file_deletion_mode,
+            quality_setting=sett.target_quality,
+            dimension_limiter=sett.limit_dimensions,
+            dimension_limiter_value=sett.limit_dimensions_value,
+        )
+
     if config is None:
         raise ValueError
     if headers is None:
@@ -229,6 +249,7 @@ async def download_file(
         for i in range(5, 60, 5):
             if request_content:
                 await atomic_write(path_to_filename, request_content)
+                await on_the_fly_convert(path_to_filename)
                 logging.debug("Download of file url %s successful.", url)
                 return True
             elif url:
@@ -253,6 +274,7 @@ async def download_file(
                     return False
                 if res and res.status_code == 200:
                     await atomic_write(path_to_filename, res.content)
+                    await on_the_fly_convert(path_to_filename)
                     logging.debug("Download of file url %s successful.", url)
                     return True
                 elif res.status_code in (403, 404):  # these codes are important enough for an ERROR msg
@@ -277,6 +299,165 @@ async def download_file(
         logging.error("Download of file url %s failed due to HTML response.", url)
         return False
     return True
+
+
+async def image_converter_async(
+    file: Path,
+    goal_format: str,
+    delete_source: bool,
+    file_deletion_mode: FileDeletionMode,
+    quality_setting: int,
+    dimension_limiter: DimensionLimit,
+    dimension_limiter_value: int = 65535,
+) -> None:
+    Image.MAX_IMAGE_PIXELS = None
+    return await asyncio.to_thread(
+        image_converter_sync,
+        file=file,
+        goal_format=goal_format,
+        delete_source=delete_source,
+        file_deletion_mode=file_deletion_mode,
+        quality_setting=quality_setting,
+        dimension_limiter=dimension_limiter,
+        dimension_limiter_value=dimension_limiter_value,
+    )
+
+
+def image_converter_sync(
+    file: Path,
+    goal_format: str,
+    delete_source: bool,
+    file_deletion_mode: FileDeletionMode,
+    quality_setting: int,
+    dimension_limiter: DimensionLimit,
+    dimension_limiter_value: int = 65535,
+) -> None:
+    Image.MAX_IMAGE_PIXELS = None
+
+    def resize_if_needed(img: Image.Image) -> Image.Image:
+        width, height = img.size
+        shortest_side = min(width, height)
+        longest_side = max(width, height)
+
+        if dimension_limiter == DimensionLimit.LIMIT_HEIGHT:
+            scale = dimension_limiter_value / height
+        elif dimension_limiter == DimensionLimit.LIMIT_WIDTH:
+            scale = dimension_limiter_value / width
+        elif dimension_limiter == DimensionLimit.LIMIT_LONGER_SIDE:
+            scale = dimension_limiter_value / longest_side
+        elif dimension_limiter == DimensionLimit.LIMIT_SHORTER_SIDE:
+            scale = dimension_limiter_value / shortest_side
+
+        if scale > 1:  # Only downscaling allowed!
+            logging.info("Not downscaling %s , because its dimensions are too small.", file)
+            return img
+
+        new_width = round(width * scale)
+        new_height = round(height * scale)
+
+        logging.info("Downscaling '%s': %sx%s -> %sx%s", file, width, height, new_width, new_height)
+
+        return img.resize(
+            (new_width, new_height),
+            Image.Resampling.LANCZOS,
+        )
+
+    def funnel(
+        img: Image.Image,
+    ) -> Path:
+        file_converted = file.with_name(f"{file.stem}{goal_format}")
+        if file_converted.is_file():
+            if file == file_converted and delete_source:
+                pass
+            else:
+                file_converted = file_converted.with_name(f"{file.stem}-{cf.id_generator()}.{goal_format}")
+
+        img = resize_if_needed(img)
+
+        if goal_format == ".png":
+            img.save(file_converted)
+        elif goal_format == ".jpg":
+            img = img.convert("RGB")
+            img.save(file_converted, quality=quality_setting)
+        elif goal_format == ".jxl":
+            if file_suffix == ".jpg":
+                lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
+                img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps, effort=10)
+            else:
+                img.save(file_converted, quality=quality_setting)
+
+        else:
+            raise NotImplementedError("This code branch should be impossible to reach!")
+        return file_converted
+
+    def swap_alt_extensions(original_extension: str) -> str:
+        for extension, mapped in alternative_extensions.items():
+            if original_extension == extension:
+                return mapped
+        return original_extension
+
+    def is_conversion_needed() -> bool:
+        if not file_is_goalformat:
+            return True
+        if dimension_limiter == DimensionLimit.UNLIMITED:
+            return False
+
+        width, height = imagesize.get(file)
+        if dimension_limiter == DimensionLimit.LIMIT_HEIGHT:
+            return bool(height > dimension_limiter_value)
+        elif dimension_limiter == DimensionLimit.LIMIT_WIDTH:
+            return bool(width > dimension_limiter_value)
+        elif dimension_limiter == DimensionLimit.LIMIT_LONGER_SIDE:
+            return bool(max(width, height) > dimension_limiter_value)
+        elif dimension_limiter == DimensionLimit.LIMIT_SHORTER_SIDE:
+            return bool(min(width, height) > dimension_limiter_value)
+        else:
+            return False
+
+    supported_formats = {".png", ".jpg", ".bmp", ".webp", ".tiff", ".gif", ".psd"}
+    file_suffix = swap_alt_extensions(file.suffix.lower())
+    goal_format = swap_alt_extensions(goal_format)
+    file_is_goalformat = file_suffix == goal_format
+
+    if file_suffix not in supported_formats:
+        logging.warning("No image conversion supported for %s files. Skipping file %s", file_suffix, file)
+        return
+
+    try:
+        conversion = is_conversion_needed()
+        logging.info(conversion)
+        if not conversion:
+            return
+
+        new_file: Path
+        if file_suffix == ".psd":
+            psd = PSDImage.open(file)
+            new_file = funnel(psd.composite())
+        elif file_suffix in supported_formats:
+            with Image.open(file) as img:
+                new_file = funnel(img)
+        else:
+            raise NotImplementedError("This code branch should be impossible to reach!")
+
+        if file == new_file:
+            return
+        elif delete_source and file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+            send2trash(file)
+        elif delete_source and file_deletion_mode == FileDeletionMode.PERMANENT:
+            file.unlink(missing_ok=True)
+
+    except BrokenPipeError:
+        logging.error("BrokenPipeError: '%s'", file)
+    except UnidentifiedImageError:
+        logging.error("UnidentifiedImageError: '%s'", file)
+    except PermissionError:
+        logging.error("PermissionError: '%s'", file)
+    except SyntaxError:
+        logging.error("SyntaxError: '%s'", file)
+    except ValueError:
+        logging.error("ValueError: '%s'", file)
+    except OSError:
+        logging.error("OSError: '%s'", file)
 
 
 async def download_text(config: ConfigObject, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:
