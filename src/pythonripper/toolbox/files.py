@@ -18,12 +18,13 @@ import aiofiles.ospath as aiopath
 import aioshutil
 import curl_cffi
 import imagesize
+import pillow_jxl  # noqa: F401
 from PIL import Image, UnidentifiedImageError
 from psd_tools import PSDImage
 from send2trash import send2trash
 
 import pythonripper.toolbox.centralfunctions as cf
-from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config import ConfigObject, config
 from pythonripper.toolbox.config.model import DimensionLimit, FileDeletionMode, alternative_extensions
 
 
@@ -361,6 +362,12 @@ def image_converter_sync(
         elif goal_format == ".jpg":
             img = img.convert("RGB")
             img.save(file_converted, quality=quality_setting)
+        elif goal_format == ".jxl":
+            lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
+            if file_suffix == ".jpg":
+                img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps, effort=10)
+            else:
+                img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps)
 
         else:
             raise NotImplementedError("This code branch should be impossible to reach!")
