@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 import re
@@ -7,9 +8,11 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast, final
 
+import aiofiles.ospath as aiopath
 import asynciolimiter
 import asyncstdlib
 import curl_cffi
+import ffmpeg
 import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
@@ -321,10 +324,72 @@ class Scraper(ABC):
         return filename
 
     async def _download_post_from_postelem_perwebsite(self, data: PostElementData, dpath: Path, filename: str) -> bool:
+        """Placeholder function for websites/classes who overwrite the entire downloading code with their own."""
         raise NotImplementedError()
 
     async def _download_post_from_postelem_savelink(self, data: PostElementSavelink, dpath: Path, filename: str) -> bool:
         return await f.download_link(self.config, data["savelink"], (dpath / f.verify_filename(filename)).with_suffix(".txt"))
+
+    async def _download_post_from_postelem_video(self, data: PostElementVideoDownloadLinks, dpath: Path, filename: str) -> bool:
+        def merge_av_ffmpeg(path_video: Path, path_audio: Path, path_out: Path) -> None:
+            ffmpeg.output(
+                ffmpeg.input(str(path_video)),
+                ffmpeg.input(str(path_audio)),
+                str(path_out),
+                vcodec="copy",
+                acodec="aac",
+            ).run(overwrite_output=True)
+
+        async def merge_av_ffmpeg_async(path_video: Path, path_audio: Path, path_out: Path) -> None:
+            await asyncio.to_thread(merge_av_ffmpeg, path_video, path_audio, path_out)
+
+        audio_url = data["audio_url"]
+        video_url = data["video_url"]
+        extension = data["extension"]
+        if self.config.settings.general.overwrite_existing_files or not await aiopath.isfile(dpath / f"{filename}.{extension}"):
+            video_filename_temp = f"-temp-video.{extension}"
+            audio_filename_temp = f"-temp-audio.{extension}"
+            args: dict[str, Any] = {
+                "headers": self.download_headers,
+                "cookies": self.download_cookies,
+                "path": dpath,
+                "filename": video_filename_temp,
+                "force_overwrite": True,
+                "no_impersonation": self.DOWNLOAD_NOIMPERSONATION,
+            }
+
+            await self.LIMIT.wait()
+            video = await f.download_file(self.config, url=video_url, **args)
+            await self.LIMIT.wait()
+            audio = await f.download_file(self.config, url=audio_url, **args)
+
+            if video and audio:
+                path_video = dpath / f"-temp-video.{extension}"
+                path_audio = dpath / f"-temp-audio.{extension}"
+                path_out = dpath / f"{filename}.{extension}"
+                await merge_av_ffmpeg_async(path_video, path_audio, path_out)
+                path_video.unlink()
+                path_audio.unlink()
+                return True
+            elif video:
+                (dpath / video_filename_temp).replace(dpath / f"{filename}.{extension}")
+                logging.warning(
+                    "[%s] - Audio file not downloaded, video file renamed to output name. (some videos dont have an audio stream)", self.ME.upper()
+                )
+                return True
+
+            elif audio:
+                (dpath / audio_filename_temp).replace(dpath / f"{filename}.{extension}")
+                logging.error("[%s] - Video file not downloaded, audio file renamed to output name. (this shouldn't happen)", self.ME.upper())
+                return False
+
+            else:
+                logging.error(
+                    "[%s] - Skipped, because neither video nor audio could be downloaded.",
+                    self.ME.upper(),
+                )
+                return False
+        return True
 
     async def _download_post_from_postelem(
         self, data: PostElement | PostElementDownloadLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
@@ -363,8 +428,13 @@ class Scraper(ABC):
                 return True
             return await f.download_text(config=self.config, directory=dpath, filename=f"{filename}.txt", content=data["text"])
 
+        # PostElementVideoDownloadLinks
+        elif data.get("audio_url") and data.get("video_url"):
+            data = cast(PostElementVideoDownloadLinks, data)
+            return await self._download_post_from_postelem_video(data, dpath, filename)
+
         else:
-            raise NotImplementedError()  # TODO(TheTimebreaker): PostElementVideoDownloadLinks
+            raise NotImplementedError()
 
     def match_postid_from_url(self, url: str) -> list[str]:
         pattern = self.POST_PATTERN
