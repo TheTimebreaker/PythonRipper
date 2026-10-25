@@ -19,23 +19,6 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 import pythonripper.toolbox.scraperclasses as scraper
-from pythonripper.extractor import (
-    animepictures,
-    artstation,
-    danbooru,
-    deviantart,
-    gelbooru,
-    hentaifoundry,
-    hypnohub,
-    kusowanka,
-    newgrounds,
-    pixiv,
-    rule34paheal,
-    rule34us,
-    rule34xxx,
-    tumblr,
-    yandere,
-)
 
 
 @final
@@ -81,36 +64,8 @@ class RedditAPI(scraper.TaggableScraper):
     SPACE_REPLACE = "_"
 
     session: curl_cffi.AsyncSession
-    third_party_save_link: list[str]
-    third_party_ignore: list[str]
-    third_party_download: list[str]
 
     async def init(self) -> bool:
-        async def read_third_party_link_settings() -> bool:
-            self.third_party_save_link = []
-            self.third_party_ignore = []
-            self.third_party_download = []
-            data: dict[str, Any] = self.config.settings.extractor.reddit
-            try:
-                reddit_data = data["extractor"]["reddit"]
-                third_party_data: dict[str, Literal["save_link", "ignore", "download"]] = reddit_data["third_party_links"]
-                for website, setting in third_party_data.items():
-                    match setting:
-                        case "download":
-                            self.third_party_download.append(website)
-                        case "ignore":
-                            self.third_party_ignore.append(website)
-                        case "save_link":
-                            self.third_party_save_link.append(website)
-                        case _:
-                            raise ValueError(
-                                "Some third party website settings were invalid. They must be set to either"
-                                "'download', 'ignore' or 'save_link' EXACTLY."
-                            )
-            except KeyError:
-                return False
-            return True
-
         self.jar_path = self.config.paths._credentials() / "reddit_cookies.txt"
         self.jar = MozillaCookieJar()
         self.session = curl_cffi.AsyncSession(timeout=cf.asynctimeoutseconds(), impersonate="chrome146")
@@ -144,8 +99,6 @@ class RedditAPI(scraper.TaggableScraper):
             res = await self.session.get(test_url)
             return res.status_code == 200
 
-        # if not await read_third_party_link_settings():
-        #     return False
         if not read_cookie_file():
             logging.warning("[%s] - Reading cookie file failed!", self.ME.upper())
             return False
@@ -202,12 +155,10 @@ class RedditAPI(scraper.TaggableScraper):
 
         post_id = json_data["id"]
         source = json_data["subreddit"]
-        # title = json_data["title"]
 
         result = scraper.PostData(
             identifier=post_id,
             source=source,
-            # title=title,
             elements=scraper.PostElementData(data=json_data),
         )
 
@@ -498,58 +449,6 @@ class RedditAPI(scraper.TaggableScraper):
             )
         return downloaded_counter == counter + 1  # +1 because counter is enum, not length
 
-    async def _download_post_image_per_website(self, download_url: str, dpath: Path, filename: str) -> bool:
-        success: bool = False
-        if "anime-pictures" in download_url:
-            logging.info("[%s] - Detected anime-pictures link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, animepictures.AnimepicturesAPI, download_url, dpath, filename)
-        elif "artstation" in download_url:
-            logging.info("[%s] - Detected artstation link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, artstation.ArtstationAPI, download_url, dpath, filename)
-        elif "danbooru" in download_url or "donmai" in download_url:
-            logging.info("[%s] - Detected danbooru link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, danbooru.DanbooruAPI, download_url, dpath, filename)
-        elif "deviantart" in download_url:
-            logging.info("[%s] - Detected deviantart link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, deviantart.DeviantartArtistAPI, download_url, dpath, filename)
-        elif "gelbooru.com" in download_url:
-            logging.info("[%s] - Detected gelbooru.com link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, gelbooru.GelbooruAPI, download_url, dpath, filename)
-        elif "hentai-foundry.com" in download_url:
-            logging.info("[%s] - Detected hentai-foundry.com link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, hentaifoundry.HentaiFoundryArtist, download_url, dpath, filename)
-        elif "hypnohub.net" in download_url:
-            logging.info("[%s] - Detected hypnohub.net link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, hypnohub.HypnohubAPI, download_url, dpath, filename)
-        elif "kusowanka.com" in download_url:
-            logging.info("[%s] - Detected kusowanka.com link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, kusowanka.KusowankaAPI, download_url, dpath, filename)
-        elif "newgrounds" in download_url:
-            logging.info("[%s] - Detected newgrounds link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, newgrounds.NewgroundsArtAPI, download_url, dpath, filename)
-        elif any(term in download_url for term in ("pximg", "pixiv")):
-            logging.info("[%s] - Detected pixiv link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, pixiv.PixivArtistAPI, download_url, dpath, filename)
-        elif "rule34.paheal.net" in download_url:
-            logging.info("[%s] - Detected rule34.paheal.net link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, rule34paheal.Rule34pahealAPI, download_url, dpath, filename)
-        elif "rule34.us" in download_url:
-            logging.info("[%s] - Detected rule34.us link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, rule34us.Rule34usAPI, download_url, dpath, filename)
-        elif "rule34.xxx" in download_url:
-            logging.info("[%s] - Detected rule34.xxx link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, rule34xxx.Rule34xxxAPI, download_url, dpath, filename)
-        elif "tumblr" in download_url:
-            logging.info("[%s] - Detected tumblr link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, tumblr.TumblrAPI, download_url, dpath, filename)
-        elif "yande.re" in download_url:
-            logging.info("[%s] - Detected yande.re link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, yandere.YandereAPI, download_url, dpath, filename)
-        else:
-            logging.error("[%s] - No image download wrapper for %s .", self.ME.upper(), download_url)
-            success = False
-        return success
-
     async def download_post_image(self, post_data: dict[Any, Any], dpath: Path, filename: str) -> bool:
         download_url, extension = self.get_download_urls_image(post_data)
         success: bool = False
@@ -570,29 +469,13 @@ class RedditAPI(scraper.TaggableScraper):
                 no_impersonation=True,
             )
 
-        ### Writes links to file according to settings
-        elif any(domain in download_url for domain in self.third_party_save_link):
-            logging.info("[%s] - Writing a link to file according to settings.", self.ME.upper())
-            await self.LIMIT.wait()
-            return await f.download_file(self.config, download_url, headers=self.headers, no_impersonation=True)
-
-        ### Skips links according to settings
-        elif any(skip in download_url for skip in self.third_party_ignore):
-            logging.info("[%s] - Skipped URL according to settings (skipped domain found).", self.ME.upper())
-            return True
-
-        ### Downloads third-party links according to settings
-        elif any(download in download_url for download in self.third_party_download):
-            logging.info("[%s] - Downloading third-party URL according to settings.", self.ME.upper())
-            success = await self._download_post_image_per_website(download_url, dpath, filename)
-
         elif download_url == "":
             logging.info("[%s] - Skipped, because no URL was found. Often due to deleted posts.", self.ME.upper())
             return True
 
         else:
-            logging.error("[%s] - Downloading third-party URL %s , despite it not being mentioned in the settings.", self.ME.upper(), download_url)
-            success = await self._download_post_image_per_website(download_url, dpath, filename)
+            logging.error("[%s] - Third party URL detected: %s . Can't be processed.", self.ME.upper(), download_url)
+            success = True
 
         if success == "404":
             success = False

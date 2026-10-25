@@ -4,6 +4,7 @@ from .extractor_artstation import ExtractorArtstationSettings
 from .extractor_danbooru import ExtractorDanbooruSettings, DanbooruRatings
 from .extractor_deviantart import ExtractorDeviantartSettings
 from .extractor_furry34 import ExtractorFurry34Settings
+from .extractor_reddit import ExtractorRedditSettings
 from .extractor_gelbooru import ExtractorGelbooruSettings, GelbooruRatings
 from .extractor_hypnohub import ExtractorHypnohubSettings, HypnohubRatings
 from .extractor_hentaifoundry import ExtractorHentaifoundrySettings
