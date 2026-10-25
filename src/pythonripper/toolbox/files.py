@@ -384,7 +384,7 @@ def image_converter_sync(
 
             if file_suffix == ".jpg":
                 lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
-                img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps)
+                img.save(file_converted, quality=quality_setting, allow_jpeg_reconstruction=True, lossless_jpeg=lossless_container_swaps)
             else:
                 img.save(file_converted, quality=quality_setting)
 
