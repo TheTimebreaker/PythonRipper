@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 from pathlib import Path
+import random
 from typing import Literal
 
 import aiofiles
@@ -20,10 +21,11 @@ async def update_reddit_artists(config: ConfigObject) -> bool:
 
 
 async def update_reddit_subs(config: ConfigObject) -> bool:
-    # async with aiofiles.open(config.paths.reddit_subs_path()) as file:
-    #     content = await file.read()
-    #     subs = content.split("\n")
-    subs = ["r/2Booty"]
+    async with aiofiles.open(config.paths.reddit_subs_path()) as file:
+        content = await file.read()
+        subs = content.split("\n")
+    subs = [sub.lower() for sub in subs]
+    random.shuffle(subs)
 
     return await scraper.update_stuff(config, reddit.RedditAPI, "tags", tag_set=set(subs))
 

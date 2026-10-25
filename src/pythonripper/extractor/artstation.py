@@ -98,7 +98,7 @@ class ArtstationAPI(scraper.TaggableScraper):
                 msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {url} without a valid extension ."
                 logging.error(msg)
                 raise cf.ExtractorSkipError(msg) from AttributeError
-            elements.append(scraper.PostElementLinks(download_url=url, extension=extension))
+            elements.append(scraper.PostElementDownloadLinks(download_url=url, extension=extension))
         post_hash = data["id"]
 
         is_mature = data.get("hide_as_adult", False)

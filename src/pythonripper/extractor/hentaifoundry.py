@@ -137,7 +137,7 @@ class HentaiFoundryRoot(scraper.DownloadhistoryScraper):
                         identifier=post_id,
                         source=username,
                         title=post_title,
-                        elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+                        elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension),
                     )
 
         logging.error("[%s] - No download link for post id %s could be found.", self.ME.upper(), post_id)

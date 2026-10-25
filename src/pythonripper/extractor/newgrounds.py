@@ -196,7 +196,7 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
                 msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
                 logging.error(msg)
                 raise cf.ExtractorSkipError(msg) from AttributeError
-            elements.append(scraper.PostElementLinks(download_url=download_url, extension=extension))
+            elements.append(scraper.PostElementDownloadLinks(download_url=download_url, extension=extension))
 
         # get tags
         tags_parent = soup.find("dd", {"class": "tags"})
@@ -300,7 +300,7 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
                 msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
                 logging.error(msg)
                 raise cf.ExtractorSkipError(msg) from AttributeError
-            elements.append(scraper.PostElementLinks(download_url=download_url, extension=extension))
+            elements.append(scraper.PostElementDownloadLinks(download_url=download_url, extension=extension))
 
         # get tags
         tags_parent = soup.find("dd", {"class": "tags"})

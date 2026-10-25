@@ -140,7 +140,7 @@ class AnimepicturesAPI(scraper.DownloadhistoryScraper):
                 logging.error("[%s] - %s", self.ME.upper(), msg)
                 raise cf.ExtractorSkipError(msg) from error
 
-        def get_elements(data: dict[Any, Any], filehash: str) -> scraper.PostElementLinks:
+        def get_elements(data: dict[Any, Any], filehash: str) -> scraper.PostElementDownloadLinks:
             try:
                 data_extension = data.get("ext", None)
                 if not isinstance(data_extension, str):
@@ -150,7 +150,7 @@ class AnimepicturesAPI(scraper.DownloadhistoryScraper):
                 ext = f.match_extension(download_url)
                 if not ext:
                     raise cf.InterruptError
-                return scraper.PostElementLinks(download_url=download_url, extension=ext)
+                return scraper.PostElementDownloadLinks(download_url=download_url, extension=ext)
 
             except cf.InterruptError as error:
                 msg = f"Could not extract download URL from post {post_id}"

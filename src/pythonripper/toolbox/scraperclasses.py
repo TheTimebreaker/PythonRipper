@@ -40,8 +40,15 @@ class PostElement(TypedDict):
     pass
 
 
-class PostElementLinks(PostElement):
+class PostElementDownloadLinks(PostElement):
     download_url: str
+    extension: str
+    """File extension without the dot"""
+
+
+class PostElementVideoDownloadLinks(PostElement):
+    audio_url: str
+    video_url: str
     extension: str
     """File extension without the dot"""
 
@@ -52,6 +59,10 @@ class PostElementData(PostElement):
 
 class PostElementSavelink(PostElement):
     savelink: str
+
+
+class PostElementText(PostElement):
+    text: str
 
 
 class Scraper(ABC):
@@ -65,6 +76,8 @@ class Scraper(ABC):
     SPACE_REPLACE: str
     IS_CASE_SENSITIVE: bool = False
     ENCODE_URLS: bool = False
+    DOWNLOAD_NOIMPERSONATION: bool = False
+
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
     def __init__(self, config: ConfigObject) -> None:
@@ -314,7 +327,7 @@ class Scraper(ABC):
         return await f.download_link(self.config, data["savelink"], (dpath / f.verify_filename(filename)).with_suffix(".txt"))
 
     async def _download_post_from_postelem(
-        self, data: PostElement | PostElementLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
+        self, data: PostElement | PostElementDownloadLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
     ) -> bool:
         # PostElementData
         if data.get("data"):
@@ -328,7 +341,7 @@ class Scraper(ABC):
 
         # PostElementLinks
         elif data.get("download_url") and data.get("extension"):
-            data = cast(PostElementLinks, data)
+            data = cast(PostElementDownloadLinks, data)
             download_url = data.get("download_url")
             extension = data.get("extension")
             if not isinstance(download_url, str) or not isinstance(extension, str):
@@ -340,9 +353,18 @@ class Scraper(ABC):
                 cookies=self.download_cookies,
                 path=dpath,
                 filename=f"{filename}.{extension}",
+                no_impersonation=self.DOWNLOAD_NOIMPERSONATION,
             )
+
+        # PostElementText
+        elif data.get("text"):
+            data = cast(PostElementText, data)
+            if ".txt" in self.config.settings.general.exclusions.unwanted_file_extensions:
+                return True
+            return await f.download_text(config=self.config, directory=dpath, filename=f"{filename}.txt", content=data["text"])
+
         else:
-            raise NotImplementedError()
+            raise NotImplementedError()  # TODO(TheTimebreaker): PostElementVideoDownloadLinks
 
     def match_postid_from_url(self, url: str) -> list[str]:
         pattern = self.POST_PATTERN
@@ -565,6 +587,8 @@ class TaggableScraper(Scraper):
                     logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
                 elif file.suffix in VIDEO_FORMATS:
                     logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
+                elif file.suffix in (".txt", ".csv", ".bak", ".pythonripper") or file.name == ".pythonripper":
+                    pass
                 else:
                     logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
 
@@ -674,6 +698,7 @@ async def update_stuff(
                 ignore_blacklist=ignore_blacklist,
                 ignore_contentfilters=ignore_contentfilters,
             )
+
         except cf.ExtractorExitError as error:
             tb = traceback.TracebackException.from_exception(error)
             logging.error(

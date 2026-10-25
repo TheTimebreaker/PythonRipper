@@ -106,7 +106,7 @@ class Rule34usAPI(scraper.DownloadhistoryScraper):
         return scraper.PostData(
             identifier=post_id,
             filehash=filehash,
-            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+            elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension),
             tags=tags_data,
         )
 

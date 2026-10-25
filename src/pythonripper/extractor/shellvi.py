@@ -43,7 +43,7 @@ class ShellViAPI(scraper.ArtistWebsiteScraper):
             msg = f"[{self.ME.upper()}] - Post {image_id} gave a download url {download_url} without a valid extension ."
             logging.error(msg)
             raise cf.ExtractorSkipError(msg) from AttributeError
-        return scraper.PostData(identifier=image_id, elements=scraper.PostElementLinks(download_url=download_url, extension=extension))
+        return scraper.PostData(identifier=image_id, elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension))
 
     async def _fetch_posts(
         self, _tagname: Any = None, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002

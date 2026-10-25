@@ -204,7 +204,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
                 msg = f"[{self.ME.upper()}] - Post {post_id} gave a download url {download_url} without a valid extension ."
                 logging.error(msg)
                 raise cf.ExtractorSkipError(msg) from AttributeError
-            elements = scraper.PostElementLinks(download_url=download_url, extension=extension)
+            elements = scraper.PostElementDownloadLinks(download_url=download_url, extension=extension)
 
         elif json_data["meta_pages"]:  # multiple images
             elements = []
@@ -217,7 +217,7 @@ class PixivRoot(scraper.DownloadhistoryScraper):
                     logging.error(msg)
                     raise cf.ExtractorSkipError(msg) from AttributeError
 
-                elements.append(scraper.PostElementLinks(download_url=download_url, extension=extension))
+                elements.append(scraper.PostElementDownloadLinks(download_url=download_url, extension=extension))
 
         else:
             logging.error("[%s] - Could not extract post data from post %s ", self.ME.upper(), post_id)

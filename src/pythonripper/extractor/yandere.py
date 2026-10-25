@@ -106,7 +106,7 @@ class YandereAPI(scraper.DownloadhistoryScraper):
         return scraper.PostData(
             identifier=json_data["id"],
             filehash=json_data["md5"],
-            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+            elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension),
             tags=scraper.TagsData(
                 tags=[self.invert_formatting(tag) for tag in str(json_data["tags"]).split(" ")],
             ),

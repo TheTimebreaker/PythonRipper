@@ -62,7 +62,7 @@ class SuperSatanSonAPI(scraper.ArtistWebsiteScraper):
 
         return scraper.PostData(
             identifier=post_id,
-            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+            elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension),
             tags=scraper.TagsData(tags=_tags),
         )
 

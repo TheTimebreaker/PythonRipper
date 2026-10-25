@@ -1,20 +1,13 @@
 """Main module for interacting with https://reddit.com/ ."""
 
-import asyncio
 import logging
 import re
-from collections.abc import AsyncGenerator
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import AsyncGenerator, Generator
 from http.cookiejar import MozillaCookieJar
-from pathlib import Path
 from typing import Any, ClassVar, Literal, final
 
-import aiofiles.ospath as aiopath
 import asynciolimiter
-import bs4
 import curl_cffi
-import ffmpeg
-import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
@@ -62,6 +55,7 @@ class RedditAPI(scraper.TaggableScraper):
     ME = "reddit"
     LIMIT = asynciolimiter.LeakyBucketLimiter(100 / 60, capacity=990)
     SPACE_REPLACE = "_"
+    DOWNLOAD_NOIMPERSONATION = True
 
     session: curl_cffi.AsyncSession
 
@@ -152,14 +146,78 @@ class RedditAPI(scraper.TaggableScraper):
             post_url = self.POST_URL.format(postId=post_id)
             res = await self.request(url=post_url)
             json_data = res.json()[0]["data"]["children"][0]["data"]
+        else:
+            post_url = self.POST_URL.format(postId=post_id)
 
         post_id = json_data["id"]
         source = json_data["subreddit"]
+        post_element_data = self.__resolve_crossposts(json_data)
+
+        if any(
+            (removal_key in post_element_data.keys() and post_element_data[removal_key])
+            for removal_key in ["removal_reason", "removed_by", "removed_by_category"]
+        ):
+            msg = f"Skipped the download of image https://reddit.com/comments/{post_id} , because it was removed."
+            logging.error("[%s] - %s", self.ME.upper(), msg)
+            raise cf.ExtractorSkipError(msg)
+
+        post_type = self.__get_post_type(post_element_data, post_id=post_id, post_url=post_url)
+        logging.info("[%s] - %s, Type %s", self.ME.upper(), post_id or post_url, post_type)
+        elements: list[scraper.PostElement] | scraper.PostElement
+        match post_type:
+            case "text":
+                text = post_element_data["selftext"]
+                elements = scraper.PostElementText(text=text)
+            case "video":
+                (download_url_video, download_url_audio), extension = self.__get_download_urls_video(post_element_data)
+                elements = []
+                elements.append(
+                    scraper.PostElementVideoDownloadLinks(
+                        audio_url=download_url_audio,
+                        video_url=download_url_video,
+                        extension=extension,
+                    )
+                )
+            case "gallery" | "weird gallery":
+                if (
+                    ("gallery_data" not in post_element_data.keys())
+                    or (not post_element_data["gallery_data"])
+                    or ("items" not in post_element_data["gallery_data"].keys())
+                    or (not post_element_data["gallery_data"]["items"])
+                ):
+                    msg = f"{post_element_data["name"]} - gallery data reported as invalid or removed."
+                    logging.error("[%s] - %s", self.ME.upper(), msg)
+                    raise cf.ExtractorSkipError(msg)
+                try:
+                    elements = [
+                        scraper.PostElementDownloadLinks(download_url=download_url, extension=extension)
+                        for download_url, extension in self.__get_download_urls_gallery(post_element_data)
+                    ]
+                except KeyError as error:
+                    msg = f"An exception occurred when processing the gallery https://reddit.com/comments/{post_id} ."
+                    logging.error("[%s] - %s", self.ME.upper(), msg)
+                    raise cf.ExtractorSkipError(msg) from error
+            case "image" | "link":
+                download_url, extension = self.__get_download_urls_image(post_element_data)  # type: ignore
+                if extension and re.match(
+                    (r"(?:https?://)?(?:i\.|v\.|www\.|)?(?:(?:external-)?preview\.)?redd(?:\.it|ituploads\.com|it\.com)"), download_url
+                ):
+                    logging.info("[%s] - Detected reddit link.", self.ME.upper())
+                    elements = scraper.PostElementDownloadLinks(download_url=download_url, extension=extension)
+                elif download_url == "":
+                    logging.info("[%s] - Skipped, because no URL was found. Often due to deleted posts.", self.ME.upper())
+                else:
+                    logging.info("[%s] - Third party URL detected: %s . Will be saved.", self.ME.upper(), download_url)
+                    elements = scraper.PostElementSavelink(savelink=download_url)
+            case _:
+                msg = f"{post_element_data["id"]} - No downloader for posttype '{post_type}' ."
+                logging.error("[%s] - %s", self.ME.upper(), msg)
+                raise cf.ExtractorSkipError(msg)
 
         result = scraper.PostData(
             identifier=post_id,
             source=source,
-            elements=scraper.PostElementData(data=json_data),
+            elements=elements,
         )
 
         return result
@@ -204,7 +262,11 @@ class RedditAPI(scraper.TaggableScraper):
                 return
 
             for post in data["children"]:
-                post_data = await self._get_post_data(json_data=post["data"])
+                try:
+                    post_data = await self._get_post_data(json_data=post["data"])
+                except cf.ExtractorSkipError:
+                    continue
+
                 if str(post_data["identifier"]) in update_ids:
                     return
                 yield post_data
@@ -214,74 +276,9 @@ class RedditAPI(scraper.TaggableScraper):
                 return
             params["after"] = after
 
-    async def _download_post_from_postelem_perwebsite(self, data: scraper.PostElementData, dpath: Path, filename: str) -> bool:
-        post_element_data = data["data"]
-        post_id = post_element_data["id"]
-        post_url = post_element_data["url"]
-        post_element_data = self.resolve_crossposts(post_element_data)
-
-        if any(
-            (removal_key in post_element_data.keys() and post_element_data[removal_key])
-            for removal_key in ["removal_reason", "removed_by", "removed_by_category"]
-        ):
-            logging.error("[%s] - Skipped the download of image https://reddit.com/comments/%s , because it was removed.", self.ME.upper(), post_id)
-            return True
-
-        post_type = self.get_post_type(post_element_data, post_id=post_id, post_url=post_url)
-        logging.info("[%s] - %s, Type %s", self.ME.upper(), post_id or post_url, post_type)
-
-        success: bool
-        match post_type:
-            case "text":
-                text = post_element_data["selftext"]
-                success = await f.download_text(config=self.config, directory=dpath, filename=f"{filename}.txt", content=text)
-            case "video":
-                (download_url_video, download_url_audio), extension = self.get_download_urls_video(post_element_data)
-                success = await self.download_post_video(
-                    post_element_data, video_url=download_url_video, audio_url=download_url_audio, dpath=dpath, filename=filename, extension=extension
-                )
-            case "gallery":
-                if (
-                    ("gallery_data" not in post_element_data.keys())
-                    or (not post_element_data["gallery_data"])
-                    or ("items" not in post_element_data["gallery_data"].keys())
-                    or (not post_element_data["gallery_data"]["items"])
-                ):  # Returns False if no data is in there
-                    logging.error("[%s] - %s - gallery data reported as invalid or removed.", self.ME.upper(), post_element_data["name"])
-                    return False
-                generator = self.get_download_urls_gallery(post_element_data)
-                success = await self.download_post_gallery(dpath, filename, generator)
-            case "weird gallery":
-                try:
-                    generator = self.get_download_urls_gallery(post_element_data)
-                    success = await self.download_post_gallery(dpath, filename, generator)
-                except KeyError:
-                    logging.error("[%s] - %s - KeyError when downloading gallery.", self.ME.upper(), post_id)
-                    return False
-            case "image" | "link":
-                success = await self.download_post_image(post_data=post_element_data, dpath=dpath, filename=filename)
-            case _:
-                logging.error("[%s] - %s - No downloader for posttype '%s' .", self.ME.upper(), post_element_data["id"], post_type)
-                return False
-
-        if success is False:
-            logging.warning(
-                "[%s] - No success (%s) returned while downloading %s - postType %s . Attempting general downloader... ",
-                self.ME.upper(),
-                success,
-                post_element_data["id"],
-                post_type,
-            )
-            success = await self.download_post_general_downloader(post_data=post_element_data, dpath=dpath, filename=filename)
-            logging.error(
-                "[%s] - No success returned while downloading %s - postType %s . General downloader has failed as well... ",
-                self.ME.upper(),
-                post_element_data["id"],
-                post_type,
-            )
-        return success
-
-    def get_post_type(self, post_data: dict[Any, Any], post_id: str | None = None, post_url: str | None = None) -> str | Literal[False]:
+    def __get_post_type(
+        self, post_data: dict[Any, Any], post_id: str | None = None, post_url: str | None = None
+    ) -> Literal["gallery", "video", "image", "text", "weird gallery", "link"]:
         if "is_gallery" in post_data.keys() and post_data["is_gallery"]:
             return "gallery"
         elif "is_video" in post_data.keys() and post_data["is_video"]:
@@ -293,21 +290,22 @@ class RedditAPI(scraper.TaggableScraper):
         elif re.match(r"(?:https?://)?(?:www\.)?reddit\.com/gallery/[\w\d]+", post_data["url"]):
             logging.info("[%s] - Weird gallery detected.", self.ME.upper())
             return "weird gallery"  # this is where it is a gallery, but no image links are contained in the main post for some reason
-        elif "url" in post_data.keys() and f.match_extension(post_data["url"]) in ("jpg", "jpeg", "png", "gif", "gifv", "webp"):
+        elif "url" in post_data.keys() and f.match_extension(post_data["url"]) in ("jpg", "jpeg", "jxl", "avif", "png", "gif", "gifv", "webp"):
             return "image"
         elif ("post_hint" in post_data.keys() and post_data["post_hint"] == "link") or ("url" in post_data.keys() and post_data["url"]):
             return "link"
 
-        logging.warning("[%s] - Unknown reddit post type. Skipping download ( %s ).", self.ME.upper(), post_id or post_url or None)
-        return False
+        msg = f"Unknown reddit post type. Skipping download ( {post_id or post_url or None} )."
+        logging.error("[%s] - %s", self.ME.upper(), msg)
+        raise cf.ExtractorSkipError(msg)
 
-    def resolve_crossposts(self, post_data: dict[Any, Any]) -> dict[Any, Any]:
+    def __resolve_crossposts(self, post_data: dict[Any, Any]) -> dict[Any, Any]:
         if "crosspost_parent" in post_data.keys() and "crosspost_parent_list" in post_data.keys():
             if post_data["crosspost_parent_list"]:  # If something is in this key
                 post_data = post_data["crosspost_parent_list"][0]
         return post_data
 
-    def get_download_urls_image(self, post_data: dict[Any, Any]) -> tuple[str, str | None]:
+    def __get_download_urls_image(self, post_data: dict[Any, Any]) -> tuple[str, str | None]:
         extension = f.match_extension(post_data["url"])
         try:
             assert extension
@@ -317,20 +315,19 @@ class RedditAPI(scraper.TaggableScraper):
                 url = post_data["preview"]["images"][0]["variants"]["mp4"]["source"]["url"]
                 return url.replace("&amp;", "&"), "mp4"
             except KeyError:
-                url = post_data["url"]
-                return url.replace("&amp;", "&"), extension
+                return post_data["url"].replace("&amp;", "&"), extension
         except AssertionError:
             return post_data["url"].replace("&amp;", "&"), None
 
-    def get_download_urls_video(self, post_data: dict[Any, Any]) -> tuple[list[str], str]:
+    def __get_download_urls_video(self, post_data: dict[Any, Any]) -> tuple[list[str], str]:
         video_url = post_data["secure_media"]["reddit_video"]["fallback_url"].replace("?source=fallback", "")
         audio_url = f'{video_url.split("DASH_")[0]}DASH_audio{video_url[-4:]}'
         extension = f.match_extension(video_url)
         assert extension
         return [video_url.replace("&amp;", "&"), audio_url.replace("&amp;", "&")], extension
 
-    async def get_download_urls_gallery(self, post_data: dict[Any, Any]) -> AsyncGenerator[tuple[int, int, str, str]]:
-        digits = cf.get_digits(len(post_data["gallery_data"]["items"]))
+    def __get_download_urls_gallery(self, post_data: dict[Any, Any]) -> Generator[tuple[str, str]]:
+        """Generates tuples of (file URL, file extension)"""
         for counter, image in enumerate(post_data["gallery_data"]["items"]):
             logging.info("[%s] - Gallery download URL generator #%s : %s", self.ME.upper(), counter, image)
             media_id = image["media_id"]
@@ -358,195 +355,4 @@ class RedditAPI(scraper.TaggableScraper):
                     len(post_data["media_metadata"]),
                 )
                 file_url = (post_data["media_metadata"][media_id]["s"]["u"],)
-            yield counter, digits, file_url.replace("&amp;", "&"), extension
-
-    async def get_download_urls_weirdgallery(self, post_data: dict[Any, Any]) -> AsyncGenerator[tuple[int, int, str, str]]:
-        res = await self.request(post_data["url"])
-        file_urls: list[str] = []
-        soup = bs4.BeautifulSoup(res.text, "html.parser")
-        images = soup.find("div", {"data-test-id": "post-content"})
-        images = images.find_all("figure")  # type: ignore
-        if images is None:
-            raise ValueError("Images unexpectedly empty.")
-        for image in images:
-            file_urls.append(image.find("a")["href"])  # type: ignore
-
-        digits = cf.get_digits(len(file_urls))
-        for counter, file_url in enumerate(file_urls):
-            extension = f.match_extension(file_url)
-            assert extension
-            yield counter, digits, file_url, extension
-
-    async def download_post_video(
-        self, post_data: dict[Any, Any], video_url: str, audio_url: str, dpath: Path, filename: str, extension: str
-    ) -> bool:
-        def merge_av_ffmpeg(path_video: Path, path_audio: Path, path_out: Path) -> None:
-            ffmpeg.output(ffmpeg.input(str(path_video)), ffmpeg.input(str(path_audio)), str(path_out), vcodec="copy", acodec="aac").run(
-                overwrite_output=True
-            )
-
-        async def merge_av_ffmpeg_async(path_video: Path, path_audio: Path, path_out: Path) -> None:
-            loop = asyncio.get_running_loop()
-            with ThreadPoolExecutor() as pool:
-                await loop.run_in_executor(pool, merge_av_ffmpeg, path_video, path_audio, path_out)
-
-        if self.config.settings.general.overwrite_existing_files or not await aiopath.isfile(dpath / f"{filename}.{extension}"):
-            video_filename_temp = f"-temp-video.{extension}"
-            audio_filename_temp = f"-temp-audio.{extension}"
-            await self.LIMIT.wait()
-            video = await f.download_file(
-                self.config,
-                url=video_url,
-                headers=self.headers,
-                path=dpath,
-                filename=video_filename_temp,
-                force_overwrite=True,
-                no_impersonation=True,
-            )
-            await self.LIMIT.wait()
-            audio = await f.download_file(
-                self.config,
-                url=audio_url,
-                headers=self.headers,
-                path=dpath,
-                filename=audio_filename_temp,
-                force_overwrite=True,
-                no_impersonation=True,
-            )
-            if video and audio:
-                path_video = dpath / f"-temp-video.{extension}"
-                path_audio = dpath / f"-temp-audio.{extension}"
-                path_out = dpath / f"{filename}.{extension}"
-                await merge_av_ffmpeg_async(path_video, path_audio, path_out)
-                path_video.unlink()
-                path_audio.unlink()
-                return True
-            elif video:
-                (dpath / video_filename_temp).replace(dpath / f"{filename}.{extension}")
-                logging.warning(
-                    "[%s] - Audio file not downloaded, video file renamed to output name. (some videos dont have an audio stream)", self.ME.upper()
-                )
-                return True
-            elif audio:
-                (dpath / audio_filename_temp).replace(dpath / f"{filename}.{extension}")
-                logging.error("[%s] - Video file not downloaded, audio file renamed to output name. (this shouldn't happen)", self.ME.upper())
-                return False
-            else:
-                logging.error(
-                    "[%s] - Skipped '%s' // '%s', because neither video nor audio could be downloaded.",
-                    self.ME.upper(),
-                    post_data["title"],
-                    post_data["name"],
-                )
-                return False
-        return True
-
-    async def download_post_gallery(self, dpath: Path, filename: str, entries: AsyncGenerator[tuple[int, int, str, str]]) -> bool:
-        downloaded_counter = 0
-        counter = -100
-        async for counter, digits, file_url, extension in entries:
-            gallery_filename = f"{filename}-{str(counter).zfill(digits)}.{extension}"
-            await self.LIMIT.wait()
-            downloaded_counter += await f.download_file(
-                config=self.config, url=file_url, headers=self.headers, path=dpath, filename=gallery_filename, no_impersonation=True
-            )
-        return downloaded_counter == counter + 1  # +1 because counter is enum, not length
-
-    async def download_post_image(self, post_data: dict[Any, Any], dpath: Path, filename: str) -> bool:
-        download_url, extension = self.get_download_urls_image(post_data)
-        success: bool = False
-
-        ### Reddit links
-        if re.match((r"(?:https?://)?(?:i\.|v\.|www\.|)?(?:(?:external-)?preview\.)?redd(?:\.it|ituploads\.com|it\.com)"), download_url):
-            logging.info(
-                "[%s] - Detected reddit link.",
-                self.ME.upper(),
-            )
-            await self.LIMIT.wait()
-            success = await f.download_file(
-                config=self.config,
-                url=download_url,
-                headers=self.headers,
-                path=dpath,
-                filename=f"{filename}.{extension}",
-                no_impersonation=True,
-            )
-
-        elif download_url == "":
-            logging.info("[%s] - Skipped, because no URL was found. Often due to deleted posts.", self.ME.upper())
-            return True
-
-        else:
-            logging.error("[%s] - Third party URL detected: %s . Can't be processed.", self.ME.upper(), download_url)
-            success = True
-
-        if success == "404":
-            success = False
-        return success
-
-    async def download_post_general_downloader(self, post_data: dict[Any, Any], dpath: Path, filename: str) -> bool:
-        ##Default / Simple Downloader
-        download_url, extension = self.get_download_urls_image(post_data)
-        success = False
-        if extension:
-            try:
-                logging.info("[%s] - No specific downloader found. Using general downloader. This may not work!", self.ME.upper())
-                await self.LIMIT.wait()
-                success = await f.download_file(
-                    self.config, download_url, self.headers, path=dpath, filename=f"{filename}.{extension}", no_impersonation=False
-                )
-                logging.info("[%s] - General downloader success: %s", self.ME.upper(), success)
-                if success is True:
-                    return success
-            except ConnectionError, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadTimeout:
-                logging.error(
-                    "[%s] - ConnectionError encountered when attempting to download https://reddit.com/comments/%s using the default downloader.",
-                    self.ME.upper(),
-                    post_data["id"],
-                )
-
-            # If general fails, will try to download highest-res reddit preview image available
-            logging.warning("[%s] - General downloader failed. Trying to download reddit previews.", self.ME.upper())
-            try:
-                success = True
-                for preview_img in post_data["preview"]["images"]:
-                    preview_url = preview_img["source"]["url"].replace("&amp;", "&")
-                    tmp = f.match_extension(preview_url)
-                    assert tmp
-                    extension = tmp
-                    try:
-                        res = await self.request(url=preview_url)
-                        if res.headers["Content-Length"] == "510":
-                            logging.error(
-                                "[%s] - Reddit preview is imgur removed file: https://reddit.com%s .", self.ME.upper(), post_data["permalink"]
-                            )
-                            return False
-                        await self.LIMIT.wait()
-                        success = success and await f.download_file(
-                            config=self.config,
-                            url=download_url,
-                            request_content=res.content,
-                            path=dpath,
-                            filename=f"{filename}.{extension}",
-                            no_impersonation=True,
-                        )
-                    except Exception as error:
-                        logging.warning(
-                            "[%s] - %s encountered when trying to download reddit preview: https://reddit.com%s .",
-                            self.ME.upper(),
-                            cf.get_full_class_name(error),
-                            post_data["permalink"],
-                        )
-                        success = False
-            except KeyError as error:
-                logging.error(
-                    "[%s] - %s encountered when trying to download reddit preview: https://reddit.com%s .",
-                    self.ME.upper(),
-                    cf.get_full_class_name(error),
-                    post_data["permalink"],
-                )
-                return False
-
-        if success is False:
-            logging.error("[%s] - general downloder could not download post: https://reddit.com%s .", self.ME.upper(), post_data["permalink"])
-        return success
+            yield file_url.replace("&amp;", "&"), extension

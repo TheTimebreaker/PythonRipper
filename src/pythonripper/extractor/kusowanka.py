@@ -199,7 +199,7 @@ class KusowankaAPI(scraper.DownloadhistoryScraper):
 
             results = scraper.PostData(
                 identifier=post_id,
-                elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+                elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension),
                 tags=tags,
             )
             return results
