@@ -204,7 +204,10 @@ class RedditAPI(scraper.TaggableScraper):
                 return
 
             for post in data["children"]:
-                yield await self._get_post_data(json_data=post["data"])
+                post_data = await self._get_post_data(json_data=post["data"])
+                if str(post_data["identifier"]) in update_ids:
+                    return
+                yield post_data
 
             after = data["after"]
             if after is None:
