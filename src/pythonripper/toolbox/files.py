@@ -10,6 +10,7 @@ import sqlite3
 import subprocess
 import sys
 from collections.abc import Generator
+from http.cookiejar import Cookie, MozillaCookieJar
 from pathlib import Path
 from typing import Any, Literal
 
@@ -26,6 +27,7 @@ from send2trash import send2trash
 import pythonripper.toolbox.centralfunctions as cf
 from pythonripper.toolbox.config import ConfigObject, config
 from pythonripper.toolbox.config.model import DimensionLimit, FileDeletionMode, alternative_extensions
+from pythonripper.toolbox.config.model.shared_model_data import AUDIO_FORMATS, IMAGE_FORMATS, VIDEO_FORMATS
 
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:
@@ -201,7 +203,7 @@ async def download_file(
     config: ConfigObject,
     url: str | None = None,
     headers: dict[str, str] | None = None,
-    cookies: list[dict[str, str]] | None = None,
+    cookies: list[dict[str, str]] | MozillaCookieJar | None = None,
     path: Path | None = None,
     filename: str = cf.id_generator(20),
     force_overwrite: bool = False,
@@ -214,15 +216,22 @@ async def download_file(
         sett = config.settings.general.image_conversion_settings
         if not sett.convert_while_downloading:
             return
-        await image_converter_async(
-            file=path,
-            goal_format=sett.target_format,
-            delete_source=True,
-            file_deletion_mode=config.settings.general.file_deletion_mode,
-            quality_setting=sett.target_quality,
-            dimension_limiter=sett.limit_dimensions,
-            dimension_limiter_value=sett.limit_dimensions_value,
-        )
+        if path.suffix in IMAGE_FORMATS:
+            await image_converter_async(
+                file=path,
+                goal_format=sett.target_format,
+                delete_source=True,
+                file_deletion_mode=config.settings.general.file_deletion_mode,
+                quality_setting=sett.target_quality,
+                dimension_limiter=sett.limit_dimensions,
+                dimension_limiter_value=sett.limit_dimensions_value,
+            )
+        elif path.suffix in AUDIO_FORMATS:
+            pass
+        elif path.suffix in VIDEO_FORMATS:
+            pass
+        else:
+            logging.error("[DOWNLOAD_FILE] - File conversion for %s not supported", path)
 
     if config is None:
         raise ValueError
@@ -259,7 +268,15 @@ async def download_file(
                     async with curl_cffi.requests.AsyncSession(impersonate=None if no_impersonation else "chrome142", headers=headers) as session:
                         if cookies:
                             for cookie in cookies:
-                                session.cookies.set(**cookie)
+                                if isinstance(cookie, Cookie):
+                                    session.cookies.set(
+                                        cookie.name,
+                                        cookie.value,
+                                        domain=cookie.domain,
+                                        path=cookie.path,
+                                    )
+                                else:
+                                    session.cookies.set(**cookie)
                         res = await session.get(url, timeout=cf.asynctimeoutseconds(), allow_redirects=True, http_version=1)
                 except curl_cffi.requests.exceptions.Timeout:
                     await asyncio.sleep(i)

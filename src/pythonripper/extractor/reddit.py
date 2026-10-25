@@ -5,12 +5,14 @@ import logging
 import re
 from collections.abc import AsyncGenerator
 from concurrent.futures import ThreadPoolExecutor
+from http.cookiejar import MozillaCookieJar
 from pathlib import Path
 from typing import Any, ClassVar, Literal, final
 
 import aiofiles.ospath as aiopath
 import asynciolimiter
 import bs4
+import curl_cffi
 import ffmpeg
 import httpx
 
@@ -77,9 +79,8 @@ class RedditAPI(scraper.TaggableScraper):
     ME = "reddit"
     LIMIT = asynciolimiter.LeakyBucketLimiter(100 / 60, capacity=990)
     SPACE_REPLACE = "_"
-    IS_GOOGLE_SEARCHABLE = True
 
-    session: httpx.AsyncClient
+    session: curl_cffi.AsyncSession
     third_party_save_link: list[str]
     third_party_ignore: list[str]
     third_party_download: list[str]
@@ -89,7 +90,7 @@ class RedditAPI(scraper.TaggableScraper):
             self.third_party_save_link = []
             self.third_party_ignore = []
             self.third_party_download = []
-            data: dict[str, Any] = self.config.data
+            data: dict[str, Any] = self.config.settings.extractor.reddit
             try:
                 reddit_data = data["extractor"]["reddit"]
                 third_party_data: dict[str, Literal["save_link", "ignore", "download"]] = reddit_data["third_party_links"]
@@ -110,33 +111,82 @@ class RedditAPI(scraper.TaggableScraper):
                 return False
             return True
 
-        # self.headers = self.download_headers = {"User-Agent": "PythonRipper-for-Reddit/0.0.1"}
-        self.session = httpx.AsyncClient(timeout=cf.asynctimeoutseconds(), headers=self.headers)
-        if not await read_third_party_link_settings():
+        self.jar_path = self.config.paths._credentials() / "reddit_cookies.txt"
+        self.jar = MozillaCookieJar()
+        self.session = curl_cffi.AsyncSession(timeout=cf.asynctimeoutseconds(), impersonate="chrome146")
+
+        def read_cookie_file() -> bool:
+            if not self.jar_path.is_file():
+                logging.error(
+                    "[%s] - Must be logged in via cookies. "
+                    "Log into Reddit via your browser and export your cookies in the Netscape format via an extension."
+                    "Rename the file to 'reddit_cookies.txt' and place it here: %s",
+                    self.ME.upper(),
+                    self.jar_path,
+                )
+                return False
+
+            self.jar.load(str(self.jar_path), ignore_discard=True, ignore_expires=True)
+            return True
+
+        def apply_cookies_to_session() -> bool:
+            for cookie in self.jar:
+                self.session.cookies.set(
+                    cookie.name,
+                    cookie.value,  # type: ignore
+                    domain=cookie.domain,
+                    path=cookie.path,
+                )
+            return True
+
+        async def test_session() -> bool:
+            test_url = "https://www.reddit.com/r/Funny.json"
+            res = await self.session.get(test_url)
+            return res.status_code == 200
+
+        # if not await read_third_party_link_settings():
+        #     return False
+        if not read_cookie_file():
+            logging.warning("[%s] - Reading cookie file failed!", self.ME.upper())
+            return False
+        if not apply_cookies_to_session():
+            logging.warning("[%s] - Applying read cookies to session failed!", self.ME.upper())
+            return False
+        if not await test_session():
+            logging.warning("[%s] - Testing session unsuccessful! Refresh your cookies and try again!", self.ME.upper())
             return False
         return True
 
+    async def request(self, url: str, params: dict[str, str | int] | None = None) -> curl_cffi.Response:
+        await self.LIMIT.wait()
+        res = await self.session.get(url, params=params)
+        if res.status_code == 403:
+            msg = "A 403 was encountered, indicating that the cookies are no longer good."
+            logging.critical("[%s] - %s", self.ME.upper(), msg)
+            raise cf.ExtractorStopError(msg)
+        return res
+
     async def does_this_exist(self, tagname: str) -> bool:
         tagname = self.format_tagname(tagname)
-        await self.LIMIT.wait()
-        res = await self.session.get(self.SUB_URL.format(subreddit=tagname, endpoint=""))
-        await self.response_header_sleep(res.headers)
+        res = await self.request(self.SUB_URL.format(subreddit=tagname, endpoint=""))
+        resjson: dict[str, Any] = res.json()
+
         try:
-            if res.json()["reason"] in ("banned", "private"):
+            if resjson["reason"] in ("banned", "private"):
                 logging.error("[%s] - Subreddit %s was banned or privated.", self.ME.upper(), tagname)
                 return False
-            elif res.json()["message"] == "Not Found":
+            elif resjson["message"] == "Not Found":
                 logging.error("[%s] - Subreddit %s not available.", self.ME.upper(), tagname)
                 return False
-            elif res.status_code == 403 and res.json()["reason"] in ("gated",):
+            elif res.status_code == 403 and resjson["reason"] in ("gated",):
                 logging.error("[%s] - Subreddit %s was gated.", self.ME.upper(), tagname)
                 return False
-            elif res.status_code == 404 and res.json()["message"] in ("Not Found",):
+            elif res.status_code == 404 and resjson["message"] in ("Not Found",):
                 logging.error("[%s] - Subreddit %s was not found (deleted?).", self.ME.upper(), tagname)
                 return False
         except KeyError:
             pass
-        validity: bool = res.status_code == 200 and bool(res.json()) and bool(res.json()["data"]["children"])
+        validity: bool = res.status_code == 200 and bool(resjson) and bool(resjson["data"]["children"])
         if not validity:
             logging.error("[%s] - Subreddit %s could not be verified as existing. %s", self.ME.upper(), tagname, res.text)
         return validity
@@ -147,25 +197,25 @@ class RedditAPI(scraper.TaggableScraper):
                 raise ValueError("Neither post_id nor json_data given (one is necessary).")
 
             post_url = self.POST_URL.format(postId=post_id)
-            await self.LIMIT.wait()
-            res = await self.session.get(url=post_url)
-            await self.response_header_sleep(res.headers)
+            res = await self.request(url=post_url)
             json_data = res.json()[0]["data"]["children"][0]["data"]
 
         post_id = json_data["id"]
         source = json_data["subreddit"]
-        title = json_data["title"]
+        # title = json_data["title"]
 
         result = scraper.PostData(
             identifier=post_id,
             source=source,
-            title=title,
+            # title=title,
             elements=scraper.PostElementData(data=json_data),
         )
 
         return result
 
-    async def _fetch_posts(self, tagname: str, update_ids: list[str] | None = None, endpoint: str | None = None) -> AsyncGenerator[scraper.PostData]:
+    async def _fetch_posts(
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False, endpoint: str | None = None  # noqa: ARG002
+    ) -> AsyncGenerator[scraper.PostData]:
         if update_ids is None:
             update_ids = []
         if endpoint is None:
@@ -185,9 +235,7 @@ class RedditAPI(scraper.TaggableScraper):
         params["limit"] = 50
 
         while True:
-            await self.LIMIT.wait()
-            res = await self.session.get(url, params=params)
-            await self.response_header_sleep(res.headers)
+            res = await self.request(url, params=params)
 
             data = res.json()["data"]
             if not data["children"]:  # Check for empty responses
@@ -205,26 +253,12 @@ class RedditAPI(scraper.TaggableScraper):
                 return
 
             for post in data["children"]:
-                yield await self._get_post_data(post["data"])
+                yield await self._get_post_data(json_data=post["data"])
 
             after = data["after"]
             if after is None:
                 return
             params["after"] = after
-
-    async def response_header_sleep(self, response_header: httpx.Headers) -> None:
-        """Takes in the response header from any reddit request, searches for ratelimits
-        and applies a sleep if you are too close to exceeding that limit."""
-        try:
-            remaining = round(float(response_header["x-ratelimit-remaining"]))
-            reset_when = round(float(response_header["x-ratelimit-reset"]))
-            logging.info("[%s] - remaining=%s, reset_when=%s", self.ME.upper(), remaining, reset_when)
-            if remaining <= 3:
-                timeout_seconds = reset_when + 1
-                await asyncio.sleep(timeout_seconds)
-
-        except KeyError:  # gets raised when python cant find the response
-            pass
 
     async def _download_post_from_postelem_perwebsite(self, data: scraper.PostElementData, dpath: Path, filename: str) -> bool:
         post_element_data = data["data"]
@@ -373,9 +407,7 @@ class RedditAPI(scraper.TaggableScraper):
             yield counter, digits, file_url.replace("&amp;", "&"), extension
 
     async def get_download_urls_weirdgallery(self, post_data: dict[Any, Any]) -> AsyncGenerator[tuple[int, int, str, str]]:
-        await self.LIMIT.wait()
-        res = await self.session.get(post_data["url"])
-        await self.response_header_sleep(res.headers)
+        res = await self.request(post_data["url"])
         file_urls: list[str] = []
         soup = bs4.BeautifulSoup(res.text, "html.parser")
         images = soup.find("div", {"data-test-id": "post-content"})
@@ -404,7 +436,7 @@ class RedditAPI(scraper.TaggableScraper):
             with ThreadPoolExecutor() as pool:
                 await loop.run_in_executor(pool, merge_av_ffmpeg, path_video, path_audio, path_out)
 
-        if self.config.data["general"]["overwriteExistingFiles"] or not await aiopath.isfile(dpath / f"{filename}.{extension}"):
+        if self.config.settings.general.overwrite_existing_files or not await aiopath.isfile(dpath / f"{filename}.{extension}"):
             video_filename_temp = f"-temp-video.{extension}"
             audio_filename_temp = f"-temp-audio.{extension}"
             await self.LIMIT.wait()
@@ -470,7 +502,7 @@ class RedditAPI(scraper.TaggableScraper):
         success: bool = False
         if "anime-pictures" in download_url:
             logging.info("[%s] - Detected anime-pictures link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, animepictures.Animepictures, download_url, dpath, filename)
+            success = await scraper.download_from_scraper_object(self.config, animepictures.AnimepicturesAPI, download_url, dpath, filename)
         elif "artstation" in download_url:
             logging.info("[%s] - Detected artstation link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, artstation.ArtstationAPI, download_url, dpath, filename)
@@ -479,13 +511,13 @@ class RedditAPI(scraper.TaggableScraper):
             success = await scraper.download_from_scraper_object(self.config, danbooru.DanbooruAPI, download_url, dpath, filename)
         elif "deviantart" in download_url:
             logging.info("[%s] - Detected deviantart link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, deviantart.DeviantartAPI, download_url, dpath, filename)
+            success = await scraper.download_from_scraper_object(self.config, deviantart.DeviantartArtistAPI, download_url, dpath, filename)
         elif "gelbooru.com" in download_url:
             logging.info("[%s] - Detected gelbooru.com link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, gelbooru.GelbooruAPI, download_url, dpath, filename)
         elif "hentai-foundry.com" in download_url:
             logging.info("[%s] - Detected hentai-foundry.com link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, hentaifoundry.HentaiFoundry, download_url, dpath, filename)
+            success = await scraper.download_from_scraper_object(self.config, hentaifoundry.HentaiFoundryArtist, download_url, dpath, filename)
         elif "hypnohub.net" in download_url:
             logging.info("[%s] - Detected hypnohub.net link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, hypnohub.HypnohubAPI, download_url, dpath, filename)
@@ -494,7 +526,7 @@ class RedditAPI(scraper.TaggableScraper):
             success = await scraper.download_from_scraper_object(self.config, kusowanka.KusowankaAPI, download_url, dpath, filename)
         elif "newgrounds" in download_url:
             logging.info("[%s] - Detected newgrounds link.", self.ME.upper())
-            success = await scraper.download_from_scraper_object(self.config, newgrounds.NewgroundsAPI, download_url, dpath, filename)
+            success = await scraper.download_from_scraper_object(self.config, newgrounds.NewgroundsArtAPI, download_url, dpath, filename)
         elif any(term in download_url for term in ("pximg", "pixiv")):
             logging.info("[%s] - Detected pixiv link.", self.ME.upper())
             success = await scraper.download_from_scraper_object(self.config, pixiv.PixivArtistAPI, download_url, dpath, filename)
@@ -530,7 +562,12 @@ class RedditAPI(scraper.TaggableScraper):
             )
             await self.LIMIT.wait()
             success = await f.download_file(
-                config=self.config, url=download_url, headers=self.headers, path=dpath, filename=f"{filename}.{extension}", no_impersonation=True
+                config=self.config,
+                url=download_url,
+                headers=self.headers,
+                path=dpath,
+                filename=f"{filename}.{extension}",
+                no_impersonation=True,
             )
 
         ### Writes links to file according to settings
@@ -569,7 +606,9 @@ class RedditAPI(scraper.TaggableScraper):
             try:
                 logging.info("[%s] - No specific downloader found. Using general downloader. This may not work!", self.ME.upper())
                 await self.LIMIT.wait()
-                success = await f.download_file(self.config, download_url, self.headers, dpath, f"{filename}.{extension}", no_impersonation=True)
+                success = await f.download_file(
+                    self.config, download_url, self.headers, path=dpath, filename=f"{filename}.{extension}", no_impersonation=False
+                )
                 logging.info("[%s] - General downloader success: %s", self.ME.upper(), success)
                 if success is True:
                     return success
@@ -590,9 +629,7 @@ class RedditAPI(scraper.TaggableScraper):
                     assert tmp
                     extension = tmp
                     try:
-                        await self.LIMIT.wait()
-                        res = await self.session.get(url=preview_url)
-                        await self.response_header_sleep(res.headers)
+                        res = await self.request(url=preview_url)
                         if res.headers["Content-Length"] == "510":
                             logging.error(
                                 "[%s] - Reddit preview is imgur removed file: https://reddit.com%s .", self.ME.upper(), post_data["permalink"]
