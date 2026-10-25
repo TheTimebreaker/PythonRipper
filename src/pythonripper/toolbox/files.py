@@ -382,6 +382,10 @@ def image_converter_sync(
     def funnel(
         img: Image.Image,
     ) -> Path:
+        logging.info("Pipe format: %s", img.format)
+        logging.info("Pipe mode: %s", img.mode)
+        logging.info("Pipe size: %s", img.size)
+
         file_converted = file.with_name(f"{file.stem}{goal_format}")
         if file_converted.is_file():
             if file == file_converted and delete_source:
@@ -397,6 +401,10 @@ def image_converter_sync(
             img = img.convert("RGB")
             img.save(file_converted, quality=quality_setting)
         elif goal_format == ".jxl":
+            if img.mode == "P":  # palette not supported in JXL
+                logging.info("Changed image mode to RGB because of an unsupported color profile in the original.")
+                img = img.convert("RGB")
+
             if file_suffix == ".jpg":
                 lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
                 img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps, effort=10)
