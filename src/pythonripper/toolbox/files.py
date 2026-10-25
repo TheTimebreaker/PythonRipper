@@ -266,6 +266,11 @@ async def download_file(
                 except curl_cffi.requests.exceptions.ConnectionError:
                     logging.warning("ConnectionError when downloading url %s ...", url)
                     return False
+
+                if str(res.headers.get("Content-Type", "")).lower().startswith("text/html"):
+                    logging.error("download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url)
+                    return False
+
                 if res and res.status_code == 200:
                     await atomic_write(path_to_filename, res.content)
                     logging.debug("Download of file url %s successful.", url)
@@ -278,10 +283,6 @@ async def download_file(
                     await asyncio.sleep(i)
                 elif res.status_code > 400:  # Immediately stop when encountering a BIG problem
                     logging.warning("download_file encountered a %s. Download cancelled. Url: %s", res.status_code, url)
-                    return False
-
-                elif not str(res.headers.get("Content-Type", "")).lower().startswith("image/"):
-                    logging.error("download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url)
                     return False
 
                 else:
