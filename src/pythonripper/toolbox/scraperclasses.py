@@ -15,6 +15,7 @@ import httpx
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config.model.shared_model_data import AUDIO_FORMATS, IMAGE_FORMATS, VIDEO_FORMATS
 
 
 class TagsData(TypedDict):
@@ -545,6 +546,27 @@ class TaggableScraper(Scraper):
 
         if update:
             await f.write_update_file(posts, dpath, update_ids, None)
+
+        # on the fly conversions
+        if self.config.settings.general.image_conversion_settings.convert_while_downloading:
+            for i, file in enumerate(dpath.iterdir()):
+                print(f'Converting file "{file.name}" (#{i})')
+                if file.suffix in IMAGE_FORMATS:
+                    await f.image_converter_async(
+                        file=file,
+                        goal_format=self.config.settings.general.image_conversion_settings.target_format,
+                        delete_source=True,
+                        file_deletion_mode=self.config.settings.general.file_deletion_mode,
+                        quality_setting=self.config.settings.general.image_conversion_settings.target_quality,
+                        dimension_limiter=self.config.settings.general.image_conversion_settings.limit_dimensions,
+                        dimension_limiter_value=self.config.settings.general.image_conversion_settings.limit_dimensions_value,
+                    )
+                elif file.suffix in AUDIO_FORMATS:
+                    logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
+                elif file.suffix in VIDEO_FORMATS:
+                    logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
+                else:
+                    logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
 
         return downloaded_counter == len(posts)
 

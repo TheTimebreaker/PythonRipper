@@ -27,7 +27,6 @@ from send2trash import send2trash
 import pythonripper.toolbox.centralfunctions as cf
 from pythonripper.toolbox.config import ConfigObject, config
 from pythonripper.toolbox.config.model import DimensionLimit, FileDeletionMode, alternative_extensions
-from pythonripper.toolbox.config.model.shared_model_data import AUDIO_FORMATS, IMAGE_FORMATS, VIDEO_FORMATS
 
 
 def match_extension(string: str, before_symbol: str = ".") -> str | None:
@@ -212,27 +211,6 @@ async def download_file(
 ) -> bool:  # Return True/False, depending on whether request was successful or not
     """Function, that downloads FILENAME to PATH/FILENAME found at URL using HEADERS/COOKIES in it's HTML request. Returns bool for success/failure"""
 
-    async def on_the_fly_convert(path: Path) -> None:
-        sett = config.settings.general.image_conversion_settings
-        if not sett.convert_while_downloading:
-            return
-        if path.suffix in IMAGE_FORMATS:
-            await image_converter_async(
-                file=path,
-                goal_format=sett.target_format,
-                delete_source=True,
-                file_deletion_mode=config.settings.general.file_deletion_mode,
-                quality_setting=sett.target_quality,
-                dimension_limiter=sett.limit_dimensions,
-                dimension_limiter_value=sett.limit_dimensions_value,
-            )
-        elif path.suffix in AUDIO_FORMATS:
-            pass
-        elif path.suffix in VIDEO_FORMATS:
-            pass
-        else:
-            logging.error("[DOWNLOAD_FILE] - File conversion for %s not supported", path)
-
     if config is None:
         raise ValueError
     if headers is None:
@@ -258,7 +236,6 @@ async def download_file(
         for i in range(5, 60, 5):
             if request_content:
                 await atomic_write(path_to_filename, request_content)
-                await on_the_fly_convert(path_to_filename)
                 logging.debug("Download of file url %s successful.", url)
                 return True
             elif url:
@@ -291,7 +268,6 @@ async def download_file(
                     return False
                 if res and res.status_code == 200:
                     await atomic_write(path_to_filename, res.content)
-                    await on_the_fly_convert(path_to_filename)
                     logging.debug("Download of file url %s successful.", url)
                     return True
                 elif res.status_code in (403, 404):  # these codes are important enough for an ERROR msg
