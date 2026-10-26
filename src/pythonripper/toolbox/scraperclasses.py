@@ -5,6 +5,7 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast, final
 
@@ -66,6 +67,30 @@ class PostElementSavelink(PostElement):
 
 class PostElementText(PostElement):
     text: str
+
+
+class PostElementEnum(StrEnum):
+    DOWNLOAD_LINKS = "PostElementDownloadLinks"
+    VIDEO = "PostElementVideoDownloadLinks"
+    SAVELINK = "PostElementSavelink"
+    TEXT = "PostElementText"
+
+    DATA = "PostElementData"
+
+
+def get_postelement_type(data: PostElement) -> PostElementEnum:
+    if data.get("data", None) is not None:
+        return PostElementEnum.DATA
+    elif data.get("savelink", None) is not None:
+        return PostElementEnum.SAVELINK
+    elif data.get("download_url", None) is not None and data.get("extension", None) is not None:
+        return PostElementEnum.DOWNLOAD_LINKS
+    elif data.get("text", None) is not None:
+        return PostElementEnum.TEXT
+    elif data.get("audio_url", None) is not None and data.get("video_url", None) is not None:
+        return PostElementEnum.VIDEO
+    else:
+        raise NotImplementedError(f"Unimplemented post element: {data}")
 
 
 class Scraper(ABC):
@@ -394,47 +419,39 @@ class Scraper(ABC):
     async def _download_post_from_postelem(
         self, data: PostElement | PostElementDownloadLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
     ) -> bool:
-        # PostElementData
-        if data.get("data"):
-            data = cast(PostElementData, data)
-            return await self._download_post_from_postelem_perwebsite(data, dpath, filename)
-
-        # PostElementSavelink
-        elif data.get("savelink"):
-            data = cast(PostElementSavelink, data)
-            return await self._download_post_from_postelem_savelink(data, dpath, filename)
-
-        # PostElementLinks
-        elif data.get("download_url") and data.get("extension"):
-            data = cast(PostElementDownloadLinks, data)
-            download_url = data.get("download_url")
-            extension = data.get("extension")
-            if not isinstance(download_url, str) or not isinstance(extension, str):
-                raise TypeError()
-            return await f.download_file(
-                config=self.config,
-                url=download_url,
-                headers=self.download_headers,
-                cookies=self.download_cookies,
-                path=dpath,
-                filename=f"{filename}.{extension}",
-                no_impersonation=self.DOWNLOAD_NOIMPERSONATION,
-            )
-
-        # PostElementText
-        elif data.get("text"):
-            data = cast(PostElementText, data)
-            if ".txt" in self.config.settings.general.exclusions.unwanted_file_extensions:
+        data_type = get_postelement_type(data)
+        match data_type:
+            case PostElementEnum.DATA:
+                data = cast(PostElementData, data)
+                return await self._download_post_from_postelem_perwebsite(data, dpath, filename)
+            case PostElementEnum.SAVELINK:
+                data = cast(PostElementSavelink, data)
+                return await self._download_post_from_postelem_savelink(data, dpath, filename)
+            case PostElementEnum.DOWNLOAD_LINKS:
+                data = cast(PostElementDownloadLinks, data)
+                download_url = data.get("download_url")
+                extension = data.get("extension")
+                if not isinstance(download_url, str) or not isinstance(extension, str):
+                    raise TypeError()
+                return await f.download_file(
+                    config=self.config,
+                    url=download_url,
+                    headers=self.download_headers,
+                    cookies=self.download_cookies,
+                    path=dpath,
+                    filename=f"{filename}.{extension}",
+                    no_impersonation=self.DOWNLOAD_NOIMPERSONATION,
+                )
+            case PostElementEnum.TEXT:
+                data = cast(PostElementText, data)
+                return await f.download_text(config=self.config, directory=dpath, filename=f"{filename}.txt", content=data["text"])
+            case PostElementEnum.VIDEO:
+                data = cast(PostElementVideoDownloadLinks, data)
+                logging.error("[%s] - Not implemented: video download. data %s", self.ME.upper(), data)
+                # return await self._download_post_from_postelem_video(data, dpath, filename) #TODO(TheTimebreaker): test this
                 return True
-            return await f.download_text(config=self.config, directory=dpath, filename=f"{filename}.txt", content=data["text"])
-
-        # PostElementVideoDownloadLinks
-        elif data.get("audio_url") and data.get("video_url"):
-            data = cast(PostElementVideoDownloadLinks, data)
-            return await self._download_post_from_postelem_video(data, dpath, filename)
-
-        else:
-            raise NotImplementedError()
+            case _:
+                raise NotImplementedError(f"Unimplemented post element: {data}")
 
     def match_postid_from_url(self, url: str) -> list[str]:
         pattern = self.POST_PATTERN
