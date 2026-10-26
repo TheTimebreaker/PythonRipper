@@ -4,7 +4,8 @@ import logging
 import re
 from collections.abc import AsyncGenerator, Generator
 from http.cookiejar import MozillaCookieJar
-from typing import Any, ClassVar, Literal, final
+from pathlib import Path
+from typing import Any, ClassVar, Literal, cast, final
 
 import asynciolimiter
 import curl_cffi
@@ -356,3 +357,35 @@ class RedditAPI(scraper.TaggableScraper):
                 )
                 file_url = (post_data["media_metadata"][media_id]["s"]["u"],)
             yield file_url.replace("&amp;", "&"), extension
+
+    async def _download_post_from_postelem(
+        self,
+        data: scraper.PostElement | scraper.PostElementDownloadLinks | scraper.PostElementData | scraper.PostElementSavelink,
+        dpath: Path,
+        filename: str,
+    ) -> bool:
+        data_type = scraper.get_postelement_type(data)
+        match data_type:
+            case scraper.PostElementEnum.DATA:
+                pass
+            case scraper.PostElementEnum.SAVELINK:
+                pass
+            case scraper.PostElementEnum.DOWNLOAD_LINKS:
+                data = cast(scraper.PostElementDownloadLinks, data)
+                if self.config.settings.extractor.reddit.save_image_posts is False:
+                    logging.info("[%s] - Image post %s skipped due to config flag.", self.ME.upper(), data["download_url"])
+                    return True
+            case scraper.PostElementEnum.TEXT:
+                data = cast(scraper.PostElementText, data)
+                if self.config.settings.extractor.reddit.save_text_posts is False:
+                    logging.info("[%s] - Text post %s skipped due to config flag.", self.ME.upper(), data)
+                    return True
+            case scraper.PostElementEnum.VIDEO:
+                data = cast(scraper.PostElementVideoDownloadLinks, data)
+                if self.config.settings.extractor.reddit.save_video_posts is False:
+                    logging.info("[%s] - Video post %s %s skipped due to config flag.", self.ME.upper(), data["audio_url"], data["video_url"])
+                    return True
+            case _:
+                raise NotImplementedError(f"Unimplemented post element: {data}")
+
+        return await super()._download_post_from_postelem(data, dpath, filename)
