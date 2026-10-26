@@ -73,7 +73,7 @@ class AnimepicturesAPI(scraper.DownloadhistoryScraper):
             if res.status_code != 200:
                 logging.error("[%s] - Profile settings checkup failed, status code %s", self.ME.upper(), res.status_code)
                 raise ConnectionRefusedError
-            if res.json()["user"]["jvwall_block_erotic"] == (not allow):  # type: ignore
+            if res.json()["user"]["jvwall_block_erotic"] == (not allow):
                 logging.info("[%s] - Explicit images are set as wanted.", self.ME.upper())
                 return True
 
@@ -104,7 +104,7 @@ class AnimepicturesAPI(scraper.DownloadhistoryScraper):
 
         params["page"] = str(self.page_start)
         res = await self.request(api_url, params=params)
-        resjson: dict[str, Any] = res.json()  # type: ignore
+        resjson: dict[str, Any] = res.json()
         return bool(resjson.get("posts_count", 0) > 0)
 
     @override
@@ -205,8 +205,8 @@ class AnimepicturesAPI(scraper.DownloadhistoryScraper):
             if post_id is None:
                 raise ValueError("Neither postid nor jsondata were given (one is required).")
             res = await self.request(f"{self.API_URL}/v3/posts/{post_id}")
-            json_data = res.json().get("post")  # type: ignore
-            tag_data = res.json().get("tags")  # type: ignore
+            json_data = res.json().get("post")
+            tag_data = res.json().get("tags")
             json_data["tags"] = tag_data
         else:
             post_id = str(json_data.get("id"))
@@ -243,7 +243,7 @@ class AnimepicturesAPI(scraper.DownloadhistoryScraper):
         for page in itertools.count(start=self.page_start):
             params["page"] = str(page)
             res = await self.request(api_url, params=params)
-            resjson: dict[str, Any] = res.json()  # type: ignore
+            resjson: dict[str, Any] = res.json()
             posts: list[dict[str, Any]] = resjson.get("posts")  # type: ignore
 
             if not posts:

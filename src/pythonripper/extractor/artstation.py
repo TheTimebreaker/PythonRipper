@@ -87,7 +87,7 @@ class ArtstationAPI(scraper.TaggableScraper):
             logging.error("[%s] - %s for downloading post %s . Impersonation?", self.ME.upper(), res.status_code, post_id)
             raise cf.ExtractorExitError("%s for downloading post %s . Impersonation?", res.status_code, post_id)
 
-        data: dict[str, Any] = res.json()  # type: ignore
+        data: dict[str, Any] = res.json()
         artist = data["user"]["username"]
         _tags: list[str] = _get_tags(data)
         elements: list[scraper.PostElement] = []
@@ -132,11 +132,11 @@ class ArtstationAPI(scraper.TaggableScraper):
                 logging.error("[%s] - (artist json of %s) returned a non-200-HTML code. RIP. %s", self.ME.upper(), tagname, res.status_code)
                 raise cf.ExtractorExitError("(artist json of %s) returned a non-200-HTML code. RIP. %s", tagname, res.status_code)
 
-            if not res.json()["data"]:  # type: ignore
+            if not res.json()["data"]:
                 more_files = False
                 return
 
-            for post in res.json()["data"]:  # type: ignore
+            for post in res.json()["data"]:
                 identifier = post["hash_id"]  # artstation uses a hash-like to identify its posts; which makes all filename code here really confusing
                 if str(identifier) in update_ids:
                     return

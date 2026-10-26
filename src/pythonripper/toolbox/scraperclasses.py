@@ -448,7 +448,8 @@ class Scraper(ABC):
             case PostElementEnum.VIDEO:
                 data = cast(PostElementVideoDownloadLinks, data)
                 logging.error("[%s] - Not implemented: video download. data %s", self.ME.upper(), data)
-                # return await self._download_post_from_postelem_video(data, dpath, filename) #TODO(TheTimebreaker): test this
+                # needs to be tested when i find a video link
+                # return await self._download_post_from_postelem_video(data, dpath, filename)  # noqa: ERA001
                 return True
             case _:
                 raise NotImplementedError(f"Unimplemented post element: {data}")
