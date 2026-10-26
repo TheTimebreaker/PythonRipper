@@ -369,7 +369,10 @@ class RedditAPI(scraper.TaggableScraper):
             case scraper.PostElementEnum.DATA:
                 pass
             case scraper.PostElementEnum.SAVELINK:
-                pass
+                data = cast(scraper.PostElementSavelink, data)
+                if self.config.settings.extractor.reddit.save_thirdpartylinks_posts is False:
+                    logging.info("[%s] - Link post %s skipped due to config flag.", self.ME.upper(), data["savelink"])
+                    return True
             case scraper.PostElementEnum.DOWNLOAD_LINKS:
                 data = cast(scraper.PostElementDownloadLinks, data)
                 if self.config.settings.extractor.reddit.save_image_posts is False:

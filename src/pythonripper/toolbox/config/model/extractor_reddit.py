@@ -24,3 +24,8 @@ class ExtractorRedditSettings(StrictBaseModel):
         title="Save video posts",
         description="Allow downloading video posts on reddit.",
     )
+    save_thirdpartylinks_posts: bool = Field(
+        default=True,
+        title="Save third-party links",
+        description="Allow saving posts containing only third-party links on reddit.",
+    )

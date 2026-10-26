@@ -1,7 +1,7 @@
 import asyncio
 import datetime
-from pathlib import Path
 import random
+from pathlib import Path
 from typing import Literal
 
 import aiofiles
@@ -48,7 +48,7 @@ async def update_reddit_monthly(config: ConfigObject) -> bool | tuple[bool, str]
                     last_run = line.split(" ")
                 else:
                     tmp = line.split("\t")
-                    subreddits.append((int(tmp[0]), tmp[1]))
+                    subreddits.append((int(tmp[0]), str(tmp[1]).lower()))
 
         # Retrieves current month and year & skips program if lastrun was this month and year
         current_date = [datetime.datetime.now().strftime("%m"), datetime.datetime.now().strftime("%Y")]
@@ -56,9 +56,9 @@ async def update_reddit_monthly(config: ConfigObject) -> bool | tuple[bool, str]
             return "skipped"
 
         # Sets some directory variables and creates the main folders needed
-        working_directory = config._downloaded_path()
-        download_directory = working_directory / f"temp_monthly_{current_date[0]}-{current_date[1]}"
-        store_directory = config.dpath() / "reddit"
+        working_directory = config.paths.downloads()
+        download_directory = working_directory / f"reddit_temp_monthly_{current_date[0]}-{current_date[1]}"
+        store_directory = config.paths.downloads() / "reddit"
         download_directory.mkdir(parents=True, exist_ok=True)
         store_directory.mkdir(parents=True, exist_ok=True)
 
@@ -68,6 +68,9 @@ async def update_reddit_monthly(config: ConfigObject) -> bool | tuple[bool, str]
             return False
         for i, (goal_counter, sub) in enumerate(subreddits):
             print(f"{i+1}/{len(subreddits)} - {sub} - {goal_counter}")
+            if not await obj.does_this_exist(sub):
+                print(f"Skipped because the sub {sub} doesnt exist.")
+                continue
             goal_counter = int(goal_counter)
             download_directory_sub = download_directory / f.verify_filename(sub)
 
@@ -110,7 +113,7 @@ async def update_reddit_monthly(config: ConfigObject) -> bool | tuple[bool, str]
 
         await aioshutil.rmtree(download_directory)  # type: ignore
 
-        regular_path = config.reddit_subsmonthly_path()
+        regular_path = config.paths.reddit_subsmonthly_path()
         tmp_path = regular_path.with_name(regular_path.name + "-temp.txt")
         async with aiofiles.open(tmp_path, "w", newline="") as file:
             await file.writelines(" ".join(current_date) + "\n")
@@ -133,8 +136,8 @@ async def update_reddit_monthly(config: ConfigObject) -> bool | tuple[bool, str]
 
 
 async def main(config: ConfigObject) -> None:
-    # await update_reddit_monthly(config)
-    # await update_reddit_artists(config)
+    await update_reddit_monthly(config)
+    await update_reddit_artists(config)
     await update_reddit_subs(config)
 
 
