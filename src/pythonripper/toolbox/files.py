@@ -298,10 +298,10 @@ async def download_file(
 async def image_converter_async(
     file: Path,
     goal_format: str,
-    delete_source: bool,
-    file_deletion_mode: FileDeletionMode,
-    quality_setting: int,
-    dimension_limiter: DimensionLimit,
+    delete_source: bool = False,
+    file_deletion_mode: FileDeletionMode = FileDeletionMode.RECYCLEBIN,
+    quality_setting: int = 85,
+    dimension_limiter: DimensionLimit = DimensionLimit.LIMIT_SHORTER_SIDE,
     dimension_limiter_value: int = 65535,
 ) -> None:
     Image.MAX_IMAGE_PIXELS = None
@@ -382,11 +382,14 @@ def image_converter_sync(
                 logging.info("Changed image mode to RGB because of an unsupported color profile in the original.")
                 img = img.convert("RGB")
 
-            if file_suffix == ".jpg":
-                lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
-                img.save(file_converted, quality=quality_setting, allow_jpeg_reconstruction=True, lossless_jpeg=lossless_container_swaps)
-            else:
-                img.save(file_converted, quality=quality_setting)
+            try:
+                if file_suffix == ".jpg":
+                    lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
+                    img.save(file_converted, quality=quality_setting, allow_jpeg_reconstruction=False, lossless_jpeg=lossless_container_swaps)
+                else:
+                    img.save(file_converted, quality=quality_setting)
+            except RuntimeError:
+                pass
 
         else:
             raise NotImplementedError("This code branch should be impossible to reach!")
@@ -465,6 +468,9 @@ def image_converter_sync(
 async def download_text(config: ConfigObject, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:
     filename = verify_filename(filename)
     path_to_filename = directory / filename
+    if path_to_filename.suffix in config.settings.general.exclusions.unwanted_file_extensions:
+        logging.info("[DOWNLOAD TEXT] - File skipped, because it is an unwanted file type according to config.")
+        return True
     if not config.settings.general.overwrite_existing_files and await aiopath.isfile(path_to_filename):  # Skips, if file already exists
         return True
     await atomic_write(path_to_filename, content, encoding=encoding)
