@@ -86,9 +86,6 @@ def is_dir_empty(directory: Path) -> bool:
 def verify_filename(filename: str, replace_by: str = "_") -> str:
     """Returns verified version of input filename (replaces chars, that cause problems in Windows, Linux and MacOS)"""
 
-    # special encodes uppercase characters, for filesystems like NTFS that are case insensitive
-    filename = "".join(f"_{c.lower()}" if c.isupper() else c for c in filename)
-
     # Replaces illegal characters (or at least all chars, that may cause problems, but aren't absolutely impossible)
     illegal_characters_linux = ["/"]
     illegal_characters_windows = ["<", ">", ":", '"', "/", "\\", "|", "?", "*", "\n", "\t"]
