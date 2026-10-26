@@ -151,7 +151,7 @@ class RedditAPI(scraper.TaggableScraper):
             post_url = self.POST_URL.format(postId=post_id)
 
         post_id = json_data["id"]
-        source = json_data["subreddit"]
+        source = str(json_data["subreddit"]).lower()
         post_element_data = self.__resolve_crossposts(json_data)
 
         if any(
