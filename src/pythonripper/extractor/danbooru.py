@@ -143,7 +143,7 @@ class DanbooruAPI(scraper.DownloadhistoryScraper):
         return scraper.PostData(
             identifier=post_id,
             filehash=filehash,
-            elements=scraper.PostElementLinks(download_url=json_data["file_url"], extension=json_data["file_ext"]),
+            elements=scraper.PostElementDownloadLinks(download_url=json_data["file_url"], extension=json_data["file_ext"]),
             tags=tags,
             rating=rating,
         )

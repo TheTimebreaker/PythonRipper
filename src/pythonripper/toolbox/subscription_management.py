@@ -37,6 +37,7 @@ from pythonripper.extractor import (
     newgrounds,
     patreon,
     pixiv,
+    reddit,
     rule34paheal,
     rule34us,
     rule34xxx,
@@ -57,7 +58,6 @@ additional_keys = [
     "hentaiforce",
     "hentairead",
     "nhentainet",
-    "reddit",
 ]
 
 
@@ -161,6 +161,7 @@ class CombinedFile:
         "patreon": {"object": patreon.PatreonAPI},
         "pixiv-artists": {"object": pixiv.PixivArtistAPI},
         "pixiv-tags": {"object": pixiv.PixivTagAPI},
+        "reddit": {"object": reddit.RedditAPI},
         "rule34paheal": {"object": rule34paheal.Rule34pahealAPI},
         "rule34us": {"object": rule34us.Rule34usAPI},
         "rule34vault": {"object": rule34xyz.Rule34VaultAPI},
@@ -826,6 +827,7 @@ class _CombinedArtistFile(CombinedFile):
         "newgrounds-artists",
         "patreon",
         "pixiv-artists",
+        "reddit",
         "rule34paheal",
         "rule34us",
         "rule34vault",

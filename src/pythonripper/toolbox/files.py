@@ -10,6 +10,7 @@ import sqlite3
 import subprocess
 import sys
 from collections.abc import Generator
+from http.cookiejar import Cookie, MozillaCookieJar
 from pathlib import Path
 from typing import Any, Literal
 
@@ -84,9 +85,6 @@ def is_dir_empty(directory: Path) -> bool:
 
 def verify_filename(filename: str, replace_by: str = "_") -> str:
     """Returns verified version of input filename (replaces chars, that cause problems in Windows, Linux and MacOS)"""
-
-    # special encodes uppercase characters, for filesystems like NTFS that are case insensitive
-    filename = "".join(f"_{c.lower()}" if c.isupper() else c for c in filename)
 
     # Replaces illegal characters (or at least all chars, that may cause problems, but aren't absolutely impossible)
     illegal_characters_linux = ["/"]
@@ -201,7 +199,7 @@ async def download_file(
     config: ConfigObject,
     url: str | None = None,
     headers: dict[str, str] | None = None,
-    cookies: list[dict[str, str]] | None = None,
+    cookies: list[dict[str, str]] | MozillaCookieJar | None = None,
     path: Path | None = None,
     filename: str = cf.id_generator(20),
     force_overwrite: bool = False,
@@ -209,20 +207,6 @@ async def download_file(
     no_impersonation: bool = False,
 ) -> bool:  # Return True/False, depending on whether request was successful or not
     """Function, that downloads FILENAME to PATH/FILENAME found at URL using HEADERS/COOKIES in it's HTML request. Returns bool for success/failure"""
-
-    async def on_the_fly_convert(path: Path) -> None:
-        sett = config.settings.general.image_conversion_settings
-        if not sett.convert_while_downloading:
-            return
-        await image_converter_async(
-            file=path,
-            goal_format=sett.target_format,
-            delete_source=True,
-            file_deletion_mode=config.settings.general.file_deletion_mode,
-            quality_setting=sett.target_quality,
-            dimension_limiter=sett.limit_dimensions,
-            dimension_limiter_value=sett.limit_dimensions_value,
-        )
 
     if config is None:
         raise ValueError
@@ -249,7 +233,6 @@ async def download_file(
         for i in range(5, 60, 5):
             if request_content:
                 await atomic_write(path_to_filename, request_content)
-                await on_the_fly_convert(path_to_filename)
                 logging.debug("Download of file url %s successful.", url)
                 return True
             elif url:
@@ -259,7 +242,15 @@ async def download_file(
                     async with curl_cffi.requests.AsyncSession(impersonate=None if no_impersonation else "chrome142", headers=headers) as session:
                         if cookies:
                             for cookie in cookies:
-                                session.cookies.set(**cookie)
+                                if isinstance(cookie, Cookie):
+                                    session.cookies.set(
+                                        cookie.name,
+                                        cookie.value,
+                                        domain=cookie.domain,
+                                        path=cookie.path,
+                                    )
+                                else:
+                                    session.cookies.set(**cookie)
                         res = await session.get(url, timeout=cf.asynctimeoutseconds(), allow_redirects=True, http_version=1)
                 except curl_cffi.requests.exceptions.Timeout:
                     await asyncio.sleep(i)
@@ -272,9 +263,13 @@ async def download_file(
                 except curl_cffi.requests.exceptions.ConnectionError:
                     logging.warning("ConnectionError when downloading url %s ...", url)
                     return False
+
+                if str(res.headers.get("Content-Type", "")).lower().startswith("text/html"):
+                    logging.error("download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url)
+                    return False
+
                 if res and res.status_code == 200:
                     await atomic_write(path_to_filename, res.content)
-                    await on_the_fly_convert(path_to_filename)
                     logging.debug("Download of file url %s successful.", url)
                     return True
                 elif res.status_code in (403, 404):  # these codes are important enough for an ERROR msg
@@ -285,10 +280,6 @@ async def download_file(
                     await asyncio.sleep(i)
                 elif res.status_code > 400:  # Immediately stop when encountering a BIG problem
                     logging.warning("download_file encountered a %s. Download cancelled. Url: %s", res.status_code, url)
-                    return False
-
-                elif not str(res.headers.get("Content-Type", "")).lower().startswith("image/"):
-                    logging.error("download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url)
                     return False
 
                 else:
@@ -304,10 +295,10 @@ async def download_file(
 async def image_converter_async(
     file: Path,
     goal_format: str,
-    delete_source: bool,
-    file_deletion_mode: FileDeletionMode,
-    quality_setting: int,
-    dimension_limiter: DimensionLimit,
+    delete_source: bool = False,
+    file_deletion_mode: FileDeletionMode = FileDeletionMode.RECYCLEBIN,
+    quality_setting: int = 85,
+    dimension_limiter: DimensionLimit = DimensionLimit.LIMIT_SHORTER_SIDE,
     dimension_limiter_value: int = 65535,
 ) -> None:
     Image.MAX_IMAGE_PIXELS = None
@@ -365,6 +356,10 @@ def image_converter_sync(
     def funnel(
         img: Image.Image,
     ) -> Path:
+        logging.info("Pipe format: %s", img.format)
+        logging.info("Pipe mode: %s", img.mode)
+        logging.info("Pipe size: %s", img.size)
+
         file_converted = file.with_name(f"{file.stem}{goal_format}")
         if file_converted.is_file():
             if file == file_converted and delete_source:
@@ -380,11 +375,18 @@ def image_converter_sync(
             img = img.convert("RGB")
             img.save(file_converted, quality=quality_setting)
         elif goal_format == ".jxl":
-            if file_suffix == ".jpg":
-                lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
-                img.save(file_converted, quality=quality_setting, lossless_jpeg=lossless_container_swaps, effort=10)
-            else:
-                img.save(file_converted, quality=quality_setting)
+            if img.mode == "P":  # palette not supported in JXL
+                logging.info("Changed image mode to RGB because of an unsupported color profile in the original.")
+                img = img.convert("RGB")
+
+            try:
+                if file_suffix == ".jpg":
+                    lossless_container_swaps = config.settings.general.image_conversion_settings.lossless_container_swaps
+                    img.save(file_converted, quality=quality_setting, allow_jpeg_reconstruction=False, lossless_jpeg=lossless_container_swaps)
+                else:
+                    img.save(file_converted, quality=quality_setting)
+            except RuntimeError:
+                pass
 
         else:
             raise NotImplementedError("This code branch should be impossible to reach!")
@@ -463,6 +465,9 @@ def image_converter_sync(
 async def download_text(config: ConfigObject, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:
     filename = verify_filename(filename)
     path_to_filename = directory / filename
+    if path_to_filename.suffix in config.settings.general.exclusions.unwanted_file_extensions:
+        logging.info("[DOWNLOAD TEXT] - File skipped, because it is an unwanted file type according to config.")
+        return True
     if not config.settings.general.overwrite_existing_files and await aiopath.isfile(path_to_filename):  # Skips, if file already exists
         return True
     await atomic_write(path_to_filename, content, encoding=encoding)

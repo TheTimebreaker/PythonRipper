@@ -1,20 +1,25 @@
+import asyncio
 import logging
 import random
 import re
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast, final
 
+import aiofiles.ospath as aiopath
 import asynciolimiter
 import asyncstdlib
 import curl_cffi
+import ffmpeg
 import httpx
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
 from pythonripper.toolbox.config import ConfigObject
+from pythonripper.toolbox.config.model.shared_model_data import AUDIO_FORMATS, IMAGE_FORMATS, VIDEO_FORMATS
 
 
 class TagsData(TypedDict):
@@ -39,8 +44,15 @@ class PostElement(TypedDict):
     pass
 
 
-class PostElementLinks(PostElement):
+class PostElementDownloadLinks(PostElement):
     download_url: str
+    extension: str
+    """File extension without the dot"""
+
+
+class PostElementVideoDownloadLinks(PostElement):
+    audio_url: str
+    video_url: str
     extension: str
     """File extension without the dot"""
 
@@ -51,6 +63,34 @@ class PostElementData(PostElement):
 
 class PostElementSavelink(PostElement):
     savelink: str
+
+
+class PostElementText(PostElement):
+    text: str
+
+
+class PostElementEnum(StrEnum):
+    DOWNLOAD_LINKS = "PostElementDownloadLinks"
+    VIDEO = "PostElementVideoDownloadLinks"
+    SAVELINK = "PostElementSavelink"
+    TEXT = "PostElementText"
+
+    DATA = "PostElementData"
+
+
+def get_postelement_type(data: PostElement) -> PostElementEnum:
+    if data.get("data", None) is not None:
+        return PostElementEnum.DATA
+    elif data.get("savelink", None) is not None:
+        return PostElementEnum.SAVELINK
+    elif data.get("download_url", None) is not None and data.get("extension", None) is not None:
+        return PostElementEnum.DOWNLOAD_LINKS
+    elif data.get("text", None) is not None:
+        return PostElementEnum.TEXT
+    elif data.get("audio_url", None) is not None and data.get("video_url", None) is not None:
+        return PostElementEnum.VIDEO
+    else:
+        raise NotImplementedError(f"Unimplemented post element: {data}")
 
 
 class Scraper(ABC):
@@ -64,6 +104,8 @@ class Scraper(ABC):
     SPACE_REPLACE: str
     IS_CASE_SENSITIVE: bool = False
     ENCODE_URLS: bool = False
+    DOWNLOAD_NOIMPERSONATION: bool = False
+
     session: curl_cffi.requests.AsyncSession | httpx.AsyncClient
 
     def __init__(self, config: ConfigObject) -> None:
@@ -203,6 +245,8 @@ class Scraper(ABC):
                         "aIgenerated illustration",
                         "aiGenerated illustration",
                     }
+                case "reddit":
+                    bonus_tags = set()
                 case "rule34paheal":
                     bonus_tags = {"ai-generated", "stablediffusion"}
                 case "rule34us":
@@ -305,41 +349,110 @@ class Scraper(ABC):
         return filename
 
     async def _download_post_from_postelem_perwebsite(self, data: PostElementData, dpath: Path, filename: str) -> bool:
+        """Placeholder function for websites/classes who overwrite the entire downloading code with their own."""
         raise NotImplementedError()
 
     async def _download_post_from_postelem_savelink(self, data: PostElementSavelink, dpath: Path, filename: str) -> bool:
         return await f.download_link(self.config, data["savelink"], (dpath / f.verify_filename(filename)).with_suffix(".txt"))
 
+    async def _download_post_from_postelem_video(self, data: PostElementVideoDownloadLinks, dpath: Path, filename: str) -> bool:
+        def merge_av_ffmpeg(path_video: Path, path_audio: Path, path_out: Path) -> None:
+            ffmpeg.output(
+                ffmpeg.input(str(path_video)),
+                ffmpeg.input(str(path_audio)),
+                str(path_out),
+                vcodec="copy",
+                acodec="aac",
+            ).run(overwrite_output=True)
+
+        async def merge_av_ffmpeg_async(path_video: Path, path_audio: Path, path_out: Path) -> None:
+            await asyncio.to_thread(merge_av_ffmpeg, path_video, path_audio, path_out)
+
+        audio_url = data["audio_url"]
+        video_url = data["video_url"]
+        extension = data["extension"]
+        if self.config.settings.general.overwrite_existing_files or not await aiopath.isfile(dpath / f"{filename}.{extension}"):
+            video_filename_temp = f"-temp-video.{extension}"
+            audio_filename_temp = f"-temp-audio.{extension}"
+            args: dict[str, Any] = {
+                "headers": self.download_headers,
+                "cookies": self.download_cookies,
+                "path": dpath,
+                "filename": video_filename_temp,
+                "force_overwrite": True,
+                "no_impersonation": self.DOWNLOAD_NOIMPERSONATION,
+            }
+
+            await self.LIMIT.wait()
+            video = await f.download_file(self.config, url=video_url, **args)
+            await self.LIMIT.wait()
+            audio = await f.download_file(self.config, url=audio_url, **args)
+
+            if video and audio:
+                path_video = dpath / f"-temp-video.{extension}"
+                path_audio = dpath / f"-temp-audio.{extension}"
+                path_out = dpath / f"{filename}.{extension}"
+                await merge_av_ffmpeg_async(path_video, path_audio, path_out)
+                path_video.unlink()
+                path_audio.unlink()
+                return True
+            elif video:
+                (dpath / video_filename_temp).replace(dpath / f"{filename}.{extension}")
+                logging.warning(
+                    "[%s] - Audio file not downloaded, video file renamed to output name. (some videos dont have an audio stream)", self.ME.upper()
+                )
+                return True
+
+            elif audio:
+                (dpath / audio_filename_temp).replace(dpath / f"{filename}.{extension}")
+                logging.error("[%s] - Video file not downloaded, audio file renamed to output name. (this shouldn't happen)", self.ME.upper())
+                return False
+
+            else:
+                logging.error(
+                    "[%s] - Skipped, because neither video nor audio could be downloaded.",
+                    self.ME.upper(),
+                )
+                return False
+        return True
+
     async def _download_post_from_postelem(
-        self, data: PostElement | PostElementLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
+        self, data: PostElement | PostElementDownloadLinks | PostElementData | PostElementSavelink, dpath: Path, filename: str
     ) -> bool:
-        # PostElementData
-        if data.get("data"):
-            data = cast(PostElementData, data)
-            return await self._download_post_from_postelem_perwebsite(data, dpath, filename)
-
-        # PostElementSavelink
-        elif data.get("savelink"):
-            data = cast(PostElementSavelink, data)
-            return await self._download_post_from_postelem_savelink(data, dpath, filename)
-
-        # PostElementLinks
-        elif data.get("download_url") and data.get("extension"):
-            data = cast(PostElementLinks, data)
-            download_url = data.get("download_url")
-            extension = data.get("extension")
-            if not isinstance(download_url, str) or not isinstance(extension, str):
-                raise TypeError()
-            return await f.download_file(
-                config=self.config,
-                url=download_url,
-                headers=self.download_headers,
-                cookies=self.download_cookies,
-                path=dpath,
-                filename=f"{filename}.{extension}",
-            )
-        else:
-            raise NotImplementedError()
+        data_type = get_postelement_type(data)
+        match data_type:
+            case PostElementEnum.DATA:
+                data = cast(PostElementData, data)
+                return await self._download_post_from_postelem_perwebsite(data, dpath, filename)
+            case PostElementEnum.SAVELINK:
+                data = cast(PostElementSavelink, data)
+                return await self._download_post_from_postelem_savelink(data, dpath, filename)
+            case PostElementEnum.DOWNLOAD_LINKS:
+                data = cast(PostElementDownloadLinks, data)
+                download_url = data.get("download_url")
+                extension = data.get("extension")
+                if not isinstance(download_url, str) or not isinstance(extension, str):
+                    raise TypeError()
+                return await f.download_file(
+                    config=self.config,
+                    url=download_url,
+                    headers=self.download_headers,
+                    cookies=self.download_cookies,
+                    path=dpath,
+                    filename=f"{filename}.{extension}",
+                    no_impersonation=self.DOWNLOAD_NOIMPERSONATION,
+                )
+            case PostElementEnum.TEXT:
+                data = cast(PostElementText, data)
+                return await f.download_text(config=self.config, directory=dpath, filename=f"{filename}.txt", content=data["text"])
+            case PostElementEnum.VIDEO:
+                data = cast(PostElementVideoDownloadLinks, data)
+                logging.error("[%s] - Not implemented: video download. data %s", self.ME.upper(), data)
+                # needs to be tested when i find a video link
+                # return await self._download_post_from_postelem_video(data, dpath, filename)  # noqa: ERA001
+                return True
+            case _:
+                raise NotImplementedError(f"Unimplemented post element: {data}")
 
     def match_postid_from_url(self, url: str) -> list[str]:
         pattern = self.POST_PATTERN
@@ -544,6 +657,29 @@ class TaggableScraper(Scraper):
         if update:
             await f.write_update_file(posts, dpath, update_ids, None)
 
+        # on the fly conversions
+        if self.config.settings.general.image_conversion_settings.convert_while_downloading:
+            for i, file in enumerate(dpath.iterdir()):
+                print(f'Converting file "{file.name}" (#{i})')
+                if file.suffix in IMAGE_FORMATS:
+                    await f.image_converter_async(
+                        file=file,
+                        goal_format=self.config.settings.general.image_conversion_settings.target_format,
+                        delete_source=True,
+                        file_deletion_mode=self.config.settings.general.file_deletion_mode,
+                        quality_setting=self.config.settings.general.image_conversion_settings.target_quality,
+                        dimension_limiter=self.config.settings.general.image_conversion_settings.limit_dimensions,
+                        dimension_limiter_value=self.config.settings.general.image_conversion_settings.limit_dimensions_value,
+                    )
+                elif file.suffix in AUDIO_FORMATS:
+                    logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
+                elif file.suffix in VIDEO_FORMATS:
+                    logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
+                elif file.suffix in (".txt", ".csv", ".bak", ".pythonripper") or file.name == ".pythonripper":
+                    pass
+                else:
+                    logging.error("[DOWNLOAD_TAG] - File conversion for %s not supported", file)
+
         return downloaded_counter == len(posts)
 
 
@@ -650,6 +786,7 @@ async def update_stuff(
                 ignore_blacklist=ignore_blacklist,
                 ignore_contentfilters=ignore_contentfilters,
             )
+
         except cf.ExtractorExitError as error:
             tb = traceback.TracebackException.from_exception(error)
             logging.error(

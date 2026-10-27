@@ -50,7 +50,7 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
         assert isinstance(extension, str)
         md5 = download_url.split("/")[-1]
         return scraper.PostData(
-            identifier=post_id, filehash=md5, tags=tags, elements=scraper.PostElementLinks(download_url=download_url, extension=extension)
+            identifier=post_id, filehash=md5, tags=tags, elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension)
         )
 
     async def __get_post_data_single(self, post_id: str) -> scraper.PostData:
@@ -82,7 +82,7 @@ class Rule34pahealAPI(scraper.DownloadhistoryScraper):
         return scraper.PostData(
             identifier=post_id,
             filehash=filehash,
-            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+            elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension),
             tags=scraper.TagsData(tags=tags),
         )
 

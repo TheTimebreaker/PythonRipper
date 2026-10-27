@@ -103,7 +103,7 @@ class TumblrAPI(scraper.TaggableScraper):
     async def request(self, url: str, params: dict[str, str | int] | None = None) -> curl_cffi.Response | httpx.Response:
         await self.LIMITS.wait()
         res = await self.session.get(url, params=params)
-        if res.status_code == 429 and res.json()["meta"]["msg"] == "Limit Exceeded":  # type: ignore
+        if res.status_code == 429 and res.json()["meta"]["msg"] == "Limit Exceeded":
             raise cf.ExtractorStopError("Reached API limit") from ConnectionRefusedError
         return res
 
@@ -122,7 +122,7 @@ class TumblrAPI(scraper.TaggableScraper):
             if res.status_code != 200:
                 logging.error("[%s] - %s %s : %s", self.ME.upper(), tagname, post_id, res.status_code)
                 raise cf.ExtractorExitError("%s %s : %s", tagname, post_id, res.status_code)
-            json_data = res.json()["response"]["posts"][0]  # type: ignore
+            json_data = res.json()["response"]["posts"][0]
 
         post_id = str(json_data["id"])
         source = str(json_data["blog_name"])
@@ -148,7 +148,7 @@ class TumblrAPI(scraper.TaggableScraper):
 
         while more_files:
             res = await self.request(f"{self.API_URL}/v2/blog/{tagname}/posts/photo", params=params)
-            json_response = res.json()["response"]["posts"]  # type: ignore
+            json_response = res.json()["response"]["posts"]
 
             for post in json_response:
                 post_data = await self._get_post_data(json_data=post, tagname=tagname)

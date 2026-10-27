@@ -6,9 +6,9 @@ from .shared_model_data import StrictBaseModel
 
 
 class PathSettings(StrictBaseModel):
-    _user_config_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_config_path
+    _user_data_path = platformdirs.PlatformDirs("PythonRipper", "TheTimebreaker").user_data_path
     downloads: DirectoryPath = Field(
-        default=_user_config_path / "downloads",
+        default=_user_data_path / "downloads",
         title="Download root directory",
         description=(
             "Choose a root directory, where all recently downloaded files are stored within.\n"
@@ -16,7 +16,7 @@ class PathSettings(StrictBaseModel):
         ),
     )
     storage: DirectoryPath = Field(
-        default=_user_config_path / "storage",
+        default=_user_data_path / "storage",
         title="Storage root directory",
         description=(
             "Choose a root directory, where all processed files are stored within.\n"
@@ -26,7 +26,7 @@ class PathSettings(StrictBaseModel):
         ),
     )
     archive: DirectoryPath = Field(
-        default=_user_config_path / "archive",
+        default=_user_data_path / "archive",
         title="Download root directory",
         description=(
             "Choose a root directory, where all archived files and filehashes are stored within.\n"
@@ -34,12 +34,12 @@ class PathSettings(StrictBaseModel):
         ),
     )
     download_history: DirectoryPath = Field(
-        default=_user_config_path / "download_history",
+        default=_user_data_path / "download_history",
         title="Download history directory",
         description="Choose a root directory, where all download history objects are stored.",
     )
     selenium_driver_root: DirectoryPath = Field(
-        default=_user_config_path / "selenium_drivers",
+        default=_user_data_path / "selenium_drivers",
         title="Selenium webdriver directory",
         description=(
             "Choose a root directory, where all chromedriver and geckodriver binaries are stored.\n"

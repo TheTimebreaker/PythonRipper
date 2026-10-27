@@ -129,7 +129,7 @@ class HypnohubAPI(scraper.DownloadhistoryScraper):
         return scraper.PostData(
             identifier=post_id,
             filehash=str(json_data["hash"]),
-            elements=scraper.PostElementLinks(download_url=download_url, extension=extension),
+            elements=scraper.PostElementDownloadLinks(download_url=download_url, extension=extension),
             tags=tags,
             rating=rating,
         )

@@ -138,7 +138,7 @@ class _Rule34XyzWorldRoot(scraper.DownloadhistoryScraper):
                         file_extension = f.match_extension(download_url)
                         if not file_extension:
                             raise cf.InterruptError
-                        return [scraper.PostElementLinks(download_url=download_url, extension=file_extension)]
+                        return [scraper.PostElementDownloadLinks(download_url=download_url, extension=file_extension)]
                 raise cf.InterruptError
             except cf.InterruptError as error:
                 logging.error("[%s] - Could not extract download URL from %s", self.ME.upper(), post_url)

@@ -20,6 +20,7 @@ from . import (
     ExtractorNewgroundsSettings,
     ExtractorPatreonSettings,
     ExtractorPixivSettings,
+    ExtractorRedditSettings,
     ExtractorRule34PahealSettings,
     ExtractorRule34usSettings,
     ExtractorRule34VaultSettings,
@@ -144,6 +145,7 @@ class ExtractorSettings(StrictBaseModel):
     newgrounds: ExtractorNewgroundsSettings = Field(default_factory=ExtractorNewgroundsSettings)
     patreon: ExtractorPatreonSettings = Field(default_factory=ExtractorPatreonSettings)
     pixiv: ExtractorPixivSettings = Field(default_factory=ExtractorPixivSettings)
+    reddit: ExtractorRedditSettings = Field(default_factory=ExtractorRedditSettings)
     rule34paheal: ExtractorRule34PahealSettings = Field(default_factory=ExtractorRule34PahealSettings)
     rule34us: ExtractorRule34usSettings = Field(default_factory=ExtractorRule34usSettings)
     rule34vault: ExtractorRule34VaultSettings = Field(default_factory=ExtractorRule34VaultSettings)
