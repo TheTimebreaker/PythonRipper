@@ -9,6 +9,7 @@ from plyer import notification
 
 import pythonripper.toolbox.centralfunctions as cf
 import pythonripper.toolbox.files as f
+import pythonripper.updater.update_animepictures
 import pythonripper.updater.update_artist_websites
 import pythonripper.updater.update_artstation
 import pythonripper.updater.update_danbooru
@@ -21,6 +22,7 @@ import pythonripper.updater.update_kusowanka
 import pythonripper.updater.update_newgrounds
 import pythonripper.updater.update_patreon
 import pythonripper.updater.update_pixiv
+import pythonripper.updater.update_reddit
 import pythonripper.updater.update_rule34paheal
 import pythonripper.updater.update_rule34us
 import pythonripper.updater.update_rule34vault
@@ -99,6 +101,9 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
         scheduler.append((pythonripper.updater.update_artist_websites.update_shellvi, 60))
     if config.settings.extractor.artistwebsites.enable_tangsgallery:
         scheduler.append((pythonripper.updater.update_artist_websites.update_tangsgallery, 60))
+    if config.settings.extractor.animepictures.enabled:
+        scheduler.append((pythonripper.updater.update_animepictures.update_animepictures_artists, 28))
+        scheduler.append((pythonripper.updater.update_animepictures.update_animepictures_tags, 28))
     if config.settings.extractor.artstation.enabled:
         scheduler.append((pythonripper.updater.update_artstation.update_artstation_artists, 28))
     if config.settings.extractor.danbooru.enabled:
@@ -132,6 +137,10 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
     if config.settings.extractor.pixiv.enabled:
         scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_artists, 28))
         scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_tags, 28))
+    if config.settings.extractor.reddit.enabled:
+        scheduler.append((pythonripper.updater.update_reddit.update_reddit_monthly, 1))
+        scheduler.append((pythonripper.updater.update_reddit.update_reddit_artists, 28))
+        scheduler.append((pythonripper.updater.update_reddit.update_reddit_subs, 28))
     if config.settings.extractor.rule34paheal.enabled:
         scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_artists, 28))
         scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_tags, 7))
