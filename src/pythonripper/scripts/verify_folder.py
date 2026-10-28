@@ -114,7 +114,7 @@ async def _verify(
 ) -> None:
     # Create file list
     print("Loading file list... ", end="")
-    all_files = [file for file in f.list_files(directory, include_subdirs=False) if "!hashes" not in file.stem]
+    all_files = [file for file in f.list_files(directory, include_subdirs=True) if "!hashes" not in file.stem]
     print("Done!")
 
     # ignored services:
