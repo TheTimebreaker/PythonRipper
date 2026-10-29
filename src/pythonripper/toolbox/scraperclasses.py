@@ -159,6 +159,8 @@ class Scraper(ABC):
                 # Deviantart blacklisting does not actually work, because there seemingly is no way of getting the tags from the API
                 case "deviantart-tags" | "deviantart-artists" | "deviantart-favorites":
                     bonus_tags = {"aiart", "generatedart", "aigenerated", "aigeneratedart"}
+                case "eroprofile":
+                    bonus_tags = set()
                 case "gelbooru":
                     bonus_tags = {
                         "ai",
