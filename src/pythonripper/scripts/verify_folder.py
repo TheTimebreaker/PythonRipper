@@ -92,21 +92,24 @@ async def _worker(queue: asyncio.Queue[WorkerResult | None], obj: type[scraper.S
         await queue.put(None)
 
 
-def __process_file(config: ConfigObject, file: Path, processing_option: ProcessingOptions) -> None:
-    if processing_option == ProcessingOptions.SKIP:
-        return
-    elif processing_option == ProcessingOptions.DELETE:
-        if config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
-            send2trash(file)
-        elif config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
-            file.unlink(missing_ok=True)
-    elif processing_option == ProcessingOptions.MOVE:
-        target_dir = file.parent / "moved"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target = target_dir / file.name
-        shutil.move(file, target)
-    else:
-        raise NotImplementedError("Unimplemented processing option set.")
+def __process_file(config: ConfigObject, file: Path, root_dir: Path, processing_option: ProcessingOptions) -> None:
+    try:
+        if processing_option == ProcessingOptions.SKIP:
+            return
+        elif processing_option == ProcessingOptions.DELETE:
+            if config.settings.general.file_deletion_mode == FileDeletionMode.RECYCLEBIN:
+                send2trash(file)
+            elif config.settings.general.file_deletion_mode == FileDeletionMode.PERMANENT:
+                file.unlink(missing_ok=True)
+        elif processing_option == ProcessingOptions.MOVE:
+            target_dir = root_dir / "moved"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target = target_dir / file.name
+            shutil.move(file, target)
+        else:
+            raise NotImplementedError("Unimplemented processing option set.")
+    except Exception:
+        pass
 
 
 async def _verify(
@@ -167,12 +170,12 @@ async def _verify(
 
         if issuer.blacklist_tag_found(data):
             print(f"Blacklisted!: {filepath}")
-            __process_file(config, filepath, processing_option=blacklisted_processing)
+            __process_file(config, filepath, directory, processing_option=blacklisted_processing)
             blacklisted += 1
 
         elif not issuer.is_content_rating_allowed(data):
             print(f"Content rating disallowed!: {filepath}")
-            __process_file(config, filepath, processing_option=disallowed_rating_processing)
+            __process_file(config, filepath, directory, processing_option=disallowed_rating_processing)
             content_ratings += 1
 
         else:

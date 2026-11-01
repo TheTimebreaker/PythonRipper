@@ -3,6 +3,7 @@ from .extractor_artists import ExtractorArtistwebsitesSettings
 from .extractor_artstation import ExtractorArtstationSettings
 from .extractor_danbooru import ExtractorDanbooruSettings, DanbooruRatings
 from .extractor_deviantart import ExtractorDeviantartSettings
+from .extractor_eroprofile import ExtractorEroprofileSettings
 from .extractor_furry34 import ExtractorFurry34Settings
 from .extractor_reddit import ExtractorRedditSettings
 from .extractor_gelbooru import ExtractorGelbooruSettings, GelbooruRatings

@@ -87,6 +87,8 @@ class Worker:
             "artstation",
             "deviantart-artists",
             "deviantart-favorites",
+            "eroprofile-photos",
+            "eroprofile-videos",
             "hentaifoundry-artists",
             "newgrounds-artists",
             "newgrounds-favorites",

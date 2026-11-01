@@ -1,5 +1,6 @@
 """Main module for interacting with https://www.eroprofile.com/ ."""
 
+import logging
 import re
 from collections.abc import AsyncGenerator, Generator
 from itertools import combinations, count
@@ -18,15 +19,15 @@ def combinations_preserving_order(items: list[str]) -> Generator[list[str]]:
     yield from [list(combo) for r in range(1, len(items) + 1) for combo in combinations(items, r)]
 
 
-class EroProfile(scraper.GalleryScraper):
+class EroProfile(scraper.TaggableScraper):
     HOMEPAGE = "https://reddit.com"
     POST_PATTERN = r"/m/(?:photos|videos)/view/([a-zA-Z\d\-]+)"
-    TAG_PATTERN = ...
 
     URL_TAG = "https://www.eroprofile.com/m/{endpoint}/search"
     URL_POST = "https://www.eroprofile.com/m/{endpoint}/view/{post_id}"
 
     ME = "eroprofile"
+    WEBSITE_NAME = "eroprofile"
     LIMIT = asynciolimiter.LeakyBucketLimiter(100 / 60, capacity=990)
     SPACE_REPLACE = "-"
     PAGE_START: int = 1
@@ -69,7 +70,7 @@ class EroProfile(scraper.GalleryScraper):
                     raise ValueError
                 return scraper.PostElementDownloadLinks(download_url=source_url, extension=extension)
             except (KeyError, ValueError) as error:
-                raise cf.ExtractorStopError from error
+                raise cf.ExtractorSkipError from error
 
         if post_id is None:
             raise ValueError("No post id given. Other fetching methods are impossible.")
@@ -83,6 +84,13 @@ class EroProfile(scraper.GalleryScraper):
             title=self.invert_formatting(post_id),
             elements=_get_download_elements(post_soup),
         )
+
+    async def does_this_exist(self, tagname: str) -> bool:
+        try:
+            self.__map_tag_to_niche(tagname)
+            return True
+        except NotImplementedError:
+            return False
 
     def __map_tag_to_niche(self, tagname: str) -> str | int:
         tagname = self.format_tagname(tagname)
@@ -178,7 +186,7 @@ class EroProfile(scraper.GalleryScraper):
         raise NotImplementedError
 
     async def _fetch_posts(
-        self, tagname: str, update_ids: list[str] | None = None, _ignore_contentfilters: bool = False
+        self, tagname: str, update_ids: list[str] | None = None, ignore_contentfilters: bool = False  # noqa: ARG002
     ) -> AsyncGenerator[scraper.PostData]:
         def post_selector(tag: bs4.element.Tag) -> bool:
             def picture_selector(tag: bs4.element.Tag) -> bool:
@@ -226,15 +234,19 @@ class EroProfile(scraper.GalleryScraper):
                 post_id = extract_postid_from_element(element)
                 if post_id in update_ids:
                     return
-
-                yield await self._get_post_data(post_id)
+                try:
+                    yield await self._get_post_data(post_id)
+                except cf.ExtractorSkipError:
+                    logging.error("[%s] - Failed to fetch post data for post_id %s", self.ME.upper(), post_id)
 
 
 @final
 class EroProfilePictures(EroProfile):
     mode = "photos"
+    ME = "eroprofile-photos"
 
 
 @final
 class EroProfileVideos(EroProfile):
     mode = "videos"
+    ME = "eroprofile-videos"
