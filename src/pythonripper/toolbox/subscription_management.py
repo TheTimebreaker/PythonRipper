@@ -363,6 +363,21 @@ class CombinedFile:
                     else:
                         kuso_tagnames.add(this_tagname)
                 tagnames = kuso_tagnames
+
+            # reddit special case
+            if isinstance(obj, reddit.RedditAPI):
+                reddit_tagnames: set[str] = set()
+                for this_tagname in tagnames:
+                    if not any(this_tagname.startswith(f"{x}/") for x in ("u", "r")):
+                        reddit_tagnames.update(
+                            (
+                                f"u/{this_tagname}",
+                                f"r/{this_tagname}",
+                            )
+                        )
+                    else:
+                        reddit_tagnames.add(this_tagname)
+                tagnames = reddit_tagnames
             logging.info("tagnames: %s", tagnames)
 
             for url_to_format, local_tagname in itertools.product(urls_to_format, tagnames):
