@@ -115,6 +115,8 @@ class RedditAPI(scraper.TaggableScraper):
         return res
 
     async def does_this_exist(self, tagname: str) -> bool:
+        if not tagname.startswith(("u/", "user/", "r/")):
+            return False
         tagname = self.format_tagname(tagname)
         res = await self.request(self.SUB_URL.format(subreddit=tagname, endpoint=""))
         resjson: dict[str, Any] = res.json()
