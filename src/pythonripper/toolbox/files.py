@@ -20,7 +20,7 @@ import aioshutil
 import curl_cffi
 import imagesize
 import pillow_jxl  # noqa: F401
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from psd_tools import PSDImage
 from send2trash import send2trash
 
@@ -451,18 +451,8 @@ def image_converter_sync(
         elif delete_source and file_deletion_mode == FileDeletionMode.PERMANENT:
             file.unlink(missing_ok=True)
 
-    except BrokenPipeError:
-        logging.error("BrokenPipeError: '%s'", file)
-    except UnidentifiedImageError:
-        logging.error("UnidentifiedImageError: '%s'", file)
-    except PermissionError:
-        logging.error("PermissionError: '%s'", file)
-    except SyntaxError:
-        logging.error("SyntaxError: '%s'", file)
-    except ValueError:
-        logging.error("ValueError: '%s'", file)
-    except OSError:
-        logging.error("OSError: '%s'", file)
+    except Exception as error:
+        logging.error("%s: '%s'", type(error).__name__, file)
 
 
 async def download_text(config: ConfigObject, directory: Path, filename: str, content: str, encoding: str = "utf-8") -> bool:

@@ -1,5 +1,6 @@
 """Main module for interacting with https://www.artstation.com ."""
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any, final
@@ -36,17 +37,29 @@ class ArtstationAPI(scraper.TaggableScraper):
 
     async def init(self) -> bool:
         self.headers = self.download_headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/159.0",
             "Accept-Language": "en-US,en;q=0.5",
         }
-        self.session = curl_cffi.requests.AsyncSession(headers=self.headers, impersonate="chrome131")
+        self.session = curl_cffi.requests.AsyncSession(headers=self.headers, impersonate="chrome150")
         return True
 
     async def does_this_exist(self, tagname: str) -> bool:
         api_url = self.API_URL_ARTIST.format(artist=self.format_tagname(tagname))
-        await self.LIMIT.wait()
-        res = await self.session.get(api_url)
+        res = await self.request(api_url)
         return res.status_code == 200
+
+    async def request(self, url: str, params: dict[str, str | int] | None = None) -> curl_cffi.Response:
+        for i in (1, 3, 5, 7, 10, 30, 30, 30):
+            await self.LIMIT.wait()
+            res = await self.session.get(url, params=params)
+            if res.status_code in (429,):
+                await asyncio.sleep(i)
+                continue
+            else:
+                return res
+        raise cf.ExtractorStopError(
+            "A request failed to return a valid status code. Indicates a deeper issue with either rate limit or the destination server."
+        )
 
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
         setting = self.config.settings.extractor.artstation.allow_mature_images
@@ -80,8 +93,7 @@ class ArtstationAPI(scraper.TaggableScraper):
 
         api_url = self.API_URL_POST.format(post_id=post_id)
         logging.info("[%s] - url: %s", self.ME.upper(), api_url)
-        await self.LIMIT.wait()
-        res = await self.session.get(api_url, headers=self.headers, impersonate="chrome131")
+        res = await self.request(api_url)
 
         if res.status_code != 200:
             logging.error("[%s] - %s for downloading post %s . Impersonation?", self.ME.upper(), res.status_code, post_id)
@@ -120,13 +132,12 @@ class ArtstationAPI(scraper.TaggableScraper):
 
         tagname = self.format_tagname(tagname)
         api_url = self.API_URL_ARTIST.format(artist=tagname)
-        params = {"page": 1}
+        params: dict[str, str | int] = {"page": 1}
 
         more_files = True
         update_encountered = False
         while more_files and not update_encountered:
-            await self.LIMIT.wait()
-            res = await self.session.get(api_url, params=params)
+            res = await self.request(api_url, params=params)
 
             if res.status_code != 200:
                 logging.error("[%s] - (artist json of %s) returned a non-200-HTML code. RIP. %s", self.ME.upper(), tagname, res.status_code)
@@ -142,4 +153,4 @@ class ArtstationAPI(scraper.TaggableScraper):
                     return
                 yield await self._get_post_data(identifier)
 
-            params["page"] += 1
+            params["page"] += 1  # type: ignore
