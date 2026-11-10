@@ -209,7 +209,6 @@ async def download_file(
     no_impersonation: bool = False,
 ) -> bool:  # Return True/False, depending on whether request was successful or not
     """Function, that downloads FILENAME to PATH/FILENAME found at URL using HEADERS/COOKIES in it's HTML request. Returns bool for success/failure"""
-
     if config is None:
         raise ValueError
     if headers is None:
@@ -266,23 +265,25 @@ async def download_file(
                     logging.warning("ConnectionError when downloading url %s ...", url)
                     return False
 
-                if str(res.headers.get("Content-Type", "")).lower().startswith("text/html"):
-                    logging.error("download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url)
-                    return False
-
-                if res and res.status_code == 200:
-                    await atomic_write(path_to_filename, res.content)
-                    logging.debug("Download of file url %s successful.", url)
-                    return True
+                if res.status_code == 429:
+                    logging.warning("download_file encountered a %s. Timeouting. Url: %s", res.status_code, url)
+                    await asyncio.sleep(i)
+                    continue
                 elif res.status_code in (403, 404):  # these codes are important enough for an ERROR msg
                     logging.error("download_file encountered a %s. Download cancelled. Url: %s", res.status_code, url)
                     return False
-                elif res.status_code == 429:
-                    logging.warning("download_file encountered a %s. Timeouting. Url: %s", res.status_code, url)
-                    await asyncio.sleep(i)
                 elif res.status_code > 400:  # Immediately stop when encountering a BIG problem
                     logging.warning("download_file encountered a %s. Download cancelled. Url: %s", res.status_code, url)
                     return False
+                elif res.status_code == 200:
+                    if str(res.headers.get("Content-Type", "")).lower().startswith("text/html"):
+                        logging.error(
+                            "download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url
+                        )
+                        return False
+                    await atomic_write(path_to_filename, res.content)
+                    logging.debug("Download of file url %s successful.", url)
+                    return True
 
                 else:
                     logging.debug(res.status_code)

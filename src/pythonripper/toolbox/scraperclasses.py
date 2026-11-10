@@ -435,6 +435,7 @@ class Scraper(ABC):
                 extension = data.get("extension")
                 if not isinstance(download_url, str) or not isinstance(extension, str):
                     raise TypeError()
+                await self.LIMIT.wait()
                 return await f.download_file(
                     config=self.config,
                     url=download_url,
