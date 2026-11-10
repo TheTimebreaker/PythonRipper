@@ -148,12 +148,13 @@ class Worker:
             assert move_with_id_files
             return any(moveBut_file in file.name for moveBut_file in move_with_id_files)
 
-        print(f"Moving files from {src_dir} to {dst_dir} .")
+        print(f'Moving files from "{src_dir}" to "{dst_dir}" .')
         if exclude_files is None:
             exclude_files = []
         if move_with_id_files is None:
             move_with_id_files = []
 
+        last_msg = ""
         for file in f.iter_files(src_dir):
             if not file.is_file():
                 continue
@@ -162,7 +163,10 @@ class Worker:
             dest_path = dst_dir / relative_path
             dest_path.mkdir(parents=True, exist_ok=True)
 
-            print(f"Currently moving: {file.parent} ...", end="\r")
+            this_msg = f'Currently moving: "{file.parent}" ...'
+            if this_msg != last_msg:
+                print(this_msg, end="\n")
+                last_msg = this_msg
             if should_move_but_with_id(file):
                 ext = f.match_extension(file.name)
                 dst_path_file = dest_path / file.with_name(file.name.replace(f".{ext}", f"-{cf.id_generator(6)}.{ext}")).name
