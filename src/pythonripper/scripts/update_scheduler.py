@@ -93,82 +93,123 @@ def windows_notification(title: str = "", message: str = "", app_name: str = "",
 
 
 async def update_all(config: ConfigObject) -> dict[str, bool]:
+    enable_artists = config.settings.general.enable_artists
+    enable_tags = config.settings.general.enable_tags
+    enable_favorites = config.settings.general.enable_favorites
+
     scheduler: list[tuple[Callable[[Any], Any], int]] = []
-    if config.settings.extractor.artistwebsites.enable_sss:
+    if config.settings.extractor.artistwebsites.enable_sss and enable_artists:
         scheduler.append((pythonripper.updater.update_artist_websites.update_supersatanson, 60))
-    if config.settings.extractor.artistwebsites.enable_akairiot:
+    if config.settings.extractor.artistwebsites.enable_akairiot and enable_artists:
         scheduler.append((pythonripper.updater.update_artist_websites.update_akairiot, 60))
-    if config.settings.extractor.artistwebsites.enable_shellvi:
+    if config.settings.extractor.artistwebsites.enable_shellvi and enable_artists:
         scheduler.append((pythonripper.updater.update_artist_websites.update_shellvi, 60))
-    if config.settings.extractor.artistwebsites.enable_tangsgallery:
+    if config.settings.extractor.artistwebsites.enable_tangsgallery and enable_artists:
         scheduler.append((pythonripper.updater.update_artist_websites.update_tangsgallery, 60))
     if config.settings.extractor.animepictures.enabled:
-        scheduler.append((pythonripper.updater.update_animepictures.update_animepictures_artists, 28))
-        scheduler.append((pythonripper.updater.update_animepictures.update_animepictures_tags, 28))
-    if config.settings.extractor.artstation.enabled:
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_animepictures.update_animepictures_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_animepictures.update_animepictures_tags, 28))
+    if config.settings.extractor.artstation.enabled and enable_artists:
         scheduler.append((pythonripper.updater.update_artstation.update_artstation_artists, 28))
     if config.settings.extractor.danbooru.enabled:
-        scheduler.append((pythonripper.updater.update_danbooru.update_danbooru_artists, 28))
-        scheduler.append((pythonripper.updater.update_danbooru.update_danbooru_tags, 4))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_danbooru.update_danbooru_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_danbooru.update_danbooru_tags, 4))
     if config.settings.extractor.deviantart.enabled:
-        scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_artists, 28))
-        scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_tags, 28))
-        scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_favorites, 28))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_tags, 28))
+        if enable_favorites:
+            scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_favorites, 28))
     if config.settings.extractor.eroprofile.enabled_photos:
         scheduler.append((pythonripper.updater.update_eroprofile.update_eroprofile_photos, 28))
     if config.settings.extractor.eroprofile.enabled_videos:
         scheduler.append((pythonripper.updater.update_eroprofile.update_eroprofile_videos, 28))
     if config.settings.extractor.furry34.enabled:
-        scheduler.append((pythonripper.updater.update_furry34.update_furry34_artists, 28))
-        scheduler.append((pythonripper.updater.update_furry34.update_furry34_tags, 28))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_furry34.update_furry34_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_furry34.update_furry34_tags, 28))
     if config.settings.extractor.gelbooru.enabled:
-        scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_artists, 28))
-        scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_gelbooru.update_gelbooru_tags, 4))
     if config.settings.extractor.hentaifoundry.enabled:
-        scheduler.append((pythonripper.updater.update_hentaifoundry.update_hentaifoundry_artists, 28))
-        scheduler.append((pythonripper.updater.update_hentaifoundry.update_hentaifoundry_tags, 28))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_hentaifoundry.update_hentaifoundry_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_hentaifoundry.update_hentaifoundry_tags, 28))
     if config.settings.extractor.hypnohub.enabled:
-        scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_artists, 28))
-        scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_tags, 14))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_hypnohub.update_hypnohub_tags, 14))
     if config.settings.extractor.kusowanka.enabled:
-        scheduler.append((pythonripper.updater.update_kusowanka.update_kusowanka_artists, 28))
-        scheduler.append((pythonripper.updater.update_kusowanka.update_kusowanka_tags, 7))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_kusowanka.update_kusowanka_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_kusowanka.update_kusowanka_tags, 7))
     if config.settings.extractor.newgrounds.enabled:
-        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_artists, 28))
-        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 28))
-        scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_tags, 28))
-    if config.settings.extractor.patreon.enabled:
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_artists, 28))
+        if enable_favorites:
+            scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_favorites, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_newgrounds.update_newgrounds_tags, 28))
+    if config.settings.extractor.patreon.enabled and enable_artists:
         scheduler.append((pythonripper.updater.update_patreon.update_patreon_artists, 28))
     if config.settings.extractor.pixiv.enabled:
-        scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_artists, 28))
-        scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_tags, 28))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_pixiv.update_pixiv_tags, 28))
     if config.settings.extractor.reddit.enabled:
         scheduler.append((pythonripper.updater.update_reddit.update_reddit_monthly, 1))
-        scheduler.append((pythonripper.updater.update_reddit.update_reddit_artists, 28))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_reddit.update_reddit_artists, 28))
         scheduler.append((pythonripper.updater.update_reddit.update_reddit_subs, 28))
     if config.settings.extractor.rule34paheal.enabled:
-        scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_artists, 28))
-        scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_tags, 7))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_rule34paheal.update_rule34paheal_tags, 7))
     if config.settings.extractor.rule34us.enabled:
-        scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_artists, 28))
-        scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_tags, 7))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_rule34us.update_rule34us_tags, 7))
     if config.settings.extractor.rule34vault.enabled:
-        scheduler.append((pythonripper.updater.update_rule34vault.update_rule34vault_artists, 28))
-        scheduler.append((pythonripper.updater.update_rule34vault.update_rule34vault_tags, 28))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_rule34vault.update_rule34vault_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_rule34vault.update_rule34vault_tags, 28))
     if config.settings.extractor.rule34world.enabled:
-        scheduler.append((pythonripper.updater.update_rule34world.update_rule34world_artists, 28))
-        scheduler.append((pythonripper.updater.update_rule34world.update_rule34world_tags, 28))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_rule34world.update_rule34world_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_rule34world.update_rule34world_tags, 28))
     if config.settings.extractor.rule34xxx.enabled:
-        scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_artists, 28))
-        scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_tags, 4))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_rule34xxx.update_rule34xxx_tags, 4))
     if config.settings.extractor.rule34xyz.enabled:
-        scheduler.append((pythonripper.updater.update_rule34xyz.update_rule34xyz_artists, 28))
-        scheduler.append((pythonripper.updater.update_rule34xyz.update_rule34xyz_tags, 28))
-    if config.settings.extractor.tumblr.enabled:
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_rule34xyz.update_rule34xyz_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_rule34xyz.update_rule34xyz_tags, 28))
+    if config.settings.extractor.tumblr.enabled and enable_artists:
         scheduler.append((pythonripper.updater.update_tumblr.update_tumblr_artists, 28))
     if config.settings.extractor.yandere.enabled:
-        scheduler.append((pythonripper.updater.update_yandere.update_yandere_artists, 28))
-        scheduler.append((pythonripper.updater.update_yandere.update_yandere_tags, 3))
+        if enable_artists:
+            scheduler.append((pythonripper.updater.update_yandere.update_yandere_artists, 28))
+        if enable_tags:
+            scheduler.append((pythonripper.updater.update_yandere.update_yandere_tags, 3))
 
     last_run = read_update_scheduler(config)
     tasks: dict[str, dict[str, Callable[[Any], Any]]] = {}

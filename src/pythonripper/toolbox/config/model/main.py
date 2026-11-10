@@ -43,6 +43,21 @@ class FileDeletionMode(StrEnum):
 
 class GeneralSettings(StrictBaseModel):
     theme: Theme = Field(default=Theme.SYSTEM, title="Color theme", description="Choose the theme for the application.")
+    enable_artists: bool = Field(
+        default=True,
+        title="Enable Artist downloads",
+        description="Global setting that enables/disables whether subscribed artists will be downloaded automatically",
+    )
+    enable_tags: bool = Field(
+        default=True,
+        title="Enable Tag downloads",
+        description="Global setting that enables/disables whether subscribed tags (from the shared tags file) will be downloaded automatically",
+    )
+    enable_favorites: bool = Field(
+        default=True,
+        title="Enable User Favorites downloads",
+        description="Global setting that enables/disables whether favorite posts of subscribed users will be downloaded automatically",
+    )
 
     overwrite_existing_files: bool = Field(
         default=False,
