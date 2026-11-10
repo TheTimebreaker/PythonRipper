@@ -47,8 +47,7 @@ class ExtractorGelbooruSettings(StrictBaseModel):
             f"{GelbooruRatings.GENERAL.title} - {gelbooru_ratings_descriptions[GelbooruRatings.GENERAL]}\n"
             f"{GelbooruRatings.SENSITIVE.title} - {gelbooru_ratings_descriptions[GelbooruRatings.SENSITIVE]}\n"
             f"{GelbooruRatings.QUESTIONABLE.title} - {gelbooru_ratings_descriptions[GelbooruRatings.QUESTIONABLE]}\n"
-            f"{GelbooruRatings.EXPLICIT.title} - {gelbooru_ratings_descriptions[GelbooruRatings.EXPLICIT]}\n"
-            "Check out https://danbooru.donmai.us/wiki_pages/howto:rate for more detailed descriptions."
+            f"{GelbooruRatings.EXPLICIT.title} - {gelbooru_ratings_descriptions[GelbooruRatings.EXPLICIT]}"
         ),
     )
 

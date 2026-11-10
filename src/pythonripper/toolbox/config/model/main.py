@@ -12,6 +12,7 @@ from . import (
     ExtractorArtstationSettings,
     ExtractorDanbooruSettings,
     ExtractorDeviantartSettings,
+    ExtractorEroprofileSettings,
     ExtractorFurry34Settings,
     ExtractorGelbooruSettings,
     ExtractorHentaifoundrySettings,
@@ -137,6 +138,7 @@ class ExtractorSettings(StrictBaseModel):
     artstation: ExtractorArtstationSettings = Field(default_factory=ExtractorArtstationSettings)
     danbooru: ExtractorDanbooruSettings = Field(default_factory=ExtractorDanbooruSettings)
     deviantart: ExtractorDeviantartSettings = Field(default_factory=ExtractorDeviantartSettings)
+    eroprofile: ExtractorEroprofileSettings = Field(default_factory=ExtractorEroprofileSettings)
     furry34: ExtractorFurry34Settings = Field(default_factory=ExtractorFurry34Settings)
     gelbooru: ExtractorGelbooruSettings = Field(default_factory=ExtractorGelbooruSettings)
     hentaifoundry: ExtractorHentaifoundrySettings = Field(default_factory=ExtractorHentaifoundrySettings)

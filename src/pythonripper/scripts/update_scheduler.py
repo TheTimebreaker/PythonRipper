@@ -14,6 +14,7 @@ import pythonripper.updater.update_artist_websites
 import pythonripper.updater.update_artstation
 import pythonripper.updater.update_danbooru
 import pythonripper.updater.update_deviantart
+import pythonripper.updater.update_eroprofile
 import pythonripper.updater.update_furry34
 import pythonripper.updater.update_gelbooru
 import pythonripper.updater.update_hentaifoundry
@@ -113,6 +114,10 @@ async def update_all(config: ConfigObject) -> dict[str, bool]:
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_artists, 28))
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_tags, 28))
         scheduler.append((pythonripper.updater.update_deviantart.update_deviantart_favorites, 28))
+    if config.settings.extractor.eroprofile.enabled_photos:
+        scheduler.append((pythonripper.updater.update_eroprofile.update_eroprofile_photos, 28))
+    if config.settings.extractor.eroprofile.enabled_videos:
+        scheduler.append((pythonripper.updater.update_eroprofile.update_eroprofile_videos, 28))
     if config.settings.extractor.furry34.enabled:
         scheduler.append((pythonripper.updater.update_furry34.update_furry34_artists, 28))
         scheduler.append((pythonripper.updater.update_furry34.update_furry34_tags, 28))

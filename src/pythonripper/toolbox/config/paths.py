@@ -46,6 +46,12 @@ class Paths:
     def reddit_subsmonthly_path(self) -> Path:
         return self._config() / "reddit_subs_monthly.txt"
 
+    def eroprofile_photos_path(self) -> Path:
+        return self._config() / "eroprofile_photos.txt"
+
+    def eroprofile_videos_path(self) -> Path:
+        return self._config() / "eroprofile_videos.txt"
+
     def update_scheduler_json_path(self) -> Path:
         return self._config() / "update_scheduler.json"
 
