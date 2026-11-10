@@ -158,36 +158,38 @@ async def _verify(
     blacklisted: int = 0
     content_ratings: int = 0
 
-    while finished < len(workers):
-        result = await queue.get()
-        if result is None:
-            finished += 1
-            continue
+    try:
+        while finished < len(workers):
+            result = await queue.get()
+            if result is None:
+                finished += 1
+                continue
 
-        issuer = result["issuer"]
-        data = result["data"]
-        filepath = result["path"]
+            issuer = result["issuer"]
+            data = result["data"]
+            filepath = result["path"]
 
-        if issuer.blacklist_tag_found(data):
-            print(f"Blacklisted!: {filepath}")
-            __process_file(config, filepath, directory, processing_option=blacklisted_processing)
-            blacklisted += 1
+            if issuer.blacklist_tag_found(data):
+                print(f"Blacklisted!: {filepath}")
+                __process_file(config, filepath, directory, processing_option=blacklisted_processing)
+                blacklisted += 1
 
-        elif not issuer.is_content_rating_allowed(data):
-            print(f"Content rating disallowed!: {filepath}")
-            __process_file(config, filepath, directory, processing_option=disallowed_rating_processing)
-            content_ratings += 1
+            elif not issuer.is_content_rating_allowed(data):
+                print(f"Content rating disallowed!: {filepath}")
+                __process_file(config, filepath, directory, processing_option=disallowed_rating_processing)
+                content_ratings += 1
 
-        else:
-            print(f"All good: {filepath}")
+            else:
+                print(f"All good: {filepath}")
 
-    await asyncio.gather(*workers, return_exceptions=True)
+        await asyncio.gather(*workers, return_exceptions=True)
 
-    print("=" * 20)
-    print(f"Finished verifying folder {directory}")
-    print(f"Files processed: #{len(all_files)}")
-    print(f"Blacklisted tags found in files: #{blacklisted}")
-    print(f"Disallowed content ratings found in files: #{content_ratings}")
+    finally:
+        print("=" * 20)
+        print(f"Finished verifying folder {directory}")
+        print(f"Files processed: #{len(all_files)}")
+        print(f"Blacklisted tags found in files: #{blacklisted}")
+        print(f"Disallowed content ratings found in files: #{content_ratings}")
 
 
 class ProcessingOptions(StrEnum):
