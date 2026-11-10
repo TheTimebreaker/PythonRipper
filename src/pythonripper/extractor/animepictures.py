@@ -26,7 +26,7 @@ class AnimepicturesAPI(scraper.DownloadhistoryScraper):
 
     ME = "animepictures"
     WEBSITE_NAME = ME
-    LIMIT = asynciolimiter.Limiter(100)
+    LIMIT = asynciolimiter.Limiter(0.25)
     SPACE_REPLACE = "+"
     page_start = 0
 
