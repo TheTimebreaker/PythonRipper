@@ -62,6 +62,11 @@ class GeneralSettings(StrictBaseModel):
             "Value must be completely different compared to the other bypasses."
         ),
     )
+    artist_blacklist_bypass: bool = Field(
+        default=False,
+        title="Artists bypass blacklist",
+        description="Lets all subscribed-artists downloaders bypass blacklisted tags.",
+    )
     allow_contentfilter_bypass: str = Field(
         default="",
         title="Allow booru ratings bypass",
@@ -73,6 +78,11 @@ class GeneralSettings(StrictBaseModel):
             "for only  <name of tag>.\n"
             "Value must be completely different compared to the other bypasses."
         ),
+    )
+    artist_contentfilter_bypass: bool = Field(
+        default=False,
+        title="Artists bypass content filters",
+        description="Lets all subscribed-artists downloaders bypass content filters.",
     )
 
     @model_validator(mode="after")
