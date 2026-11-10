@@ -770,13 +770,22 @@ async def update_stuff(
     tag_list = list(tag_set)
     random.shuffle(tag_list)
 
+    # global-ish bypasses
+    cfg_ignore_blacklist = False
+    cfg_ignore_contentfilters = False
+    if update_type == "artists":
+        if config.settings.general.artist_blacklist_bypass:
+            cfg_ignore_blacklist = True
+        if config.settings.general.artist_contentfilter_bypass:
+            cfg_ignore_contentfilters = True
+
     # Download
     full_success = True
     for i, tag in enumerate(tag_list):
         bypass_markers = cf.parse_markers(tag)
         tag = bypass_markers["parsed"]
-        ignore_blacklist = bypass_markers["blacklist_bypass"]
-        ignore_contentfilters = bypass_markers["contentfilter_bypass"]
+        ignore_blacklist = bypass_markers["blacklist_bypass"] or cfg_ignore_blacklist
+        ignore_contentfilters = bypass_markers["contentfilter_bypass"] or cfg_ignore_contentfilters
 
         this_path = config.paths.downloads() / obj.ME / f.verify_filename(tag)
         print(f"{i+1}/{len(tag_list)} - {tag} - {obj.ME}")
