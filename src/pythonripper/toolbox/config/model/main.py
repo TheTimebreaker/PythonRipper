@@ -51,7 +51,7 @@ class GeneralSettings(StrictBaseModel):
     enable_tags: bool = Field(
         default=True,
         title="Enable Tag downloads",
-        description="Global setting that enables/disables whether subscribed tags will be downloaded automatically",
+        description="Global setting that enables/disables whether subscribed tags (from the shared tags file) will be downloaded automatically",
     )
     enable_favorites: bool = Field(
         default=True,
