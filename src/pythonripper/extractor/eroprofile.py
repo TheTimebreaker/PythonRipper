@@ -21,7 +21,7 @@ def combinations_preserving_order(items: list[str]) -> Generator[list[str]]:
 
 class EroProfile(scraper.TaggableScraper):
     HOMEPAGE = "https://reddit.com"
-    POST_PATTERN = r"/m/(?:photos|videos)/view/([a-zA-Z\d\-]+)"
+    POST_PATTERN = r"/m/(?:photos|videos)/view/([a-zA-Z\d\-_]+)"
 
     URL_TAG = "https://www.eroprofile.com/m/{endpoint}/search"
     URL_POST = "https://www.eroprofile.com/m/{endpoint}/view/{post_id}"
@@ -69,7 +69,7 @@ class EroProfile(scraper.TaggableScraper):
                 if not extension:
                     raise ValueError
                 return scraper.PostElementDownloadLinks(download_url=source_url, extension=extension)
-            except (KeyError, ValueError) as error:
+            except (KeyError, ValueError, AttributeError) as error:
                 raise cf.ExtractorSkipError from error
 
         if post_id is None:
