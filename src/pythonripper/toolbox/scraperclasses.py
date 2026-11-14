@@ -597,9 +597,10 @@ class TaggableScraper(Scraper):
         endpoint: str | None = None,
     ) -> bool:
         # Init arguments
-        tagname = self.format_tagname(tagname)
+        unformatted_tagname = tagname
+        tagname = self.format_tagname(unformatted_tagname)
         if not await self.does_this_exist(tagname):
-            logging.error("[%s] - Tag %s was not detected as existing.", self.ME.upper(), tagname)
+            logging.error("[%s] - Tag %s was not detected as existing.", self.ME.upper(), unformatted_tagname)
             return False
 
         if dpath is None:
@@ -622,7 +623,7 @@ class TaggableScraper(Scraper):
 
         try:
             async for i, post in asyncstdlib.enumerate(generator):
-                print(f'Downloading {self.ME} tag "{tagname}" (#{i})')
+                print(f'Downloading {self.ME} tag "{unformatted_tagname}" (#{i})')
 
                 try:
                     result = await self.download_post(
@@ -650,11 +651,11 @@ class TaggableScraper(Scraper):
                 downloaded_counter += result
                 posts.append(post["identifier"])
         except Exception as error:
-            logging.error("[%s] - The generator failed to initialize or iterate. tag = %s", self.ME.upper(), tagname)
+            logging.error("[%s] - The generator failed to initialize or iterate. tag = %s", self.ME.upper(), unformatted_tagname)
             raise cf.ExtractorStopError from error
 
         if len(posts) == 0:
-            print(f"{self.ME.upper()} : {tagname} : Skipped : No new files!")
+            print(f"{self.ME.upper()} : {unformatted_tagname} : Skipped : No new files!")
             return True
 
         if update:
