@@ -229,6 +229,7 @@ async def download_file(
 
     config_allows_overwrites = config and config.settings.general.overwrite_existing_files
     file_exists = await aiopath.isfile(path_to_filename)
+    last_error = ""
     if force_overwrite or config_allows_overwrites or not file_exists:
         logging.debug(url)
         for i in range(5, 60, 5):
@@ -255,31 +256,34 @@ async def download_file(
                         res = await session.get(url, timeout=cf.asynctimeoutseconds(), allow_redirects=True, http_version=1)
                 except curl_cffi.requests.exceptions.Timeout:
                     await asyncio.sleep(i)
+                    last_error = "curl_cffi.requests.exceptions.Timeout"
                     continue
                 except curl_cffi.requests.exceptions.IncompleteRead:
-                    logging.error(
-                        "download_file encountered an IncompleteRead (response was shorter than announced). Download cancelled. Url: %s", url
-                    )
+                    last_error = f"download_file encountered an IncompleteRead (response was shorter than announced). Download cancelled. Url: {url}"
+                    logging.error(last_error)
                     return False
                 except curl_cffi.requests.exceptions.ConnectionError:
-                    logging.warning("ConnectionError when downloading url %s ...", url)
+                    last_error = f"ConnectionError when downloading url {url} ..."
+                    logging.warning(last_error)
                     return False
 
                 if res.status_code == 429:
-                    logging.warning("download_file encountered a %s. Timeouting. Url: %s", res.status_code, url)
+                    last_error = f"download_file encountered a {res.status_code}. Timeouting. Url: {url}"
+                    logging.warning(last_error)
                     await asyncio.sleep(i)
                     continue
                 elif res.status_code in (403, 404):  # these codes are important enough for an ERROR msg
-                    logging.error("download_file encountered a %s. Download cancelled. Url: %s", res.status_code, url)
+                    last_error = f"download_file encountered a {res.status_code}. Cancelling. Url: {url}"
+                    logging.error(last_error)
                     return False
                 elif res.status_code > 400:  # Immediately stop when encountering a BIG problem
-                    logging.warning("download_file encountered a %s. Download cancelled. Url: %s", res.status_code, url)
+                    last_error = f"download_file encountered a {res.status_code}. Cancelled. Url: {url}"
+                    logging.error(last_error)
                     return False
                 elif res.status_code == 200:
                     if str(res.headers.get("Content-Type", "")).lower().startswith("text/html"):
-                        logging.error(
-                            "download_file got a non image content header: %s . Url: %s", str(res.headers.get("Content-Type", "")).lower(), url
-                        )
+                        last_error = f"download_file got a non image content header: {str(res.headers.get("Content-Type", "")).lower()} . Url: {url}"
+                        logging.error(last_error)
                         return False
                     await atomic_write(path_to_filename, res.content)
                     logging.debug("Download of file url %s successful.", url)
@@ -290,7 +294,11 @@ async def download_file(
                     await asyncio.sleep(i)
             else:
                 raise TypeError(f'No "requestContent" was given, but bool(url) "{url=}" is not True.')
-        logging.error("Download of file url %s failed due to HTML response.", url)
+        logging.error(
+            "Download of file url %s failed. Retried multiple times, but never got a valid response. The last detected issued was: %s",
+            url,
+            last_error,
+        )
         return False
     return True
 
