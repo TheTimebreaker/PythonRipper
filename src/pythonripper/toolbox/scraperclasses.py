@@ -100,7 +100,7 @@ class Scraper(ABC):
 
     WEBSITE_NAME: str
     ME: str
-    LIMIT: asynciolimiter._BaseLimiter
+    LIMIT: asynciolimiter._BaseLimiter | cf.QuotaLimiter
     SPACE_REPLACE: str
     IS_CASE_SENSITIVE: bool = False
     ENCODE_URLS: bool = False
