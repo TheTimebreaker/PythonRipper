@@ -138,11 +138,15 @@ class NewgroundsRootAPI(scraper.TaggableScraper):
     async def request(self, url: str, params: Mapping[str, str | int] | None = None) -> httpx.Response:
         for i in (1, 3, 5, 10, 10, 10, 30, 30, 30):
             await self.LIMIT.wait()
-            res = await self.session.get(url, params=params)
-            if res.status_code == 429:
+            try:
+                res = await self.session.get(url, params=params)
+                if res.status_code == 429:
+                    await asyncio.sleep(i)
+                    continue
+                return res
+            except httpx.RemoteProtocolError:
                 await asyncio.sleep(i)
                 continue
-            return res
         raise cf.ExtractorStopError("Hit a hard rate-limit.") from ConnectionRefusedError
 
     def is_content_rating_allowed(self, data: scraper.PostData) -> bool:
