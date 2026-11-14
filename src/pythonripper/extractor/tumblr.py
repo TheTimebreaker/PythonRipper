@@ -27,7 +27,7 @@ class TumblrAPI(scraper.TaggableScraper):
     ME = "tumblr"
     WEBSITE_NAME = ME
     # docs: https://github.com/tumblr/docs/blob/master/api.md#rate-limits
-    LIMITS = cf.QuotaLimiter(
+    LIMIT = cf.QuotaLimiter(
         [
             (300, 60),  # 300 requests per rolling minute
             (1000, 3600),  # 1000 requests per rolling hour
@@ -101,7 +101,7 @@ class TumblrAPI(scraper.TaggableScraper):
         return True
 
     async def request(self, url: str, params: dict[str, str | int] | None = None) -> curl_cffi.Response | httpx.Response:
-        await self.LIMITS.wait()
+        await self.LIMIT.wait()
         res = await self.session.get(url, params=params)
         if res.status_code == 429 and res.json()["meta"]["msg"] == "Limit Exceeded":
             raise cf.ExtractorStopError("Reached API limit") from ConnectionRefusedError
